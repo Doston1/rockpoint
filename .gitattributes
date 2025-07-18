@@ -1,0 +1,113 @@
+# Git attributes for Zentra Branch Management Platform
+
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code files
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xml text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.less text eol=lf
+
+# SQL files
+*.sql text eol=lf
+
+# Configuration files
+*.env text eol=lf
+*.env.* text eol=lf
+*.config.js text eol=lf
+*.config.ts text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.eslintrc* text eol=lf
+.prettierrc* text eol=lf
+tsconfig.json text eol=lf
+package.json text eol=lf
+package-lock.json text eol=lf
+
+# Documentation
+README* text eol=lf
+CHANGELOG* text eol=lf
+LICENSE* text eol=lf
+CONTRIBUTING* text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+*.bash text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Images (binary files)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bmp binary
+*.tiff binary
+*.webp binary
+
+# SVG files (text-based but often treated as images)
+*.svg text eol=lf
+
+# Fonts (binary files)
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.ttf binary
+*.otf binary
+
+# Archives (binary files)
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+*.rar binary
+
+# Audio/Video (binary files)
+*.mp3 binary
+*.mp4 binary
+*.avi binary
+*.mov binary
+*.wav binary
+
+# Documents (binary files)
+*.pdf binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.ppt binary
+*.pptx binary
+
+# Database files (binary)
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+
+# Compiled files (binary)
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# Node.js specific
+node_modules/** linguist-vendored
+
+# Build outputs
+dist/** linguist-generated
+build/** linguist-generated
+coverage/** linguist-generated
+
+# Logs
+*.log text eol=lf
