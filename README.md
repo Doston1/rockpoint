@@ -17,18 +17,51 @@ Zentra is designed as a distributed system where each business branch operates i
 
 ```
 Zentra/
-├── README.md                    # This file
-├── pos-manager/                 # Frontend POS application
-│   ├── src/                     # React + TypeScript source
-│   ├── electron.ts              # Electron desktop wrapper
-│   ├── package.json
-│   └── README.md
-└── branch-core/                 # Backend server (planned)
-    ├── src/                     # Node.js + TypeScript source
-    ├── database/                # PostgreSQL schemas & migrations
-    ├── services/                # Business logic services
-    ├── api/                     # REST API endpoints
-    └── sync/                    # Cloud synchronization logic
+├── README.md                    # Project overview and setup
+├── .gitattributes              # Git file handling configuration
+├── .gitignore                  # Git ignore patterns
+├── pos-manager/                # Frontend POS application (React + TypeScript)
+│   ├── src/                    # React source code
+│   │   ├── components/         # Reusable UI components
+│   │   ├── pages/              # Main application pages
+│   │   │   ├── CheckoutPage.tsx
+│   │   │   ├── DashboardPage.tsx
+│   │   │   └── LoginPage.tsx
+│   │   ├── theme/              # Material-UI theme configuration
+│   │   └── App.tsx             # Main application component
+│   ├── electron.ts             # Electron desktop wrapper
+│   ├── vite.config.ts          # Vite build configuration
+│   ├── package.json            # Frontend dependencies
+│   └── README.md               # Frontend setup instructions
+└── branch-core/                # Backend server (Node.js + Express + PostgreSQL)
+    ├── src/                    # TypeScript source code
+    │   ├── api/                # REST API endpoints
+    │   │   ├── auth.ts         # Authentication & JWT
+    │   │   ├── products.ts     # Product management
+    │   │   ├── transactions.ts # Transaction processing
+    │   │   ├── employees.ts    # Employee management
+    │   │   ├── reports.ts      # Sales & inventory reports
+    │   │   └── sync.ts         # Cloud synchronization
+    │   ├── database/           # Database layer
+    │   │   ├── manager.ts      # PostgreSQL connection pool
+    │   │   ├── schema.sql      # Complete database schema
+    │   │   ├── migrate.ts      # Migration runner
+    │   │   ├── seed.ts         # Sample data seeding
+    │   │   └── reset.ts        # Database reset utility
+    │   ├── middleware/         # Express middleware
+    │   │   ├── errorHandler.ts # Global error handling
+    │   │   └── logger.ts       # Request/response logging
+    │   ├── services/           # Business logic services
+    │   │   ├── redis.ts        # Redis cache & sessions
+    │   │   └── websocket.ts    # Real-time WebSocket server
+    │   ├── types/              # TypeScript type definitions
+    │   │   └── index.ts        # All application types
+    │   └── server.ts           # Main server entry point
+    ├── .env.example            # Environment configuration template
+    ├── package.json            # Backend dependencies
+    ├── tsconfig.json           # TypeScript configuration
+    ├── SETUP.md                # Detailed setup instructions
+    └── README.md               # Backend documentation
 ```
 
 ## 🛠️ Tech Stack
@@ -44,17 +77,19 @@ Zentra/
 | Desktop App  | Electron (future)      |
 | Styling      | Emotion + Tailwind CSS |
 
-### Backend (branch-core) - _Planned_
+### Backend (branch-core) - ✅ **IMPLEMENTED**
 
-| Component      | Technology           |
-| -------------- | -------------------- |
-| Runtime        | Node.js + TypeScript |
-| Framework      | Express.js           |
-| Database       | PostgreSQL           |
-| ORM            | Prisma / TypeORM     |
-| Real-time      | WebSocket            |
-| Authentication | JWT + PIN codes      |
-| Task Queue     | Bull Queue           |
+| Component       | Technology           |
+| --------------- | -------------------- |
+| Runtime         | Node.js + TypeScript |
+| Framework       | Express.js           |
+| Database        | PostgreSQL           |
+| Connection Pool | node-pg (PostgreSQL) |
+| Real-time       | WebSocket (ws)       |
+| Authentication  | JWT + bcrypt         |
+| Caching         | Redis                |
+| Validation      | Zod schemas          |
+| Error Handling  | Custom middleware    |
 
 ### Infrastructure
 
@@ -67,24 +102,41 @@ Zentra/
 
 ## 🎯 Features
 
-### Current (pos-manager)
+### ✅ Implemented (pos-manager)
 
 - ✅ Material-UI based responsive interface
 - ✅ Multi-page routing (Login, Dashboard, Checkout)
 - ✅ TypeScript for type safety
 - ✅ Electron integration ready
+- ✅ Modern React 19 with hooks
+- ✅ Vite for fast development and building
+- ✅ Tailwind CSS integration
 
-### Planned (branch-core)
+### ✅ Implemented (branch-core)
 
-- 🔄 Product inventory management
-- 🔄 Real-time price lookup and updates
-- 🔄 Multi-payment method support (cash, card, digital wallets)
-- 🔄 Employee management and time tracking
-- 🔄 Role-based access control
-- 🔄 Sales reporting and analytics
-- 🔄 Barcode scanning integration
-- 🔄 Receipt printing
-- 🔄 Daily cloud synchronization
+- ✅ **Complete REST API** with all endpoints
+- ✅ **JWT Authentication** with bcrypt password hashing
+- ✅ **PostgreSQL Database** with connection pooling
+- ✅ **WebSocket Server** for real-time POS communication
+- ✅ **Product Management** - search, barcode lookup, inventory
+- ✅ **Transaction Processing** - create, payment, void operations
+- ✅ **Employee Management** - authentication, time tracking
+- ✅ **Sales Reporting** - daily, period, top-selling products
+- ✅ **Inventory Reports** - stock status, low stock alerts
+- ✅ **Redis Caching** - sessions and performance optimization
+- ✅ **Database Migrations** - automated schema management
+- ✅ **Sample Data Seeding** - test accounts and products
+- ✅ **Error Handling** - comprehensive error middleware
+- ✅ **Request Logging** - structured logging with timestamps
+- ✅ **Type Safety** - complete TypeScript type definitions
+- ✅ **Cloud Sync Framework** - ready for cloud integration
+
+### 🔄 In Progress
+
+- 🔄 Frontend-Backend Integration
+- 🔄 Barcode scanning components
+- 🔄 Receipt printing functionality
+- 🔄 Real-time inventory updates via WebSocket
 
 ### Future Enhancements
 
@@ -100,7 +152,8 @@ Zentra/
 ### Prerequisites
 
 - Node.js 18+
-- PostgreSQL 14+ (for branch-core)
+- PostgreSQL 14+
+- Redis 6+ (optional but recommended)
 - Git
 
 ### Quick Start
@@ -108,21 +161,11 @@ Zentra/
 1. **Clone the repository**
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Doston1/zentra.git
    cd Zentra
    ```
 
-2. **Set up POS Manager (Frontend)**
-
-   ```bash
-   cd pos-manager
-   npm install
-   npm run dev
-   ```
-
-   The application will be available at `http://localhost:5173`
-
-3. **Set up Branch Core (Backend)**
+2. **Set up Branch Core (Backend) First**
 
    ```bash
    cd branch-core
@@ -132,28 +175,79 @@ Zentra/
    cp .env.example .env
    # Edit .env with your database credentials
 
+   # Create PostgreSQL database
+   createdb zentra_branch
+
    # Run database migrations
    npm run db:migrate
+
+   # Seed with sample data (optional)
+   npm run db:seed
 
    # Start development server
    npm run dev
    ```
 
+   The server will be available at `http://localhost:3000`
+
+3. **Set up POS Manager (Frontend)**
+
+   ```bash
+   cd ../pos-manager
+   npm install
+   npm run dev
+   ```
+
+   The application will be available at `http://localhost:5173`
+
+### 🔑 Test Login Credentials
+
+After running `npm run db:seed`, you can use these test accounts:
+
+- **Admin**: `EMP001` / PIN: `1234`
+- **Manager**: `EMP002` / PIN: `5678`
+- **Cashier**: `EMP003` / PIN: `9999`
+- **Cashier**: `EMP004` / PIN: `9999`
+
 ### Development Workflow
 
 ```bash
+# Start backend development server
+cd branch-core && npm run dev
+
 # Start frontend development server
 cd pos-manager && npm run dev
 
-# Start backend development server (when available)
+# Reset database (if needed)
+cd branch-core && npm run db:reset
+
+# Run TypeScript compilation check
+cd branch-core && npm run build
+```
+
+### API Endpoints
+
+The backend provides comprehensive REST API endpoints:
+
+- **Authentication**: `/api/auth/*` - Login, logout, token refresh
+- **Products**: `/api/products/*` - Product management and search
+- **Transactions**: `/api/transactions/*` - Sales processing and history
+- **Employees**: `/api/employees/*` - Staff management
+- **Reports**: `/api/reports/*` - Sales analytics and reporting
+- **Sync**: `/api/sync/*` - Data synchronization with central system
+
+WebSocket server available at `ws://localhost:3001` for real-time updates.
 cd branch-core && npm run dev
 
 # Run Electron desktop app
+
 cd pos-manager && npm run electron
 
 # Build for production
+
 cd pos-manager && npm run build
-```
+
+````
 
 ## 🏪 Business Use Cases
 
@@ -182,29 +276,87 @@ cd pos-manager && npm run build
 
 ### Environment Variables (branch-core)
 
+Create a `.env` file in the `branch-core` directory:
+
 ```env
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/branch_db
+# Database Configuration
+DATABASE_URL=postgresql://user:password@localhost:5432/zentra_branch
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=zentra_branch
+DB_USER=your_username
+DB_PASSWORD=your_password
+
+# Redis Configuration
 REDIS_URL=redis://localhost:6379
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Server Configuration
+PORT=3000
+WEBSOCKET_PORT=3001
+NODE_ENV=development
+
+# Authentication
+JWT_SECRET=your-super-secret-jwt-key-here
+JWT_EXPIRES_IN=24h
+BCRYPT_ROUNDS=12
+
+# Branch Configuration
+BRANCH_ID=BRANCH001
+BRANCH_NAME=Main Branch
+TIMEZONE=Asia/Tashkent
+````
 
 # API Settings
+
 PORT=3000
 JWT_SECRET=your-secret-key
 
 # Cloud Sync
+
 CLOUD_API_URL=https://api.zentra-cloud.com
 SYNC_INTERVAL=24h
 BRANCH_ID=branch-001
-```
+
+````
 
 ### Local Network Setup
 
-Each branch should configure the POS terminals to connect to the local server:
+Each POS terminal should be configured to connect to the branch server:
 
 ```env
-# pos-manager/.env
+# pos-manager/.env.local
+VITE_API_BASE_URL=http://localhost:3000
+VITE_WS_URL=ws://localhost:3001
+VITE_BRANCH_ID=BRANCH001
+````
+
+For production deployment on local network:
+
+```env
+# pos-manager/.env.production
 VITE_API_BASE_URL=http://192.168.1.100:3000
-VITE_BRANCH_ID=branch-001
+VITE_WS_URL=ws://192.168.1.100:3001
+VITE_BRANCH_ID=BRANCH001
+```
+
+### Database Schema
+
+The PostgreSQL database includes the following main tables:
+
+- `employees` - Staff management with role-based access
+- `products` - Product catalog with pricing and inventory
+- `transactions` - Sales records with detailed line items
+- `transaction_items` - Individual items within transactions
+- `reports` - Generated sales and inventory reports
+- `sync_logs` - Cloud synchronization tracking
+
+Run migrations to set up the schema:
+
+```bash
+cd branch-core
+npm run db:migrate
 ```
 
 ## 🤝 Contributing
