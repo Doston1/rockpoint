@@ -3,42 +3,100 @@ import {
   Alert,
   Box,
   Button,
+  CircularProgress,
   Container,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const LoginPage = () => {
   const [employeeId, setEmployeeId] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
+  const { login, isAuthenticated, user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleLogin = () => {
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const from = (location.state as any)?.from?.pathname || getDefaultRoute(user.role);
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate, location]);
+
+  const getDefaultRoute = (role: string) => {
+    switch (role) {
+      case 'admin':
+      case 'manager':
+        return '/dashboard';
+      case 'cashier':
+      case 'supervisor':
+      default:
+        return '/checkout';
+    }
+  };
+
+  const handleLogin = async () => {
     if (!employeeId || !pin) {
       setError('Please enter both Employee ID and PIN');
       return;
     }
 
-    // TODO: Implement real authentication with local server
-    if (employeeId === 'admin' && pin === '1234') {
-      navigate('/dashboard');
-    } else if (employeeId === 'cashier' && pin === '1111') {
-      navigate('/checkout');
-    } else {
-      setError('Invalid credentials');
+    setError('');
+    setIsLoggingIn(true);
+
+    try {
+      const result = await login(employeeId, pin);
+      
+      if (result.success) {
+        // Navigation will be handled by the useEffect hook
+      } else {
+        setError(result.error || 'Login failed');
+      }
+    } catch (error: any) {
+      setError(error.message || 'Network error occurred');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !isLoggingIn) {
       handleLogin();
     }
   };
+
+  // Show loading if checking authentication status
+  if (isLoading) {
+    return (
+      <Container maxWidth="sm">
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+          minHeight="100vh"
+          gap={2}
+        >
+          <CircularProgress />
+          <Typography>Loading...</Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+  // Don't render login form if already authenticated
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <Container maxWidth="sm">
@@ -54,7 +112,7 @@ const LoginPage = () => {
           <Box display="flex" alignItems="center" justifyContent="center" mb={3}>
             <Store sx={{ fontSize: 40, color: 'primary.main', mr: 1 }} />
             <Typography variant="h4" color="primary" fontWeight="bold">
-              POS System
+              Zentra POS
             </Typography>
           </Box>
           
@@ -71,6 +129,7 @@ const LoginPage = () => {
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
               onKeyPress={handleKeyPress}
+              disabled={isLoggingIn}
               InputProps={{
                 startAdornment: <AccountCircle sx={{ mr: 1, color: 'action.active' }} />,
               }}
@@ -84,6 +143,7 @@ const LoginPage = () => {
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               onKeyPress={handleKeyPress}
+              disabled={isLoggingIn}
               InputProps={{
                 startAdornment: <Lock sx={{ mr: 1, color: 'action.active' }} />,
               }}
@@ -95,15 +155,26 @@ const LoginPage = () => {
               variant="contained"
               size="large"
               onClick={handleLogin}
+              disabled={isLoggingIn || !employeeId || !pin}
               sx={{ py: 1.5, fontSize: '1.1rem' }}
             >
-              Login
+              {isLoggingIn ? (
+                <Box display="flex" alignItems="center" gap={1}>
+                  <CircularProgress size={20} color="inherit" />
+                  Logging in...
+                </Box>
+              ) : (
+                'Login'
+              )}
             </Button>
           </Stack>
 
           <Box mt={3} textAlign="center">
             <Typography variant="body2" color="text.secondary">
-              Demo: admin/1234 or cashier/1111
+              Default: admin/admin1234 or cashier/1111
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+              Connect to backend server at localhost:3000
             </Typography>
           </Box>
         </Paper>
