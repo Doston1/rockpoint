@@ -1,72 +1,119 @@
-# Branch POS System (Offline-First React + Electron)
+# Zentra POS Frontend
 
-This project is a **Point of Sale (POS)** system for managing business branches like **supermarkets, gyms, and children's play centers**.
+This is the frontend application for the Zentra Point of Sale system built with React, TypeScript, and Material-UI.
 
-## 🧠 Overview
+## Features
 
-Each branch will have:
+- **Authentication System**: JWT-based authentication with role-based access control
+- **Real-time Communication**: WebSocket integration for live updates
+- **Product Management**: Search products, scan barcodes, manage inventory
+- **Transaction Processing**: Complete checkout process with multiple payment methods
+- **Dashboard**: Manager dashboard with system overview
+- **Responsive Design**: Works on desktop, tablet, and mobile devices
 
-- A **local server** (Node.js + PostgreSQL) for business logic and data
-- Multiple **POS terminals** running this frontend UI
-- Optional future integration with **Electron** to package the app into a desktop `.exe`
+## Setup and Installation
 
-The system works **offline-first** and communicates with the local branch server over the LAN.
+### Prerequisites
 
-## ⚙️ Tech Stack
+- Node.js 18+ and npm
+- Backend server running at `http://localhost:3000`
 
-| Layer              | Tech                         |
-| ------------------ | ---------------------------- |
-| UI / POS           | React + TypeScript + Vite    |
-| Future Desktop App | Electron (added later)       |
-| Backend            | Node.js (Express or FastAPI) |
-| Database           | PostgreSQL (per branch)      |
-| Sync               | WebSocket + REST (local LAN) |
-| Authentication     | Local user roles + PIN codes |
+### Installation
 
-## 🎯 Features (Phase 1)
+1. Navigate to the pos-manager directory:
 
-- Scan products (via barcode or search)
-- Real-time price lookup from server
-- Add to cart / checkout
-- Payment by cash, card, or membership
-- Employee clock-in / clock-out
-- Role-based access (cashier, manager, admin)
-- Works fully offline on local branch server
+   ```bash
+   cd pos-manager
+   ```
 
-## 🧱 Project Structure (Web App Phase)
+2. Install dependencies:
 
-pos-manager/
-├── public/
-├── src/
-│ ├── components/ # Reusable UI components
-│ ├── pages/ # POS screens (Checkout, Login, etc.)
-│ ├── services/ # API handlers (REST/WebSocket)
-│ ├── hooks/ # Custom React hooks
-│ ├── utils/ # Utilities (formatting, math, etc.)
-│ └── App.tsx
-├── electron.ts # Electron entry point (added later)
-├── tsconfig.json
-├── tsconfig.node.json
-├── vite.config.ts
-└── README.md
+   ```bash
+   npm install
+   ```
 
-## 🚀 How to Run
+3. Start the development server:
 
-```bash
-# Install dependencies
-npm install
+   ```bash
+   npm run dev
+   ```
 
-# Start development server
-npm run dev
+4. The application will be available at `http://localhost:5173`
 
-# Run Electron wrapper (after Electron is added)
-npm run electron
+## Environment Configuration
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+VITE_API_URL=http://localhost:3000/api
+VITE_WS_URL=ws://localhost:3000/ws
+VITE_APP_NAME=Zentra POS
+VITE_APP_VERSION=1.0.0
+VITE_DEBUG=true
 ```
 
-## Future Plans:
+## Default Login Credentials
 
-Electron packaging for offline .exe install
-Multi-branch cloud dashboard (via sync)
-Local printer & cash drawer support (via Electron IPC)
-Support for PayMe / Click / UzCard integrations (Uzbekistan)
-Reporting dashboard for branch managers
+- **Admin**: `admin` / `admin1234`
+- **Cashier**: `cashier` / `1111`
+
+## Architecture
+
+### Services
+
+- **API Service** (`src/services/api.ts`): Handles all HTTP requests to the backend
+- **WebSocket Service** (`src/services/websocket.ts`): Manages real-time communication
+
+### Hooks
+
+- **useAuth** (`src/hooks/useAuth.tsx`): Authentication state management
+- **useProducts** (`src/hooks/useProducts.ts`): Product data management
+- **useTransactions** (`src/hooks/useTransactions.ts`): Transaction processing
+- **useWebSocket** (`src/hooks/useWebSocket.ts`): WebSocket communication
+
+### Components
+
+- **NavigationBar**: Common navigation with user info and connection status
+- **ProtectedRoute**: Route protection based on authentication and roles
+
+### Pages
+
+- **LoginPage**: User authentication
+- **DashboardPage**: Manager overview (admin/manager only)
+- **CheckoutPage**: Point of sale interface
+
+## API Integration
+
+The frontend communicates with the backend using:
+
+### HTTP Requests
+
+- Authentication: `/api/auth/*`
+- Products: `/api/products/*`
+- Transactions: `/api/transactions/*`
+- Employees: `/api/employees/*`
+- Reports: `/api/reports/*`
+
+### WebSocket Messages
+
+- Price requests and responses
+- Inventory updates
+- Terminal status
+- Transaction synchronization
+
+## Features by Role
+
+### Admin/Manager
+
+- Access to dashboard
+- View all transactions
+- Manage employees
+- Generate reports
+- Access to POS system
+
+### Cashier/Supervisor
+
+- Access to POS system
+- Process transactions
+- Search products
+- Handle payments

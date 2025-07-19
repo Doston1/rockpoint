@@ -8,7 +8,7 @@ async function seedDatabase(): Promise<void> {
     // Initialize database connection
     await DatabaseManager.initialize();
     
-    // Clear existing data (be careful in production!)
+    // Clear existing data (be careful in production!) 
     if (process.env.NODE_ENV === 'development') {
       console.log('🧹 Clearing existing test data...');
       await DatabaseManager.query('TRUNCATE employees, products, transactions, transaction_items, payments, customers, stock_movements, employee_time_logs, sync_logs CASCADE');
@@ -165,3 +165,4 @@ if (require.main === module) {
 }
 
 export { seedDatabase };
+

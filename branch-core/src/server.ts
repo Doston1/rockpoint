@@ -6,25 +6,25 @@ import { createServer } from 'http';
 import morgan from 'morgan';
 import { WebSocketServer } from 'ws';
 
-import { DatabaseManager } from '@/database/manager';
-import { errorHandler } from '@/middleware/errorHandler';
-import { requestLogger } from '@/middleware/logger';
-import { RedisManager } from '@/services/redis';
-import { WebSocketManager } from '@/services/websocket';
+// Change these imports to relative paths (remove @/)
+import { DatabaseManager } from './database/manager';
+import { errorHandler } from './middleware/errorHandler';
+import { requestLogger } from './middleware/logger';
+import { RedisManager } from './services/redis';
+import { WebSocketManager } from './services/websocket';
 
 // Import API routes
-import authRoutes from '@/api/auth';
-import employeesRoutes from '@/api/employees';
-import productsRoutes from '@/api/products';
-import reportsRoutes from '@/api/reports';
-import syncRoutes from '@/api/sync';
-import transactionsRoutes from '@/api/transactions';
+import authRoutes from './api/auth';
+import employeesRoutes from './api/employees';
+import productsRoutes from './api/products';
+import reportsRoutes from './api/reports';
+import syncRoutes from './api/sync';
+import transactionsRoutes from './api/transactions';
 
 // Load environment variables
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;
-const WS_PORT = process.env.WS_PORT || 3001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 class BranchServer {
