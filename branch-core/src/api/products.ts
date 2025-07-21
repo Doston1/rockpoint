@@ -53,6 +53,106 @@ router.get('/search', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
+// GET /api/products/autocomplete - Optimized for fast autocomplete responses
+router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => {
+  const query = req.query.query as string;
+  const limit = Math.min(parseInt(req.query.limit as string) || 8, 10); // Max 10 results for autocomplete
+
+  if (!query || query.length < 2) {
+    return res.json({
+      success: true,
+      data: { products: [] }
+    });
+  }
+
+  // First, try exact name matches (higher priority)
+  const exactQuery = `
+    SELECT 
+      id, name, barcode, price, quantity_in_stock, 
+      category, brand, low_stock_threshold
+    FROM products 
+    WHERE 
+      is_active = true 
+      AND name ILIKE $1
+    ORDER BY name ASC
+    LIMIT $2
+  `;
+
+  const exactPattern = `${query}%`; // Starts with query
+  const exactResult = await DatabaseManager.query(exactQuery, [exactPattern, limit]);
+
+  // If we have enough exact matches, return them
+  if (exactResult.rows.length >= limit) {
+    return res.json({
+      success: true,
+      data: { products: exactResult.rows }
+    });
+  }
+
+  // Otherwise, get partial matches to fill the rest
+  const remaining = limit - exactResult.rows.length;
+  
+  if (remaining > 0) {
+    let partialQuery: string;
+    let partialParams: any[];
+    
+    if (exactResult.rows.length > 0) {
+      // If we have exact matches, exclude them
+      const excludeIds = exactResult.rows.map((r: any) => `'${r.id}'`).join(',');
+      partialQuery = `
+        SELECT 
+          id, name, barcode, price, quantity_in_stock, 
+          category, brand, low_stock_threshold
+        FROM products 
+        WHERE 
+          is_active = true 
+          AND (
+            name ILIKE $1 
+            OR barcode ILIKE $1
+          )
+          AND id NOT IN (${excludeIds})
+        ORDER BY name ASC
+        LIMIT $2
+      `;
+      const partialPattern = `%${query}%`;
+      partialParams = [partialPattern, remaining];
+    } else {
+      // If no exact matches, just do the partial search
+      partialQuery = `
+        SELECT 
+          id, name, barcode, price, quantity_in_stock, 
+          category, brand, low_stock_threshold
+        FROM products 
+        WHERE 
+          is_active = true 
+          AND (
+            name ILIKE $1 
+            OR barcode ILIKE $1
+          )
+        ORDER BY name ASC
+        LIMIT $2
+      `;
+      const partialPattern = `%${query}%`;
+      partialParams = [partialPattern, remaining];
+    }
+
+    const partialResult = await DatabaseManager.query(partialQuery, partialParams);
+    
+    // Combine results
+    const combinedResults = [...exactResult.rows, ...partialResult.rows];
+
+    res.json({
+      success: true,
+      data: { products: combinedResults }
+    });
+  } else {
+    res.json({
+      success: true,
+      data: { products: exactResult.rows }
+    });
+  }
+}));
+
 // GET /api/products/barcode/:barcode
 router.get('/barcode/:barcode', asyncHandler(async (req: Request, res: Response) => {
   const { barcode } = barcodeSchema.parse(req.params);
@@ -88,32 +188,6 @@ router.get('/barcode/:barcode', asyncHandler(async (req: Request, res: Response)
   res.json({
     success: true,
     data: { product, fromCache: false }
-  });
-}));
-
-// GET /api/products/:id
-router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
-  const productId = req.params.id;
-
-  const productQuery = `
-    SELECT 
-      id, name, barcode, price, cost, quantity_in_stock, 
-      category, brand, description, image_url, 
-      is_active, created_at, updated_at
-    FROM products 
-    WHERE id = $1
-  `;
-
-  const result = await DatabaseManager.query(productQuery, [productId]);
-  const product = result.rows[0];
-
-  if (!product) {
-    throw createError('Product not found', 404);
-  }
-
-  res.json({
-    success: true,
-    data: { product }
   });
 }));
 
@@ -163,6 +237,32 @@ router.get('/category/:category', asyncHandler(async (req: Request, res: Respons
       limit,
       offset
     }
+  });
+}));
+
+// GET /api/products/:id
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
+  const productId = req.params.id;
+
+  const productQuery = `
+    SELECT 
+      id, name, barcode, price, cost, quantity_in_stock, 
+      category, brand, description, image_url, 
+      is_active, created_at, updated_at
+    FROM products 
+    WHERE id = $1
+  `;
+
+  const result = await DatabaseManager.query(productQuery, [productId]);
+  const product = result.rows[0];
+
+  if (!product) {
+    throw createError('Product not found', 404);
+  }
+
+  res.json({
+    success: true,
+    data: { product }
   });
 }));
 
