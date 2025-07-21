@@ -1,5 +1,6 @@
 import {
   Add,
+  CheckCircle,
   Delete,
   Payment as PaymentIcon,
   QrCodeScanner,
@@ -9,6 +10,7 @@ import {
 } from '@mui/icons-material';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -40,6 +42,7 @@ import { useProducts } from '../hooks/useProducts';
 import { useTransactions } from '../hooks/useTransactions';
 import { useWebSocket } from '../hooks/useWebSocket';
 import type { Payment as PaymentType, Product, TransactionItem } from '../services/api';
+import { apiService } from '../services/api';
 
 interface CartItem extends TransactionItem {
   product: Product;
@@ -49,11 +52,17 @@ const CheckoutPage = () => {
   const { user } = useAuth();
   const { 
     getProductByBarcode, 
-    searchProducts, 
+    searchProducts,
+    searchProductsForAutoComplete,
+    getCategories,
+    getProductsByCategory,
     products, 
+    categories,
+    searchSuggestions,
     loading: productsLoading, 
     error: productsError,
-    clearError: clearProductsError
+    clearError: clearProductsError,
+    clearSearchSuggestions
   } = useProducts();
   const { 
     createTransaction, 
@@ -71,10 +80,21 @@ const CheckoutPage = () => {
 
   const [barcode, setBarcode] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'categories' | 'search' | 'products'>('categories');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentType['method']>('cash');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [transactionCompleteDialogOpen, setTransactionCompleteDialogOpen] = useState(false);
+  const [completedTransactionData, setCompletedTransactionData] = useState<{
+    transactionId: string;
+    changeAmount: number;
+    totalAmount: number;
+    amountReceived: number;
+    paymentMethod: string;
+  } | null>(null);
 
   const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
   const taxRate = 0.08; // 8% tax rate
@@ -89,6 +109,19 @@ const CheckoutPage = () => {
 
     return cleanup;
   }, [onPriceResponse]);
+
+  // Load categories on component mount
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        await getCategories();
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+      }
+    };
+
+    loadCategories();
+  }, [getCategories]);
 
   const handleScanProduct = async () => {
     if (!barcode.trim()) return;
@@ -112,12 +145,51 @@ const CheckoutPage = () => {
   };
 
   const handleSearchProducts = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim()) {
+      // If search is cleared, go back to categories
+      handleBackToCategories();
+      return;
+    }
     
     try {
       await searchProducts(searchQuery.trim());
+      setViewMode('search');
+      setSelectedCategory(null);
     } catch (error) {
       console.error('Failed to search products:', error);
+    }
+  };
+
+  const handleCategorySelect = async (category: string) => {
+    try {
+      setSelectedCategory(category);
+      await getProductsByCategory(category);
+      setViewMode('products');
+    } catch (error) {
+      console.error('Failed to load products for category:', error);
+    }
+  };
+
+  const handleBackToCategories = () => {
+    setViewMode('categories');
+    setSelectedCategory(null);
+    setSearchQuery('');
+    setSelectedProduct(null);
+    clearSearchSuggestions();
+  };
+
+  const handleProductSelect = (product: Product | null) => {
+    setSelectedProduct(product);
+    if (product) {
+      addToCart(product);
+      setSearchQuery('');
+      setSelectedProduct(null);
+      clearSearchSuggestions();
+      
+      // Request real-time price if connected
+      if (isConnected && product.barcode) {
+        requestPrice(product.id, product.barcode);
+      }
     }
   };
 
@@ -171,41 +243,84 @@ const CheckoutPage = () => {
 
     clearTransactionError();
 
-    const payment: PaymentType = {
-      method: paymentMethod,
-      amount: total,
-      reference: paymentMethod === 'cash' ? undefined : `REF-${Date.now()}`,
-      change_given: paymentMethod === 'cash' ? Math.max(0, parseFloat(paymentAmount) - total) : 0
+    // Create transaction data in the format expected by the backend API
+    const transactionData = {
+      terminalId: terminalId,
+      employeeId: user.employeeId,
+      items: cart.map(({ product, ...item }) => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+        unitPrice: item.unit_price
+      }))
     };
 
-    const transactionData = {
-      terminal_id: terminalId,
-      employee_id: user.employeeId,
-      subtotal,
-      tax_amount: taxAmount,
-      total_amount: total,
-      items: cart.map(({ product, ...item }) => item),
-      payments: [payment]
-    };
+    console.log('🔍 Transaction data being sent:', {
+      terminalId,
+      employeeId: user.employeeId,
+      cart: cart.map(item => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        product: item.product?.name
+      }))
+    });
 
     try {
-      const transaction = await createTransaction(transactionData);
+      // Step 1: Create the transaction
+      const transactionResponse = await createTransaction(transactionData as any);
       
-      if (transaction) {
-        // Sync with WebSocket if connected
-        if (isConnected) {
-          syncTransaction(transaction);
+      if (transactionResponse) {
+        const transactionId = (transactionResponse as any).transactionId || transactionResponse.id;
+        
+        if (!transactionId) {
+          console.error('Transaction created but no ID returned:', transactionResponse);
+          throw new Error('Transaction created but no ID returned');
         }
+
+        // Step 2: Process payment
+        const paymentData = {
+          method: paymentMethod,
+          amount: paymentMethod === 'cash' ? parseFloat(paymentAmount) : total,
+          reference: paymentMethod === 'cash' ? undefined : `REF-${Date.now()}`,
+          cardLast4: paymentMethod === 'card' ? '****' : undefined
+        };
+
+        // Make payment request using the API service
+        const paymentResult = await apiService.processPayment(transactionId, paymentData);
         
-        // Clear cart and close dialog
-        setCart([]);
-        setCheckoutDialogOpen(false);
-        setPaymentAmount('');
-        
-        alert(`Transaction completed successfully!\nTransaction ID: ${transaction.id}`);
+        if (paymentResult.success) {
+          // Sync with WebSocket if connected
+          if (isConnected) {
+            syncTransaction({
+              ...transactionResponse,
+              id: transactionId,
+              status: 'completed'
+            });
+          }
+          
+          const changeAmount = paymentResult.data?.changeGiven || 0;
+          setCompletedTransactionData({
+            transactionId,
+            changeAmount,
+            totalAmount: total,
+            amountReceived: paymentMethod === 'cash' ? parseFloat(paymentAmount) : total,
+            paymentMethod: paymentMethod
+          });
+          
+          // Clear cart and close dialog AFTER storing the data
+          setCart([]);
+          setCheckoutDialogOpen(false);
+          setPaymentAmount('');
+          
+          setTransactionCompleteDialogOpen(true);
+        } else {
+          throw new Error(paymentResult.error || 'Payment processing failed');
+        }
       }
     } catch (error) {
       console.error('Checkout failed:', error);
+      // Show user-friendly error
+      alert(`Checkout failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -221,7 +336,9 @@ const CheckoutPage = () => {
             onClose={() => { clearProductsError(); clearTransactionError(); }}
             sx={{ mb: 2 }}
           >
-            {productsError || transactionError}
+            {typeof (productsError || transactionError) === 'string' 
+              ? (productsError || transactionError) 
+              : 'An error occurred while loading data'}
           </Alert>
         )}
 
@@ -261,74 +378,203 @@ const CheckoutPage = () => {
 
               {/* Product Search */}
               <Box sx={{ mb: 3 }}>
-                <TextField
+                <Autocomplete<Product>
                   fullWidth
-                  label="Search products"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearchProducts()}
-                  disabled={productsLoading}
-                  InputProps={{
-                    endAdornment: (
-                      <IconButton onClick={handleSearchProducts} disabled={productsLoading}>
-                        {productsLoading ? <CircularProgress size={24} /> : <Search />}
-                      </IconButton>
-                    ),
+                  options={searchSuggestions}
+                  getOptionLabel={(option: Product) => option.name || ''}
+                  value={selectedProduct}
+                  inputValue={searchQuery}
+                  onChange={(_event: any, newValue: Product | null) => handleProductSelect(newValue)}
+                  onInputChange={(_event: any, newInputValue: string) => {
+                    setSearchQuery(newInputValue);
+                    if (newInputValue && newInputValue.length >= 2) {
+                      searchProductsForAutoComplete(newInputValue);
+                    } else {
+                      clearSearchSuggestions();
+                    }
                   }}
+                  filterOptions={(x) => x} // Disable built-in filtering since we do server-side filtering
+                  renderInput={(params: any) => (
+                    <TextField
+                      {...params}
+                      label="Search products"
+                      placeholder="Type at least 2 characters to search..."
+                      disabled={productsLoading}
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <Box display="flex" alignItems="center">
+                            {params.InputProps.endAdornment}
+                            {searchQuery && (
+                              <IconButton 
+                                onClick={() => {
+                                  setSearchQuery('');
+                                  setSelectedProduct(null);
+                                  clearSearchSuggestions();
+                                  handleBackToCategories();
+                                }}
+                                size="small"
+                                title="Clear search"
+                              >
+                                ×
+                              </IconButton>
+                            )}
+                            <IconButton 
+                              onClick={() => searchQuery && handleSearchProducts()} 
+                              disabled={productsLoading || !searchQuery}
+                              title="Search all products"
+                            >
+                              {productsLoading ? <CircularProgress size={24} /> : <Search />}
+                            </IconButton>
+                          </Box>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props: any, option: Product) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <Box component="li" key={key} {...otherProps}>
+                        <Box sx={{ width: '100%' }}>
+                          <Typography variant="body2" fontWeight="bold">
+                            {option.name}
+                          </Typography>
+                          <Box display="flex" justifyContent="space-between" alignItems="center">
+                            <Typography variant="caption" color="text.secondary">
+                              {option.category && `${option.category} • `}Stock: {option.quantity_in_stock}
+                              {option.barcode && ` • ${option.barcode}`}
+                            </Typography>
+                            <Typography variant="body2" color="primary.main" fontWeight="bold">
+                              ${option.price.toFixed(2)}
+                            </Typography>
+                          </Box>
+                          {option.quantity_in_stock <= (option.low_stock_threshold || 10) && (
+                            <Typography variant="caption" color="error.main">
+                              ⚠️ Low Stock
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    );
+                  }}
+                  noOptionsText={
+                    searchQuery.length < 2 
+                      ? "Type at least 2 characters to search" 
+                      : productsLoading 
+                        ? "Searching..." 
+                        : searchQuery.length > 0
+                          ? "No products found"
+                          : "Start typing to search products"
+                  }
+                  loading={productsLoading}
+                  loadingText="Searching products..."
+                  openOnFocus={false} // Only open when there are suggestions
+                  clearOnBlur={false} // Keep the input value when losing focus
                 />
               </Box>
 
-              {/* Search Results */}
-              <Typography variant="subtitle1" gutterBottom>
-                {products.length > 0 ? 'Search Results' : 'Quick Access Products'}
-              </Typography>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: {
-                    xs: 'repeat(2, 1fr)',
-                    sm: 'repeat(4, 1fr)',
-                    md: 'repeat(3, 1fr)',
-                  },
-                  gap: 2,
-                  maxHeight: 400,
-                  overflow: 'auto'
-                }}
-              >
-                {products.length > 0 ? (
-                  products.map((product) => (
-                    <Card 
-                      key={product.id} 
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => addToCart(product)}
+              {/* Categories/Products Display */}
+              {viewMode === 'categories' && (
+                <>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Select a Category
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: {
+                        xs: 'repeat(2, 1fr)',
+                        sm: 'repeat(3, 1fr)',
+                        md: 'repeat(4, 1fr)',
+                      },
+                      gap: 2,
+                      maxHeight: 400,
+                      overflow: 'auto'
+                    }}
+                  >
+                    {categories.map((category) => (
+                      <Card 
+                        key={category.name} 
+                        sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                        onClick={() => handleCategorySelect(category.name)}
+                      >
+                        <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                          <Typography variant="h6" fontWeight="bold">
+                            {category.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {category.product_count} products
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Box>
+                </>
+              )}
+
+              {(viewMode === 'products' || viewMode === 'search') && (
+                <>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                    <Typography variant="subtitle1">
+                      {viewMode === 'search' ? 'Search Results' : `${selectedCategory} Products`}
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      onClick={handleBackToCategories}
+                      sx={{ minWidth: 'auto' }}
                     >
-                      <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                        <Typography variant="body2" fontWeight="bold">
-                          {product.name}
-                        </Typography>
+                      Back to Categories
+                    </Button>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: {
+                        xs: 'repeat(2, 1fr)',
+                        sm: 'repeat(3, 1fr)',
+                        md: 'repeat(4, 1fr)',
+                      },
+                      gap: 2,
+                      maxHeight: 400,
+                      overflow: 'auto'
+                    }}
+                  >
+                    {products.length > 0 ? (
+                      products.map((product) => (
+                        <Card 
+                          key={product.id} 
+                          sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                          onClick={() => addToCart(product)}
+                        >
+                          <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                            <Typography variant="body2" fontWeight="bold" noWrap>
+                              {product.name}
+                            </Typography>
+                            <Typography variant="h6" color="primary.main" sx={{ my: 1 }}>
+                              ${product.price.toFixed(2)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Stock: {product.quantity_in_stock}
+                            </Typography>
+                            {product.quantity_in_stock <= (product.low_stock_threshold || 10) && (
+                              <Typography variant="caption" color="error.main" display="block">
+                                Low Stock
+                              </Typography>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : (
+                      <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4 }}>
                         <Typography variant="body2" color="text.secondary">
-                          ${product.price.toFixed(2)}
+                          {viewMode === 'search' ? 'No products found' : 'No products in this category'}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Stock: {product.quantity_in_stock}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  ))
-                ) : (
-                  // Placeholder quick access items when no search results
-                  ['Water 0.5L', 'Coffee', 'Sandwich', 'Chips'].map((productName) => (
-                    <Card key={productName} sx={{ cursor: 'pointer', opacity: 0.6 }}>
-                      <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                        <Typography variant="body2">{productName}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Demo item
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </Box>
+                      </Box>
+                    )}
+                  </Box>
+                </>
+              )}
             </Paper>
           </Box>
           
@@ -459,6 +705,92 @@ const CheckoutPage = () => {
               }
             >
               {transactionLoading ? <CircularProgress size={24} /> : 'Complete Transaction'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Transaction Complete Dialog */}
+        <Dialog 
+          open={transactionCompleteDialogOpen} 
+          onClose={() => setTransactionCompleteDialogOpen(false)} 
+          maxWidth="sm" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              textAlign: 'center',
+              py: 2
+            }
+          }}
+        >
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <CheckCircle sx={{ fontSize: 80, color: 'success.main' }} />
+              
+              <Typography variant="h4" color="success.main" fontWeight="bold">
+                Transaction Complete!
+              </Typography>
+              
+              <Box sx={{ textAlign: 'left', width: '100%', maxWidth: 400 }}>
+                <Typography variant="h6" gutterBottom>
+                  Transaction Details:
+                </Typography>
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body1">Transaction ID:</Typography>
+                  <Typography variant="body1" fontFamily="monospace" fontWeight="bold">
+                    {completedTransactionData?.transactionId}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body1">Total Amount:</Typography>
+                  <Typography variant="body1" fontWeight="bold">
+                    ${completedTransactionData?.totalAmount.toFixed(2)}
+                  </Typography>
+                </Box>
+                
+                {completedTransactionData?.paymentMethod === 'cash' && (
+                  <>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body1">Amount Received:</Typography>
+                      <Typography variant="body1" fontWeight="bold">
+                        ${completedTransactionData?.amountReceived.toFixed(2)}
+                      </Typography>
+                    </Box>
+                    
+                    {completedTransactionData && completedTransactionData.changeAmount > 0 && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="body1" color="primary.main">Change Due:</Typography>
+                        <Typography variant="h6" color="primary.main" fontWeight="bold">
+                          ${completedTransactionData.changeAmount.toFixed(2)}
+                        </Typography>
+                      </Box>
+                    )}
+                  </>
+                )}
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body1">Payment Method:</Typography>
+                  <Typography variant="body1" fontWeight="bold" sx={{ textTransform: 'capitalize' }}>
+                    {completedTransactionData?.paymentMethod.replace('_', ' ')}
+                  </Typography>
+                </Box>
+              </Box>
+              
+              <Typography variant="body2" color="text.secondary">
+                Thank you for your purchase!
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={() => setTransactionCompleteDialogOpen(false)}
+              variant="contained"
+              size="large"
+              fullWidth
+              sx={{ mx: 3, mb: 2 }}
+            >
+              Continue
             </Button>
           </DialogActions>
         </Dialog>

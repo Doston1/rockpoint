@@ -266,4 +266,17 @@ router.get('/sessions', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
+// Temporary endpoint to generate hash - remove after use
+router.get('/generate-hash/:pin', asyncHandler(async (req: Request, res: Response) => {
+  const { pin } = req.params;
+  const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
+  const hash = await bcrypt.hash(pin, saltRounds);
+  
+  res.json({
+    pin,
+    hash,
+    sql: `UPDATE employees SET pin_hash = '${hash}' WHERE employee_id = 'admin';`
+  });
+}));
+
 export default router;
