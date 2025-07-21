@@ -176,7 +176,7 @@ class ApiService {
   }
 
   // Product endpoints
-  async searchProducts(query: string, limit = 20, offset = 0): Promise<ApiResponse<Product[]>> {
+  async searchProducts(query: string, limit = 20, offset = 0): Promise<ApiResponse<{ products: Product[]; total: number; limit: number; offset: number }>> {
     const params = new URLSearchParams({
       query,
       limit: limit.toString(),
@@ -185,7 +185,15 @@ class ApiService {
     return this.request(`/products/search?${params}`);
   }
 
-  async getProductByBarcode(barcode: string): Promise<ApiResponse<Product>> {
+  async autocompleteProducts(query: string, limit = 8): Promise<ApiResponse<{ products: Product[] }>> {
+    const params = new URLSearchParams({
+      query,
+      limit: limit.toString()
+    });
+    return this.request(`/products/autocomplete?${params}`);
+  }
+
+  async getProductByBarcode(barcode: string): Promise<ApiResponse<{ product: Product; fromCache: boolean }>> {
     return this.request(`/products/barcode/${barcode}`);
   }
 
@@ -213,6 +221,18 @@ class ApiService {
 
   async getLowStockProducts(): Promise<ApiResponse<Product[]>> {
     return this.request('/products/low-stock');
+  }
+
+  async getCategories(): Promise<ApiResponse<{ categories: { name: string; product_count: number }[] }>> {
+    return this.request('/products/categories');
+  }
+
+  async getProductsByCategory(category: string, limit = 50, offset = 0): Promise<ApiResponse<{ products: Product[]; category: string; total: number; limit: number; offset: number }>> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString()
+    });
+    return this.request(`/products/category/${encodeURIComponent(category)}?${params}`);
   }
 
   // Transaction endpoints
@@ -245,6 +265,13 @@ class ApiService {
 
   async getTransactionById(id: string): Promise<ApiResponse<Transaction>> {
     return this.request(`/transactions/${id}`);
+  }
+
+  async processPayment(transactionId: string, paymentData: Partial<Payment>): Promise<ApiResponse> {
+    return this.request(`/transactions/${transactionId}/payment`, {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
   }
 
   async voidTransaction(id: string, reason: string): Promise<ApiResponse> {
