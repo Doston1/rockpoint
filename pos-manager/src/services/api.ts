@@ -201,22 +201,24 @@ class ApiService {
     return this.request('/products');
   }
 
-  async createProduct(product: Partial<Product>): Promise<ApiResponse<Product>> {
+  async createProduct(productData: Partial<Product>): Promise<ApiResponse<Product>> {
     return this.request('/products', {
       method: 'POST',
-      body: JSON.stringify(product),
+      body: JSON.stringify(productData),
     });
   }
 
-  async updateProduct(id: string, product: Partial<Product>): Promise<ApiResponse<Product>> {
+  async updateProduct(id: string, productData: Partial<Product>): Promise<ApiResponse<Product>> {
     return this.request(`/products/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(product),
+      body: JSON.stringify(productData),
     });
   }
 
-  async deleteProduct(id: string): Promise<ApiResponse> {
-    return this.request(`/products/${id}`, { method: 'DELETE' });
+  async deleteProduct(id: string): Promise<ApiResponse<any>> {
+    return this.request(`/products/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   async getLowStockProducts(): Promise<ApiResponse<Product[]>> {
@@ -288,22 +290,92 @@ class ApiService {
     });
   }
 
-  // Employee endpoints
-  async getEmployees(): Promise<ApiResponse<User[]>> {
+  // Employee management methods
+  async getAllEmployees(): Promise<ApiResponse<{ employees: Employee[] }>> {
     return this.request('/employees');
   }
 
-  async createEmployee(employee: Partial<User & { pin: string }>): Promise<ApiResponse<User>> {
+  async getEmployee(employeeId: string): Promise<ApiResponse<{ employee: Employee }>> {
+    return this.request(`/employees/${employeeId}`);
+  }
+
+  async createEmployee(employeeData: {
+    employee_id: string;
+    name: string;
+    role: 'admin' | 'manager' | 'cashier' | 'supervisor';
+    pin: string;
+    hire_date?: string;
+    status?: 'active' | 'inactive' | 'suspended';
+  }): Promise<ApiResponse<{ employee: Employee }>> {
     return this.request('/employees', {
       method: 'POST',
-      body: JSON.stringify(employee),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(employeeData),
     });
   }
 
-  async updateEmployee(id: string, employee: Partial<User>): Promise<ApiResponse<User>> {
-    return this.request(`/employees/${id}`, {
+  async updateEmployee(employeeId: string, updateData: {
+    name?: string;
+    role?: 'admin' | 'manager' | 'cashier' | 'supervisor';
+    status?: 'active' | 'inactive' | 'suspended';
+    hire_date?: string;
+  }): Promise<ApiResponse<{ employee: Employee }>> {
+    return this.request(`/employees/${employeeId}`, {
       method: 'PUT',
-      body: JSON.stringify(employee),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  async deleteEmployee(employeeId: string): Promise<ApiResponse<{ employee: Employee }>> {
+    return this.request(`/employees/${employeeId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async changeEmployeePassword(employeeId: string, newPin: string): Promise<ApiResponse<{ employee: Employee }>> {
+    return this.request(`/employees/${employeeId}/change-password`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ newPin }),
+    });
+  }
+
+  async getEmployeeSchedule(employeeId: string, startDate?: string, endDate?: string): Promise<ApiResponse<{ schedule: TimeLog[]; period: { startDate?: string; endDate?: string } }>> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    
+    return this.request(`/employees/${employeeId}/schedule?${params.toString()}`);
+  }
+
+  async getTodayHours(employeeId: string): Promise<ApiResponse<{ todayHours: TimeLog | null; date: string }>> {
+    return this.request(`/employees/${employeeId}/today-hours`);
+  }
+
+  async clockIn(employeeId: string, terminalId?: string): Promise<ApiResponse<{ timeLogId: string; clockIn: string; message: string }>> {
+    return this.request(`/employees/${employeeId}/clock-in`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ terminalId }),
+    });
+  }
+
+  async clockOut(employeeId: string, notes?: string): Promise<ApiResponse<{ timeLogId: string; clockOut: string; hoursWorked: number; message: string }>> {
+    return this.request(`/employees/${employeeId}/clock-out`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ notes }),
     });
   }
 
@@ -344,3 +416,27 @@ class ApiService {
 // Create and export a singleton instance
 export const apiService = new ApiService();
 export default apiService;
+
+// Add Employee and TimeLog interfaces if they don't exist
+export interface Employee {
+  id: string;
+  employee_id: string;
+  name: string;
+  role: 'admin' | 'manager' | 'cashier' | 'supervisor';
+  status: 'active' | 'inactive' | 'suspended';
+  hire_date: string;
+  last_login?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TimeLog {
+  id: string;
+  clock_in: string;
+  clock_out?: string;
+  hours_worked?: number;
+  break_minutes: number;
+  notes?: string;
+  terminal_id?: string;
+  is_clocked_in?: boolean;
+}

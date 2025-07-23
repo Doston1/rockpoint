@@ -5,13 +5,13 @@ import { useAuth } from '../hooks/useAuth';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredRole?: 'admin' | 'manager' | 'cashier' | 'supervisor';
+  requiredRoles?: ('admin' | 'manager' | 'cashier' | 'supervisor')[];
   redirectTo?: string;
 }
 
 export function ProtectedRoute({ 
   children, 
-  requiredRole,
+  requiredRoles,
   redirectTo = '/' 
 }: ProtectedRouteProps) {
   const { isAuthenticated, user, isLoading } = useAuth();
@@ -40,39 +40,48 @@ export function ProtectedRoute({
   }
 
   // Check role requirements
-  if (requiredRole && user?.role !== requiredRole) {
-    // Check if user has higher privileges
-    const roleHierarchy = {
-      'admin': 4,
-      'manager': 3,
-      'supervisor': 2,
-      'cashier': 1
-    };
+  if (requiredRoles && requiredRoles.length > 0 && user?.role) {
+    // Check if user has one of the required roles
+    const hasRequiredRole = requiredRoles.includes(user.role as any);
+    
+    if (!hasRequiredRole) {
+      // Check if user has higher privileges using role hierarchy
+      const roleHierarchy = {
+        'admin': 4,
+        'manager': 3,
+        'supervisor': 2,
+        'cashier': 1
+      };
 
-    const userLevel = roleHierarchy[user?.role || 'cashier'];
-    const requiredLevel = roleHierarchy[requiredRole];
+      const userLevel = roleHierarchy[user.role as keyof typeof roleHierarchy] || 0;
+      const requiredLevels = requiredRoles.map(role => roleHierarchy[role as keyof typeof roleHierarchy] || 0);
+      const minRequiredLevel = Math.min(...requiredLevels);
 
-    if (userLevel < requiredLevel) {
-      return (
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          minHeight="100vh"
-          gap={2}
-        >
-          <Typography variant="h5" color="error">
-            Access Denied
-          </Typography>
-          <Typography>
-            You don't have permission to access this page.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Required role: {requiredRole}
-          </Typography>
-        </Box>
-      );
+      if (userLevel < minRequiredLevel) {
+        return (
+          <Box
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            minHeight="100vh"
+            gap={2}
+          >
+            <Typography variant="h5" color="error">
+              Access Denied
+            </Typography>
+            <Typography>
+              You don't have permission to access this page.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Required roles: {requiredRoles.join(', ')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Your role: {user.role}
+            </Typography>
+          </Box>
+        );
+      }
     }
   }
 
