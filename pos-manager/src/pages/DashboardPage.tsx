@@ -45,14 +45,14 @@ const DashboardPage = () => {
       title: 'Inventory',
       description: 'Manage products and stock',
       icon: <Inventory sx={{ fontSize: 48 }} />,
-      action: () => console.log('Inventory - Coming Soon'),
+      action: () => navigate('/inventory'),
       color: 'secondary.main',
     },
     {
       title: 'Employees',
       description: 'Manage staff and schedules',
       icon: <People sx={{ fontSize: 48 }} />,
-      action: () => console.log('Employees - Coming Soon'),
+      action: () => navigate('/employees'),
       color: 'success.main',
     },
     {

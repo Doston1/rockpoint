@@ -192,8 +192,9 @@ export function useProducts(): UseProductsReturn {
       const response: ApiResponse<Product[]> = await apiService.getAllProducts();
       
       if (response.success && response.data) {
-        setProducts(response.data);
-        return response.data;
+        const normalizedProducts = normalizeProducts(response.data);
+        setProducts(normalizedProducts);
+        return normalizedProducts;
       } else {
         const errorMsg = response.error || 'Failed to load products';
         setError(errorMsg);
@@ -216,9 +217,10 @@ export function useProducts(): UseProductsReturn {
       const response: ApiResponse<Product> = await apiService.createProduct(product);
       
       if (response.success && response.data) {
+        const normalizedProduct = normalizeProduct(response.data);
         // Add to local state
-        setProducts(prev => [response.data!, ...prev]);
-        return response.data;
+        setProducts(prev => [normalizedProduct, ...prev]);
+        return normalizedProduct;
       } else {
         const errorMsg = response.error || 'Failed to create product';
         setError(errorMsg);
@@ -241,11 +243,12 @@ export function useProducts(): UseProductsReturn {
       const response: ApiResponse<Product> = await apiService.updateProduct(id, product);
       
       if (response.success && response.data) {
+        const normalizedProduct = normalizeProduct(response.data);
         // Update local state
         setProducts(prev => 
-          prev.map(p => p.id === id ? response.data! : p)
+          prev.map(p => p.id === id ? normalizedProduct : p)
         );
-        return response.data;
+        return normalizedProduct;
       } else {
         const errorMsg = response.error || 'Failed to update product';
         setError(errorMsg);
@@ -293,7 +296,8 @@ export function useProducts(): UseProductsReturn {
       const response: ApiResponse<Product[]> = await apiService.getLowStockProducts();
       
       if (response.success && response.data) {
-        return response.data;
+        const normalizedProducts = normalizeProducts(response.data);
+        return normalizedProducts;
       } else {
         const errorMsg = response.error || 'Failed to load low stock products';
         setError(errorMsg);

@@ -17,6 +17,53 @@ const barcodeSchema = z.object({
   barcode: z.string().min(1, 'Barcode is required')
 });
 
+const createProductSchema = z.object({
+  name: z.string().min(1, 'Product name is required'),
+  barcode: z.string().optional(),
+  price: z.number().min(0, 'Price must be positive'),
+  cost: z.number().min(0, 'Cost must be positive').optional(),
+  quantity_in_stock: z.number().min(0, 'Stock quantity must be positive').optional(),
+  low_stock_threshold: z.number().min(0, 'Low stock threshold must be positive').optional(),
+  category: z.string().optional(),
+  brand: z.string().optional(),
+  description: z.string().optional(),
+  image_url: z.string().optional(),
+  is_active: z.boolean().optional()
+});
+
+const updateProductSchema = z.object({
+  name: z.string().min(1, 'Product name is required').optional(),
+  barcode: z.string().optional(),
+  price: z.number().min(0, 'Price must be positive').optional(),
+  cost: z.number().min(0, 'Cost must be positive').optional(),
+  quantity_in_stock: z.number().min(0, 'Stock quantity must be positive').optional(),
+  low_stock_threshold: z.number().min(0, 'Low stock threshold must be positive').optional(),
+  category: z.string().optional(),
+  brand: z.string().optional(),
+  description: z.string().optional(),
+  image_url: z.string().optional(),
+  is_active: z.boolean().optional()
+});
+
+// GET /api/products - Get all products (NEW)
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
+  const allProductsQuery = `
+    SELECT 
+      id, name, barcode, price, cost, quantity_in_stock, 
+      low_stock_threshold, category, brand, description, image_url, 
+      is_active, created_at, updated_at
+    FROM products 
+    ORDER BY name ASC
+  `;
+
+  const result = await DatabaseManager.query(allProductsQuery);
+
+  res.json({
+    success: true,
+    data: result.rows
+  });
+}));
+
 // GET /api/products/search
 router.get('/search', asyncHandler(async (req: Request, res: Response) => {
   const { query, limit, offset } = productSearchSchema.parse(req.query);
@@ -196,7 +243,7 @@ router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
   const categoriesQuery = `
     SELECT DISTINCT category as name, COUNT(*) as product_count
     FROM products 
-    WHERE is_active = true
+    WHERE is_active = true AND category IS NOT NULL AND category != ''
     GROUP BY category
     ORDER BY category ASC
   `;
@@ -206,6 +253,64 @@ router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
   res.json({
     success: true,
     data: { categories: result.rows }
+  });
+}));
+
+// GET /api/products/low-stock - Must come before /:id route
+router.get('/low-stock', asyncHandler(async (req: Request, res: Response) => {
+  const threshold = parseInt(req.query.threshold as string) || 10;
+
+  const lowStockQuery = `
+    SELECT 
+      id, name, barcode, price, cost, quantity_in_stock, 
+      low_stock_threshold, category, brand, description, image_url,
+      is_active, created_at, updated_at
+    FROM products 
+    WHERE 
+      is_active = true 
+      AND quantity_in_stock <= COALESCE(low_stock_threshold, $1)
+    ORDER BY quantity_in_stock ASC
+  `;
+
+  const result = await DatabaseManager.query(lowStockQuery, [threshold]);
+
+  res.json({
+    success: true,
+    data: result.rows
+  });
+}));
+
+// GET /api/products/popular
+router.get('/popular', asyncHandler(async (req: Request, res: Response) => {
+  const days = parseInt(req.query.days as string) || 7;
+  const limit = parseInt(req.query.limit as string) || 20;
+
+  const popularQuery = `
+    SELECT 
+      p.id, p.name, p.barcode, p.price, p.category,
+      SUM(ti.quantity) as total_sold,
+      COUNT(DISTINCT ti.transaction_id) as transaction_count
+    FROM products p
+    JOIN transaction_items ti ON p.id = ti.product_id
+    JOIN transactions t ON ti.transaction_id = t.id
+    WHERE 
+      t.created_at >= NOW() - INTERVAL '${days} days'
+      AND t.status = 'completed'
+      AND p.is_active = true
+    GROUP BY p.id, p.name, p.barcode, p.price, p.category
+    ORDER BY total_sold DESC
+    LIMIT $1
+  `;
+
+  const result = await DatabaseManager.query(popularQuery, [limit]);
+
+  res.json({
+    success: true,
+    data: {
+      products: result.rows,
+      period: `${days} days`,
+      limit
+    }
   });
 }));
 
@@ -240,7 +345,146 @@ router.get('/category/:category', asyncHandler(async (req: Request, res: Respons
   });
 }));
 
-// GET /api/products/:id
+// POST /api/products - Create new product (NEW)
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
+  const validatedData = createProductSchema.parse(req.body);
+
+  const createQuery = `
+    INSERT INTO products (
+      name, barcode, price, cost, quantity_in_stock, 
+      low_stock_threshold, category, brand, description, 
+      image_url, is_active, created_at, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+    RETURNING id, name, barcode, price, cost, quantity_in_stock, 
+             low_stock_threshold, category, brand, description, 
+             image_url, is_active, created_at, updated_at
+  `;
+
+  const values = [
+    validatedData.name,
+    validatedData.barcode || null,
+    validatedData.price,
+    validatedData.cost || 0,
+    validatedData.quantity_in_stock || 0,
+    validatedData.low_stock_threshold || 10,
+    validatedData.category || null,
+    validatedData.brand || null,
+    validatedData.description || null,
+    validatedData.image_url || null,
+    validatedData.is_active !== undefined ? validatedData.is_active : true
+  ];
+
+  const result = await DatabaseManager.query(createQuery, values);
+
+  res.status(201).json({
+    success: true,
+    data: result.rows[0]
+  });
+}));
+
+// PUT /api/products/:id - Update product (NEW)
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
+  const productId = req.params.id;
+  const validatedData = updateProductSchema.parse(req.body);
+
+  // Check if product exists
+  const checkQuery = 'SELECT id FROM products WHERE id = $1';
+  const checkResult = await DatabaseManager.query(checkQuery, [productId]);
+
+  if (checkResult.rows.length === 0) {
+    throw createError('Product not found', 404);
+  }
+
+  // Build dynamic update query
+  const updateFields: string[] = [];
+  const updateValues: any[] = [];
+  let paramCount = 1;
+
+  Object.entries(validatedData).forEach(([key, value]) => {
+    if (value !== undefined) {
+      updateFields.push(`${key} = $${paramCount}`);
+      updateValues.push(value);
+      paramCount++;
+    }
+  });
+
+  if (updateFields.length === 0) {
+    throw createError('No fields to update', 400);
+  }
+
+  updateFields.push(`updated_at = NOW()`);
+  updateValues.push(productId);
+
+  const updateQuery = `
+    UPDATE products 
+    SET ${updateFields.join(', ')}
+    WHERE id = $${paramCount}
+    RETURNING id, name, barcode, price, cost, quantity_in_stock, 
+             low_stock_threshold, category, brand, description, 
+             image_url, is_active, created_at, updated_at
+  `;
+
+  const result = await DatabaseManager.query(updateQuery, updateValues);
+
+  // Clear product cache
+  await RedisManager.del(`product:${productId}`);
+
+  res.json({
+    success: true,
+    data: result.rows[0]
+  });
+}));
+
+// DELETE /api/products/:id - Delete product (NEW)
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
+  const productId = req.params.id;
+
+  // Check if product exists
+  const checkQuery = 'SELECT id, name FROM products WHERE id = $1';
+  const checkResult = await DatabaseManager.query(checkQuery, [productId]);
+
+  if (checkResult.rows.length === 0) {
+    throw createError('Product not found', 404);
+  }
+
+  // Check if product is used in any transactions
+  const transactionCheckQuery = `
+    SELECT COUNT(*) as usage_count 
+    FROM transaction_items 
+    WHERE product_id = $1
+  `;
+  const transactionResult = await DatabaseManager.query(transactionCheckQuery, [productId]);
+  const usageCount = parseInt(transactionResult.rows[0].usage_count);
+
+  if (usageCount > 0) {
+    // If product is used in transactions, soft delete (mark as inactive)
+    const softDeleteQuery = `
+      UPDATE products 
+      SET is_active = false, updated_at = NOW() 
+      WHERE id = $1
+    `;
+    await DatabaseManager.query(softDeleteQuery, [productId]);
+
+    res.json({
+      success: true,
+      message: 'Product deactivated (soft delete) due to existing transaction history'
+    });
+  } else {
+    // If not used in transactions, hard delete
+    const deleteQuery = 'DELETE FROM products WHERE id = $1';
+    await DatabaseManager.query(deleteQuery, [productId]);
+
+    res.json({
+      success: true,
+      message: 'Product deleted successfully'
+    });
+  }
+
+  // Clear product cache
+  await RedisManager.del(`product:${productId}`);
+}));
+
+// GET /api/products/:id - Must come after specific routes
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const productId = req.params.id;
 
@@ -311,13 +555,18 @@ router.post('/:id/update-stock', asyncHandler(async (req: Request, res: Response
       [newQuantity, productId]
     );
 
-    // Log stock change
-    await client.query(
-      `INSERT INTO stock_movements 
-       (product_id, old_quantity, new_quantity, change_quantity, operation, reason, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      [productId, product.quantity_in_stock, newQuantity, quantity, operation, reason || 'Manual adjustment']
-    );
+    // Log stock change (if stock_movements table exists)
+    try {
+      await client.query(
+        `INSERT INTO stock_movements 
+         (product_id, old_quantity, new_quantity, change_quantity, operation, reason, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [productId, product.quantity_in_stock, newQuantity, quantity, operation, reason || 'Manual adjustment']
+      );
+    } catch (error) {
+      // If stock_movements table doesn't exist, just log the error but continue
+      console.warn('Stock movements table not found, skipping stock history log');
+    }
 
     // Clear product cache
     await RedisManager.del(`product:${productId}`);
@@ -326,67 +575,6 @@ router.post('/:id/update-stock', asyncHandler(async (req: Request, res: Response
   res.json({
     success: true,
     message: 'Stock updated successfully'
-  });
-}));
-
-// GET /api/products/low-stock
-router.get('/low-stock', asyncHandler(async (req: Request, res: Response) => {
-  const threshold = parseInt(req.query.threshold as string) || 10;
-
-  const lowStockQuery = `
-    SELECT 
-      id, name, barcode, price, quantity_in_stock, 
-      category, brand, low_stock_threshold
-    FROM products 
-    WHERE 
-      is_active = true 
-      AND quantity_in_stock <= COALESCE(low_stock_threshold, $1)
-    ORDER BY quantity_in_stock ASC
-  `;
-
-  const result = await DatabaseManager.query(lowStockQuery, [threshold]);
-
-  res.json({
-    success: true,
-    data: {
-      products: result.rows,
-      count: result.rowCount,
-      threshold
-    }
-  });
-}));
-
-// GET /api/products/popular
-router.get('/popular', asyncHandler(async (req: Request, res: Response) => {
-  const days = parseInt(req.query.days as string) || 7;
-  const limit = parseInt(req.query.limit as string) || 20;
-
-  const popularQuery = `
-    SELECT 
-      p.id, p.name, p.barcode, p.price, p.category,
-      SUM(ti.quantity) as total_sold,
-      COUNT(DISTINCT ti.transaction_id) as transaction_count
-    FROM products p
-    JOIN transaction_items ti ON p.id = ti.product_id
-    JOIN transactions t ON ti.transaction_id = t.id
-    WHERE 
-      t.created_at >= NOW() - INTERVAL '${days} days'
-      AND t.status = 'completed'
-      AND p.is_active = true
-    GROUP BY p.id, p.name, p.barcode, p.price, p.category
-    ORDER BY total_sold DESC
-    LIMIT $1
-  `;
-
-  const result = await DatabaseManager.query(popularQuery, [limit]);
-
-  res.json({
-    success: true,
-    data: {
-      products: result.rows,
-      period: `${days} days`,
-      limit
-    }
   });
 }));
 

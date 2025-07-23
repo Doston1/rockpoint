@@ -32,10 +32,11 @@ import {
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavigationBar } from '../components/NavigationBar';
 import { useAuth } from '../hooks/useAuth';
 import { useProducts } from '../hooks/useProducts';
@@ -96,10 +97,40 @@ const CheckoutPage = () => {
     paymentMethod: string;
   } | null>(null);
 
+  // Scanner-related state
+  const [scannerMode, setScannerMode] = useState(false);
+  const [productNotFoundSnackbar, setProductNotFoundSnackbar] = useState(false);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+
   const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
   const taxRate = 0.08; // 8% tax rate
   const taxAmount = subtotal * taxRate;
   const total = subtotal + taxAmount;
+
+  // Handle scanner key events
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'F' || event.key === 'f') {
+        event.preventDefault();
+        
+        if (!scannerMode) {
+          // First F pressed - enter scanner mode and focus barcode field
+          setScannerMode(true);
+          setBarcode('');
+          setTimeout(() => {
+            barcodeInputRef.current?.focus();
+          }, 10);
+        } else {
+          // Second F pressed - process the barcode
+          handleScanProduct();
+          setScannerMode(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [scannerMode, barcode]);
 
   // Set up WebSocket price response handler
   useEffect(() => {
@@ -126,21 +157,48 @@ const CheckoutPage = () => {
   const handleScanProduct = async () => {
     if (!barcode.trim()) return;
     
-    clearProductsError();
+
+      // Clean the barcode - remove all '@' characters
+    const cleanBarcode = barcode.trim().replace(/@/g, '');
     
+    if (!cleanBarcode) {
+      console.log('No valid barcode after cleaning');
+      setBarcode('');
+      return;
+    }
+
+    clearProductsError();
     try {
-      const product = await getProductByBarcode(barcode.trim());
-      if (product) {
-        addToCart(product);
+      const product = await getProductByBarcode(cleanBarcode);
+
+      // Check if product is null (404 - not found)
+      if (!product || product === null) {
+        clearProductsError();
+        console.log('Product not found for barcode:', cleanBarcode);
+        setProductNotFoundSnackbar(true);
         setBarcode('');
-        
-        // Request real-time price if connected
-        if (isConnected) {
-          requestPrice(product.id, barcode.trim());
-        }
+        return;
       }
-    } catch (error) {
-      console.error('Failed to scan product:', error);
+
+      // Product found - add to cart
+      addToCart(product);
+      setBarcode('');
+
+      // Request real-time price if connected
+      if (isConnected) {
+        requestPrice(product.id, cleanBarcode);
+      }
+      
+    } catch (error: any) {
+      console.log('Error scanning product:', error);
+      // Check if it's a 404 error (product not found)
+      if (error.message?.includes('Product not found') || error.message?.includes('404')) {
+        clearProductsError();
+        setProductNotFoundSnackbar(true);
+        setBarcode('');
+      } else {
+        console.error('Failed to scan product:', error);
+      }
     }
   };
 
@@ -357,6 +415,17 @@ const CheckoutPage = () => {
                 Product Scanner
               </Typography>
               
+              {/* Scanner Status Indicator */}
+              {scannerMode && (
+                <Alert 
+                  severity="info" 
+                  sx={{ mb: 2 }}
+                  icon={<QrCodeScanner />}
+                >
+                  Scanner Mode Active - Press F again to scan the barcode
+                </Alert>
+              )}
+              
               {/* Barcode Scanner */}
               <Box sx={{ mb: 3 }}>
                 <TextField
@@ -366,6 +435,12 @@ const CheckoutPage = () => {
                   onChange={(e) => setBarcode(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleScanProduct()}
                   disabled={productsLoading}
+                  inputRef={barcodeInputRef}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: scannerMode ? 'action.hover' : 'background.paper',
+                    }
+                  }}
                   InputProps={{
                     endAdornment: (
                       <IconButton onClick={handleScanProduct} disabled={productsLoading}>
@@ -374,6 +449,9 @@ const CheckoutPage = () => {
                     ),
                   }}
                 />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  Press 'F' to activate scanner, then press 'F' again to scan
+                </Typography>
               </Box>
 
               {/* Product Search */}
@@ -794,6 +872,22 @@ const CheckoutPage = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Product Not Found Snackbar */}
+        <Snackbar
+          open={productNotFoundSnackbar}
+          autoHideDuration={3000}
+          onClose={() => setProductNotFoundSnackbar(false)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={() => setProductNotFoundSnackbar(false)} 
+            severity="warning" 
+            sx={{ width: '100%' }}
+          >
+            Product not found!
+          </Alert>
+        </Snackbar>
       </Container>
     </>
   );

@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 const LoginPage = () => {
@@ -22,15 +22,15 @@ const LoginPage = () => {
   
   const { login, isAuthenticated, user, isLoading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
-      const from = (location.state as any)?.from?.pathname || getDefaultRoute(user.role);
-      navigate(from, { replace: true });
+      // Navigate based on role instead of previous location
+      const defaultRoute = getDefaultRoute(user.role);
+      navigate(defaultRoute, { replace: true });
     }
-  }, [isAuthenticated, user, navigate, location]);
+  }, [isAuthenticated, user, navigate]);
 
   const getDefaultRoute = (role: string) => {
     switch (role) {
@@ -57,7 +57,7 @@ const LoginPage = () => {
       const result = await login(employeeId, pin);
       
       if (result.success) {
-        // Navigation will be handled by the useEffect hook
+        // Don't navigate here - let the useEffect handle it based on role
       } else {
         setError(result.error || 'Login failed');
       }
