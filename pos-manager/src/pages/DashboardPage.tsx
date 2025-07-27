@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { NavigationBar } from '../components/NavigationBar';
 import { useAuth } from '../hooks/useAuth';
@@ -23,6 +24,7 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isConnected, terminalId } = useWebSocket();
+  const { t } = useTranslation();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -35,31 +37,31 @@ const DashboardPage = () => {
 
   const menuItems = [
     {
-      title: 'Point of Sale',
-      description: 'Process transactions and sales',
+      title: t('navigation.checkout'),
+      description: t('dashboard.checkoutDescription'),
       icon: <PointOfSale sx={{ fontSize: 48 }} />,
       action: () => navigate('/checkout'),
       color: 'primary.main',
     },
     {
-      title: 'Inventory',
-      description: 'Manage products and stock',
+      title: t('navigation.inventory'),
+      description: t('dashboard.inventoryDescription'),
       icon: <Inventory sx={{ fontSize: 48 }} />,
       action: () => navigate('/inventory'),
       color: 'secondary.main',
     },
     {
-      title: 'Employees',
-      description: 'Manage staff and schedules',
+      title: t('navigation.employees'),
+      description: t('dashboard.employeesDescription'),
       icon: <People sx={{ fontSize: 48 }} />,
       action: () => navigate('/employees'),
       color: 'success.main',
     },
     {
-      title: 'Reports',
-      description: 'View sales and analytics',
+      title: t('navigation.reports'),
+      description: t('dashboard.reportsDescription'),
       icon: <Assessment sx={{ fontSize: 48 }} />,
-      action: () => console.log('Reports - Coming Soon'),
+      action: () => console.log(t('dashboard.reportsComingSoon')),
       color: 'warning.main',
     },
   ];
@@ -72,7 +74,7 @@ const DashboardPage = () => {
         {/* Welcome Section */}
         <Paper sx={{ p: 3, mb: 4, background: 'linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)' }}>
           <Typography variant="h4" gutterBottom sx={{ color: 'white' }}>
-            Welcome back, {user?.name}
+            {t('dashboard.welcomeBack')}, {user?.name}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
             <Box>
@@ -93,17 +95,17 @@ const DashboardPage = () => {
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Chip 
-                label={`Role: ${user?.role}`} 
+                label={`${t('dashboard.role')}: ${user?.role}`} 
                 color="default" 
                 sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
               <Chip 
-                label={`Employee ID: ${user?.employeeId}`} 
+                label={`${t('dashboard.employeeId')}: ${user?.employeeId}`} 
                 color="default" 
                 sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
               <Chip 
-                label={isConnected ? `Terminal: ${terminalId || 'Connecting...'}` : 'Offline Mode'} 
+                label={isConnected ? t('dashboard.terminalConnecting', { terminalId: terminalId || 'Connecting...' }) : t('dashboard.offlineMode')} 
                 color={isConnected ? 'success' : 'error'}
                 sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
@@ -113,7 +115,7 @@ const DashboardPage = () => {
 
         {/* Menu Items */}
         <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-          Quick Actions
+          {t('dashboard.quickActions')}
         </Typography>
         
         <Box
@@ -169,30 +171,30 @@ const DashboardPage = () => {
         {/* System Status */}
         <Paper sx={{ mt: 4, p: 3 }}>
           <Typography variant="h6" gutterBottom>
-            System Status
+            {t('dashboard.systemStatus')}
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'space-between' }}>
             <Box>
               <Typography variant="body2" color="text.secondary">
-                Connection Status
+                {t('dashboard.connectionStatus')}
               </Typography>
               <Chip 
-                label={isConnected ? 'Online' : 'Offline'}
+                label={isConnected ? t('common.online') : t('common.offline')}
                 color={isConnected ? 'success' : 'error'}
                 size="small"
               />
             </Box>
             <Box>
               <Typography variant="body2" color="text.secondary">
-                Terminal ID
+                {t('dashboard.terminalId')}
               </Typography>
               <Typography variant="body1">
-                {terminalId || 'Not assigned'}
+                {terminalId || t('dashboard.notAssigned')}
               </Typography>
             </Box>
             <Box>
               <Typography variant="body2" color="text.secondary">
-                Version
+                {t('dashboard.version')}
               </Typography>
               <Typography variant="body1">
                 v1.0.0

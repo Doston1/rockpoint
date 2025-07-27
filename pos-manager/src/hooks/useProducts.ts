@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ApiResponse, Product } from '../services/api';
 import { apiService } from '../services/api';
 
@@ -14,7 +15,7 @@ const normalizeProducts = (products: any[]): Product[] =>
 
 export interface UseProductsReturn {
   products: Product[];
-  categories: { name: string; product_count: number }[];
+  categories: { key: string; name: string; product_count: number }[];
   searchSuggestions: Product[];
   loading: boolean;
   error: string | null;
@@ -22,7 +23,7 @@ export interface UseProductsReturn {
   searchProductsForAutoComplete: (query: string) => Promise<Product[]>;
   getProductByBarcode: (barcode: string) => Promise<Product | null>;
   getAllProducts: () => Promise<Product[]>;
-  getCategories: () => Promise<{ name: string; product_count: number }[]>;
+  getCategories: () => Promise<{ key: string; name: string; product_count: number }[]>;
   getProductsByCategory: (category: string, limit?: number, offset?: number) => Promise<Product[]>;
   createProduct: (product: Partial<Product>) => Promise<Product | null>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<Product | null>;
@@ -34,10 +35,11 @@ export interface UseProductsReturn {
 
 export function useProducts(): UseProductsReturn {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<{ name: string; product_count: number }[]>([]);
+  const [categories, setCategories] = useState<{ key: string; name: string; product_count: number }[]>([]);
   const [searchSuggestions, setSearchSuggestions] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { i18n } = useTranslation();
 
   // Cache for search results to avoid repeated API calls
   const searchCache = useRef<Map<string, { products: Product[]; timestamp: number }>>(new Map());
@@ -106,7 +108,7 @@ export function useProducts(): UseProductsReturn {
       searchTimeout.current = setTimeout(async () => {
         try {
           const response: ApiResponse<{ products: Product[] }> = 
-            await apiService.autocompleteProducts(query.trim(), 8);
+            await apiService.autocompleteProducts(query.trim(), 8, i18n.language);
           
           if (response.success && response.data && response.data.products) {
             const normalizedProducts = normalizeProducts(response.data.products);
@@ -140,7 +142,11 @@ export function useProducts(): UseProductsReturn {
     setError(null);
 
     try {
-      const response: ApiResponse<{ products: Product[]; total: number; limit: number; offset: number }> = await apiService.searchProducts(query, limit, offset);
+      const response = await apiService.searchProducts(query, { 
+        limit, 
+        offset,
+        language: i18n.language 
+      });
       
       if (response.success && response.data && response.data.products) {
         const normalizedProducts = normalizeProducts(response.data.products);
@@ -158,14 +164,14 @@ export function useProducts(): UseProductsReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [i18n.language]);
 
   const getProductByBarcode = useCallback(async (barcode: string): Promise<Product | null> => {
     setLoading(true);
     setError(null);
 
     try {
-      const response: ApiResponse<{ product: Product; fromCache: boolean }> = await apiService.getProductByBarcode(barcode);
+      const response = await apiService.getProductByBarcode(barcode, i18n.language);
       
       if (response.success && response.data && response.data.product) {
         const normalizedProduct = normalizeProduct(response.data.product);
@@ -182,21 +188,24 @@ export function useProducts(): UseProductsReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [i18n.language]);
 
   const getAllProducts = useCallback(async (): Promise<Product[]> => {
     setLoading(true);
     setError(null);
 
     try {
-      const response: ApiResponse<Product[]> = await apiService.getAllProducts();
+      const response = await apiService.getAllProducts({ 
+        limit: 100, 
+        language: i18n.language 
+      });
       
-      if (response.success && response.data) {
-        const normalizedProducts = normalizeProducts(response.data);
+      if (response.success && response.data && response.data.products) {
+        const normalizedProducts = normalizeProducts(response.data.products);
         setProducts(normalizedProducts);
         return normalizedProducts;
       } else {
-        const errorMsg = response.error || 'Failed to load products';
+        const errorMsg = response.error || 'Failed to fetch products';
         setError(errorMsg);
         return [];
       }
@@ -207,7 +216,7 @@ export function useProducts(): UseProductsReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [i18n.language]);
 
   const createProduct = useCallback(async (product: Partial<Product>): Promise<Product | null> => {
     setLoading(true);
@@ -293,7 +302,7 @@ export function useProducts(): UseProductsReturn {
     setError(null);
 
     try {
-      const response: ApiResponse<Product[]> = await apiService.getLowStockProducts();
+      const response: ApiResponse<Product[]> = await apiService.getLowStockProducts(i18n.language);
       
       if (response.success && response.data) {
         const normalizedProducts = normalizeProducts(response.data);
@@ -312,12 +321,12 @@ export function useProducts(): UseProductsReturn {
     }
   }, []);
 
-  const getCategories = useCallback(async (): Promise<{ name: string; product_count: number }[]> => {
+  const getCategories = useCallback(async (): Promise<{ key: string; name: string; product_count: number }[]> => {
     setLoading(true);
     setError(null);
 
     try {
-      const response: ApiResponse<{ categories: { name: string; product_count: number }[] }> = await apiService.getCategories();
+      const response: ApiResponse<{ categories: { key: string; name: string; product_count: number }[] }> = await apiService.getCategories(i18n.language);
       
       if (response.success && response.data) {
         setCategories(response.data.categories);
@@ -334,14 +343,18 @@ export function useProducts(): UseProductsReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [i18n.language]);
 
   const getProductsByCategory = useCallback(async (category: string, limit = 50, offset = 0): Promise<Product[]> => {
     setLoading(true);
     setError(null);
 
     try {
-      const response: ApiResponse<{ products: Product[]; category: string; total: number; limit: number; offset: number }> = await apiService.getProductsByCategory(category, limit, offset);
+      const response = await apiService.getProductsByCategory(category, { 
+        limit, 
+        offset,
+        language: i18n.language 
+      });
       
       if (response.success && response.data && response.data.products) {
         const normalizedProducts = normalizeProducts(response.data.products);
@@ -359,7 +372,14 @@ export function useProducts(): UseProductsReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [i18n.language]);
+
+  // Refresh products when language changes
+  useEffect(() => {
+    if (products.length > 0) {
+      getAllProducts();
+    }
+  }, [i18n.language]); // Remove getAllProducts from dependencies
 
   return {
     products,

@@ -1,4 +1,5 @@
 import {
+  Add,
   Delete,
   Edit,
   FilterList,
@@ -42,10 +43,12 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavigationBar } from '../components/NavigationBar';
 import { useProducts } from '../hooks/useProducts';
 import type { Product } from '../services/api';
+import { apiService } from '../services/api';
 
 interface ProductFormData {
   name: string;
@@ -59,9 +62,21 @@ interface ProductFormData {
   description: string;
   image_url: string;
   is_active: boolean;
+  // Translation fields
+  name_ru?: string;
+  name_uz?: string;
+  description_ru?: string;
+  description_uz?: string;
+}
+
+interface CategoryFormData {
+  name_en: string;
+  name_ru: string;
+  name_uz: string;
 }
 
 const InventoryPage = () => {
+  const { t, i18n } = useTranslation();
   const {
     products,
     categories,
@@ -105,6 +120,34 @@ const InventoryPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
+  // Add product dialog state
+  const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
+  const [addProductFormData, setAddProductFormData] = useState<ProductFormData>({
+    name: '',
+    barcode: '',
+    price: 0,
+    cost: 0,
+    quantity_in_stock: 0,
+    low_stock_threshold: 10,
+    category: '',
+    brand: '',
+    description: '',
+    image_url: '',
+    is_active: true,
+    name_ru: '',
+    name_uz: '',
+    description_ru: '',
+    description_uz: '',
+  });
+
+  // Add category dialog state
+  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
+  const [addCategoryFormData, setAddCategoryFormData] = useState<CategoryFormData>({
+    name_en: '',
+    name_ru: '',
+    name_uz: '',
+  });
+
   // Snackbar state
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -128,21 +171,30 @@ const InventoryPage = () => {
     loadData();
   }, [getAllProducts, getCategories]);
 
-  // Load low stock products when tab changes
-  useEffect(() => {
-    if (tabValue === 1) {
-      loadLowStockProducts();
-    }
-  }, [tabValue]);
-
-  const loadLowStockProducts = async () => {
+  // Define loadLowStockProducts before useEffect hooks
+  const loadLowStockProducts = useCallback(async () => {
     try {
       const lowStock = await getLowStockProducts();
       setLowStockProducts(lowStock);
     } catch (error) {
       console.error('Failed to load low stock products:', error);
     }
-  };
+  }, [getLowStockProducts]);
+
+  // Load low stock products when tab changes
+  useEffect(() => {
+    if (tabValue === 1) {
+      loadLowStockProducts();
+    }
+  }, [tabValue, loadLowStockProducts]);
+
+  // Refresh products when language changes
+  useEffect(() => {
+    getAllProducts();
+    if (tabValue === 1) {
+      loadLowStockProducts();
+    }
+  }, [i18n.language]); // Remove getAllProducts and loadLowStockProducts from dependencies
 
   // Filter products based on category and search
   const filteredProducts = products.filter((product) => {
@@ -191,7 +243,7 @@ const InventoryPage = () => {
       if (result) {
         setSnackbar({
           open: true,
-          message: 'Product updated successfully',
+          message: t('inventory.productUpdatedSuccess'),
           severity: 'success',
         });
         setEditDialogOpen(false);
@@ -204,7 +256,7 @@ const InventoryPage = () => {
       } else {
         setSnackbar({
           open: true,
-          message: 'Failed to update product',
+          message: t('inventory.errorUpdatingProduct'),
           severity: 'error',
         });
       }
@@ -212,7 +264,7 @@ const InventoryPage = () => {
       console.error('Error updating product:', error);
       setSnackbar({
         open: true,
-        message: 'Error updating product',
+        message: t('inventory.errorUpdatingProduct'),
         severity: 'error',
       });
     }
@@ -226,7 +278,7 @@ const InventoryPage = () => {
       if (result) {
         setSnackbar({
           open: true,
-          message: 'Product deleted successfully',
+          message: t('inventory.productDeletedSuccess'),
           severity: 'success',
         });
         setDeleteDialogOpen(false);
@@ -239,7 +291,7 @@ const InventoryPage = () => {
       } else {
         setSnackbar({
           open: true,
-          message: 'Failed to delete product',
+          message: t('inventory.errorDeletingProduct'),
           severity: 'error',
         });
       }
@@ -247,7 +299,7 @@ const InventoryPage = () => {
       console.error('Error deleting product:', error);
       setSnackbar({
         open: true,
-        message: 'Error deleting product',
+        message: t('inventory.errorDeletingProduct'),
         severity: 'error',
       });
     }
@@ -260,9 +312,114 @@ const InventoryPage = () => {
   };
 
   const getStockStatusText = (product: Product) => {
-    if (product.quantity_in_stock === 0) return 'Out of Stock';
-    if (product.quantity_in_stock <= (product.low_stock_threshold || 10)) return 'Low Stock';
-    return 'In Stock';
+    if (product.quantity_in_stock === 0) return t('inventory.outOfStock');
+    if (product.quantity_in_stock <= (product.low_stock_threshold || 10)) return t('inventory.lowStock');
+    return t('inventory.inStock');
+  };
+
+  // Validation functions
+  const isAddProductFormValid = () => {
+    return addProductFormData.name.trim() !== '' &&
+           addProductFormData.name_ru?.trim() !== '' &&
+           addProductFormData.name_uz?.trim() !== '' &&
+           addProductFormData.description.trim() !== '' &&
+           addProductFormData.description_ru?.trim() !== '' &&
+           addProductFormData.description_uz?.trim() !== '' &&
+           addProductFormData.category !== '' &&
+           addProductFormData.price > 0;
+  };
+
+  const isAddCategoryFormValid = () => {
+    return addCategoryFormData.name_en.trim() !== '' &&
+           addCategoryFormData.name_ru.trim() !== '' &&
+           addCategoryFormData.name_uz.trim() !== '';
+  };
+
+  // Add product handler
+  const handleAddProduct = async () => {
+    if (!isAddProductFormValid()) return;
+
+    try {
+      const result = await apiService.createProduct(addProductFormData);
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: t('inventory.productAddedSuccess'),
+          severity: 'success',
+        });
+        setAddProductDialogOpen(false);
+        setAddProductFormData({
+          name: '',
+          barcode: '',
+          price: 0,
+          cost: 0,
+          quantity_in_stock: 0,
+          low_stock_threshold: 10,
+          category: '',
+          brand: '',
+          description: '',
+          image_url: '',
+          is_active: true,
+          name_ru: '',
+          name_uz: '',
+          description_ru: '',
+          description_uz: '',
+        });
+        // Reload data
+        await getAllProducts();
+        await getCategories();
+      } else {
+        setSnackbar({
+          open: true,
+          message: t('inventory.errorAddingProduct'),
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('Error adding product:', error);
+      setSnackbar({
+        open: true,
+        message: t('inventory.errorAddingProduct'),
+        severity: 'error',
+      });
+    }
+  };
+
+  // Add category handler
+  const handleAddCategory = async () => {
+    if (!isAddCategoryFormValid()) return;
+
+    try {
+      const result = await apiService.createCategory(addCategoryFormData);
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: t('inventory.categoryAddedSuccess'),
+          severity: 'success',
+        });
+        setAddCategoryDialogOpen(false);
+        setAddCategoryFormData({
+          name_en: '',
+          name_ru: '',
+          name_uz: '',
+        });
+        // Reload categories
+        await getCategories();
+      } else {
+        setSnackbar({
+          open: true,
+          message: t('inventory.errorAddingCategory'),
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('Error adding category:', error);
+      setSnackbar({
+        open: true,
+        message: t('inventory.errorAddingCategory'),
+        severity: 'error',
+      });
+    }
   };
 
   return (
@@ -276,18 +433,38 @@ const InventoryPage = () => {
             <Box display="flex" alignItems="center">
               <InventoryIcon sx={{ mr: 1, fontSize: 32 }} />
               <Typography variant="h4" fontWeight="bold">
-                Inventory Management
+                {t('inventory.inventoryManagement')}
               </Typography>
             </Box>
             
             <Box display="flex" gap={2}>
+              {editMode && (
+                <>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<Add />}
+                    onClick={() => setAddCategoryDialogOpen(true)}
+                  >
+                    {t('inventory.addCategory')}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<Add />}
+                    onClick={() => setAddProductDialogOpen(true)}
+                  >
+                    {t('inventory.addProduct')}
+                  </Button>
+                </>
+              )}
               <Button
                 variant={editMode ? "contained" : "outlined"}
                 color={editMode ? "secondary" : "primary"}
                 startIcon={editMode ? <Save /> : <Edit />}
                 onClick={() => setEditMode(!editMode)}
               >
-                {editMode ? 'Exit Edit Mode' : 'Edit Mode'}
+                {editMode ? t('inventory.exitEditMode') : t('inventory.editMode')}
               </Button>
             </Box>
           </Box>
@@ -308,7 +485,7 @@ const InventoryPage = () => {
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
-                  Total Products
+                  {t('inventory.totalProducts')}
                 </Typography>
                 <Typography variant="h4">
                   {products.length}
@@ -319,7 +496,7 @@ const InventoryPage = () => {
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
-                  Categories
+                  {t('inventory.categories')}
                 </Typography>
                 <Typography variant="h4">
                   {categories.length}
@@ -330,7 +507,7 @@ const InventoryPage = () => {
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
-                  Low Stock Items
+                  {t('inventory.lowStockItems')}
                 </Typography>
                 <Typography variant="h4" color="warning.main">
                   {lowStockProducts.length}
@@ -341,7 +518,7 @@ const InventoryPage = () => {
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
-                  Out of Stock
+                  {t('inventory.outOfStock')}
                 </Typography>
                 <Typography variant="h4" color="error.main">
                   {products.filter(p => p.quantity_in_stock === 0).length}
@@ -361,11 +538,11 @@ const InventoryPage = () => {
         {/* Tabs */}
         <Paper sx={{ mb: 2 }}>
           <Tabs value={tabValue} onChange={handleTabChange}>
-            <Tab label="All Products" />
+            <Tab label={t('inventory.allProducts')} />
             <Tab 
               label={
                 <Box display="flex" alignItems="center">
-                  Low Stock Products
+                  {t('inventory.lowStockProducts')}
                   {lowStockProducts.length > 0 && (
                     <Chip 
                       label={lowStockProducts.length} 
@@ -384,37 +561,35 @@ const InventoryPage = () => {
         {tabValue === 0 && (
           <Paper sx={{ p: 2, mb: 2 }}>
             <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-              <TextField
-                label="Search products"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                size="small"
-                sx={{ minWidth: 200 }}
-                InputProps={{
-                  startAdornment: <Search sx={{ mr: 1, color: 'action.active' }} />,
-                }}
-              />
-              
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  label="Category"
-                >
-                  <MenuItem value="all">All Categories</MenuItem>
-                  {categories.map((category) => (
-                    <MenuItem key={category.name} value={category.name}>
-                      {category.name} ({category.product_count})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Box display="flex" alignItems="center" gap={1}>
+            <TextField
+              label={t('inventory.searchProducts')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              size="small"
+              sx={{ minWidth: 200 }}
+              InputProps={{
+                startAdornment: <Search sx={{ mr: 1, color: 'action.active' }} />,
+              }}
+            />
+            
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>{t('inventory.category')}</InputLabel>
+              <Select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                label={t('inventory.category')}
+              >
+                <MenuItem value="all">{t('inventory.allCategories')}</MenuItem>
+                {categories.map((category) => (
+                  <MenuItem key={category.key} value={category.key}>
+                    {category.name} ({category.product_count})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>              <Box display="flex" alignItems="center" gap={1}>
                 <FilterList />
                 <Typography variant="body2">
-                  Showing {currentProducts.length} products
+                  {t('inventory.showingProducts', { count: currentProducts.length })}
                 </Typography>
               </Box>
             </Box>
@@ -426,15 +601,15 @@ const InventoryPage = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Product</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Barcode</TableCell>
-                <TableCell align="right">Price</TableCell>
-                <TableCell align="right">Cost</TableCell>
-                <TableCell align="center">Stock</TableCell>
-                <TableCell align="center">Status</TableCell>
-                <TableCell align="center">Active</TableCell>
-                {editMode && <TableCell align="center">Actions</TableCell>}
+                <TableCell>{t('inventory.product')}</TableCell>
+                <TableCell>{t('inventory.category')}</TableCell>
+                <TableCell>{t('inventory.barcode')}</TableCell>
+                <TableCell align="right">{t('inventory.price')}</TableCell>
+                <TableCell align="right">{t('inventory.cost')}</TableCell>
+                <TableCell align="center">{t('inventory.stock')}</TableCell>
+                <TableCell align="center">{t('inventory.status')}</TableCell>
+                <TableCell align="center">{t('inventory.active')}</TableCell>
+                {editMode && <TableCell align="center">{t('inventory.actions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -453,7 +628,7 @@ const InventoryPage = () => {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Chip label={product.category || 'Uncategorized'} size="small" />
+                    <Chip label={product.category || t('inventory.uncategorized')} size="small" />
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" fontFamily="monospace">
@@ -498,7 +673,7 @@ const InventoryPage = () => {
                   {editMode && (
                     <TableCell align="center">
                       <Box display="flex" gap={1} justifyContent="center">
-                        <Tooltip title="Edit Product">
+                        <Tooltip title={t('inventory.editProduct')}>
                           <IconButton
                             size="small"
                             onClick={() => handleEditProduct(product)}
@@ -506,7 +681,7 @@ const InventoryPage = () => {
                             <Edit />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete Product">
+                        <Tooltip title={t('inventory.deleteProduct')}>
                           <IconButton
                             size="small"
                             color="error"
@@ -542,7 +717,7 @@ const InventoryPage = () => {
 
         {/* Edit Product Dialog */}
         <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Edit Product</DialogTitle>
+          <DialogTitle>{t('inventory.editProduct')}</DialogTitle>
           <DialogContent>
             <Box 
               sx={{
@@ -557,28 +732,28 @@ const InventoryPage = () => {
             >
               <TextField
                 fullWidth
-                label="Product Name"
+                label={t('inventory.productName')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
               
               <TextField
                 fullWidth
-                label="Barcode"
+                label={t('inventory.barcode')}
                 value={formData.barcode}
                 onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
               />
               
               <TextField
                 fullWidth
-                label="Category"
+                label={t('inventory.category')}
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               />
               
               <TextField
                 fullWidth
-                label="Brand"
+                label={t('inventory.brand')}
                 value={formData.brand}
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
               />
@@ -594,7 +769,7 @@ const InventoryPage = () => {
             >
               <TextField
                 fullWidth
-                label="Price"
+                label={t('inventory.price')}
                 type="number"
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
@@ -603,7 +778,7 @@ const InventoryPage = () => {
               
               <TextField
                 fullWidth
-                label="Cost"
+                label={t('inventory.cost')}
                 type="number"
                 value={formData.cost}
                 onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
@@ -612,7 +787,7 @@ const InventoryPage = () => {
               
               <TextField
                 fullWidth
-                label="Stock Quantity"
+                label={t('inventory.stockQuantity')}
                 type="number"
                 value={formData.quantity_in_stock}
                 onChange={(e) => setFormData({ ...formData, quantity_in_stock: parseInt(e.target.value) })}
@@ -629,14 +804,14 @@ const InventoryPage = () => {
             >
               <TextField
                 fullWidth
-                label="Low Stock Threshold"
+                label={t('inventory.lowStockThreshold')}
                 type="number"
                 value={formData.low_stock_threshold}
                 onChange={(e) => setFormData({ ...formData, low_stock_threshold: parseInt(e.target.value) })}
               />
               
               <Box display="flex" alignItems="center" gap={2}>
-                <Typography>Active Product:</Typography>
+                <Typography>{t('inventory.activeProduct')}:</Typography>
                 <Switch
                   checked={formData.is_active}
                   onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
@@ -646,7 +821,7 @@ const InventoryPage = () => {
 
             <TextField
               fullWidth
-              label="Description"
+              label={t('inventory.description')}
               multiline
               rows={3}
               value={formData.description}
@@ -656,32 +831,268 @@ const InventoryPage = () => {
             
             <TextField
               fullWidth
-              label="Image URL"
+              label={t('inventory.imageUrl')}
               value={formData.image_url}
               onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
               sx={{ mt: 2 }}
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setEditDialogOpen(false)}>{t('inventory.cancel')}</Button>
             <Button onClick={handleSaveProduct} variant="contained">
-              Save Changes
+              {t('inventory.saveChanges')}
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-          <DialogTitle>Delete Product</DialogTitle>
+          <DialogTitle>{t('inventory.deleteProduct')}</DialogTitle>
           <DialogContent>
             <Typography>
-              Are you sure you want to delete "{productToDelete?.name}"? This action cannot be undone.
+              {t('inventory.deleteProductConfirm', { productName: productToDelete?.name })}
             </Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setDeleteDialogOpen(false)}>{t('inventory.cancel')}</Button>
             <Button onClick={handleDeleteProduct} color="error" variant="contained">
-              Delete
+              {t('inventory.delete')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Add Product Dialog */}
+        <Dialog open={addProductDialogOpen} onClose={() => setAddProductDialogOpen(false)} maxWidth="lg" fullWidth>
+          <DialogTitle>{t('inventory.addProduct')}</DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 1 }}>
+              {/* English Fields */}
+              <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+                {t('inventory.englishRequired')}
+              </Typography>
+              <Box 
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: 2,
+                  mb: 3,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  label={`${t('inventory.productNameEnglish')} *`}
+                  value={addProductFormData.name}
+                  onChange={(e) => setAddProductFormData({ ...addProductFormData, name: e.target.value })}
+                  required
+                />
+                <TextField
+                  fullWidth
+                  label={t('inventory.barcode')}
+                  value={addProductFormData.barcode}
+                  onChange={(e) => setAddProductFormData({ ...addProductFormData, barcode: e.target.value })}
+                />
+              </Box>
+              
+              <TextField
+                fullWidth
+                label={`${t('inventory.descriptionEnglish')} *`}
+                multiline
+                rows={2}
+                value={addProductFormData.description}
+                onChange={(e) => setAddProductFormData({ ...addProductFormData, description: e.target.value })}
+                required
+                sx={{ mb: 3 }}
+              />
+
+              {/* Russian Fields */}
+              <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+                {t('inventory.russianRequired')}
+              </Typography>
+              <Box 
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: 2,
+                  mb: 3,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  label={`${t('inventory.productNameRussian')} *`}
+                  value={addProductFormData.name_ru}
+                  onChange={(e) => setAddProductFormData({ ...addProductFormData, name_ru: e.target.value })}
+                  required
+                />
+                <TextField
+                  fullWidth
+                  label={t('inventory.brand')}
+                  value={addProductFormData.brand}
+                  onChange={(e) => setAddProductFormData({ ...addProductFormData, brand: e.target.value })}
+                />
+              </Box>
+              
+              <TextField
+                fullWidth
+                label={`${t('inventory.descriptionRussian')} *`}
+                multiline
+                rows={2}
+                value={addProductFormData.description_ru}
+                onChange={(e) => setAddProductFormData({ ...addProductFormData, description_ru: e.target.value })}
+                required
+                sx={{ mb: 3 }}
+              />
+
+              {/* Uzbek Fields */}
+              <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+                {t('inventory.uzbekRequired')}
+              </Typography>
+              <Box 
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: 2,
+                  mb: 3,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  label={`${t('inventory.productNameUzbek')} *`}
+                  value={addProductFormData.name_uz}
+                  onChange={(e) => setAddProductFormData({ ...addProductFormData, name_uz: e.target.value })}
+                  required
+                />
+                <FormControl fullWidth required>
+                  <InputLabel>{t('inventory.category')} *</InputLabel>
+                  <Select
+                    value={addProductFormData.category}
+                    onChange={(e) => setAddProductFormData({ ...addProductFormData, category: e.target.value })}
+                    label={`${t('inventory.category')} *`}
+                  >
+                    {categories.map((category) => (
+                      <MenuItem key={category.key} value={category.key}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              
+              <TextField
+                fullWidth
+                label={`${t('inventory.descriptionUzbek')} *`}
+                multiline
+                rows={2}
+                value={addProductFormData.description_uz}
+                onChange={(e) => setAddProductFormData({ ...addProductFormData, description_uz: e.target.value })}
+                required
+                sx={{ mb: 3 }}
+              />
+
+              {/* Pricing and Stock */}
+              <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+                {t('inventory.pricingAndStock')}
+              </Typography>
+              <Box 
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: 2,
+                  mb: 3,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  label={`${t('inventory.price')} *`}
+                  type="number"
+                  value={addProductFormData.price}
+                  onChange={(e) => setAddProductFormData({ ...addProductFormData, price: parseFloat(e.target.value) || 0 })}
+                  inputProps={{ step: 0.01, min: 0 }}
+                  required
+                />
+                <TextField
+                  fullWidth
+                  label={t('inventory.cost')}
+                  type="number"
+                  value={addProductFormData.cost}
+                  onChange={(e) => setAddProductFormData({ ...addProductFormData, cost: parseFloat(e.target.value) || 0 })}
+                  inputProps={{ step: 0.01, min: 0 }}
+                />
+                <TextField
+                  fullWidth
+                  label={t('inventory.stockQuantityLabel')}
+                  type="number"
+                  value={addProductFormData.quantity_in_stock}
+                  onChange={(e) => setAddProductFormData({ ...addProductFormData, quantity_in_stock: parseInt(e.target.value) || 0 })}
+                  inputProps={{ min: 0 }}
+                />
+                <TextField
+                  fullWidth
+                  label={t('inventory.lowStockThresholdLabel')}
+                  type="number"
+                  value={addProductFormData.low_stock_threshold}
+                  onChange={(e) => setAddProductFormData({ ...addProductFormData, low_stock_threshold: parseInt(e.target.value) || 10 })}
+                  inputProps={{ min: 0 }}
+                />
+              </Box>
+
+              <TextField
+                fullWidth
+                label={t('inventory.imageUrl')}
+                value={addProductFormData.image_url}
+                onChange={(e) => setAddProductFormData({ ...addProductFormData, image_url: e.target.value })}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddProductDialogOpen(false)}>{t('inventory.cancel')}</Button>
+            <Button 
+              onClick={handleAddProduct} 
+              variant="contained"
+              disabled={!isAddProductFormValid()}
+            >
+              {t('inventory.createProduct')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Add Category Dialog */}
+        <Dialog open={addCategoryDialogOpen} onClose={() => setAddCategoryDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>{t('inventory.addCategory')}</DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 1 }}>
+              <TextField
+                fullWidth
+                label={`${t('inventory.categoryNameEnglish')} *`}
+                value={addCategoryFormData.name_en}
+                onChange={(e) => setAddCategoryFormData({ ...addCategoryFormData, name_en: e.target.value })}
+                required
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label={`${t('inventory.categoryNameRussian')} *`}
+                value={addCategoryFormData.name_ru}
+                onChange={(e) => setAddCategoryFormData({ ...addCategoryFormData, name_ru: e.target.value })}
+                required
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label={`${t('inventory.categoryNameUzbek')} *`}
+                value={addCategoryFormData.name_uz}
+                onChange={(e) => setAddCategoryFormData({ ...addCategoryFormData, name_uz: e.target.value })}
+                required
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddCategoryDialogOpen(false)}>{t('inventory.cancel')}</Button>
+            <Button 
+              onClick={handleAddCategory} 
+              variant="contained"
+              disabled={!isAddCategoryFormValid()}
+            >
+              {t('inventory.createCategory')}
             </Button>
           </DialogActions>
         </Dialog>

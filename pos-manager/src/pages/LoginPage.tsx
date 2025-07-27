@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
@@ -22,6 +23,7 @@ const LoginPage = () => {
   
   const { login, isAuthenticated, user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -99,17 +101,29 @@ const LoginPage = () => {
   }
 
   return (
-    <Container maxWidth="sm">
+    <Container component="main" maxWidth="sm">
       <Box
-        display="flex"
-        flexDirection="column"
-        alignItems="center"
-        justifyContent="center"
-        minHeight="100vh"
-        sx={{ bgcolor: 'background.default' }}
+        sx={{
+          marginTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          minHeight: '80vh',
+          justifyContent: 'center',
+        }}
       >
-        <Paper elevation={4} sx={{ p: 4, width: '100%', borderRadius: 3 }}>
-          <Box display="flex" alignItems="center" justifyContent="center" mb={3}>
+        <Paper
+          elevation={3}
+          sx={{
+            padding: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            width: '100%',
+            maxWidth: 400,
+          }}
+        >
+          <Box display="flex" alignItems="center" mb={3}>
             <Store sx={{ fontSize: 40, color: 'primary.main', mr: 1 }} />
             <Typography variant="h4" color="primary" fontWeight="bold">
               Zentra POS
@@ -125,7 +139,7 @@ const LoginPage = () => {
           <Stack spacing={3}>
             <TextField
               fullWidth
-              label="Employee ID"
+              label={t('auth.employeeId')}
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
               onKeyPress={handleKeyPress}
@@ -139,7 +153,7 @@ const LoginPage = () => {
             <TextField
               fullWidth
               type="password"
-              label="PIN"
+              label={t('auth.pin')}
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               onKeyPress={handleKeyPress}
@@ -161,10 +175,10 @@ const LoginPage = () => {
               {isLoggingIn ? (
                 <Box display="flex" alignItems="center" gap={1}>
                   <CircularProgress size={20} color="inherit" />
-                  Logging in...
+                  {t('common.loading')}
                 </Box>
               ) : (
-                'Login'
+                t('auth.login')
               )}
             </Button>
           </Stack>

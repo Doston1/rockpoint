@@ -37,6 +37,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavigationBar } from '../components/NavigationBar';
 import { useAuth } from '../hooks/useAuth';
 import { useProducts } from '../hooks/useProducts';
@@ -51,6 +52,7 @@ interface CartItem extends TransactionItem {
 
 const CheckoutPage = () => {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
   const { 
     getProductByBarcode, 
     searchProducts,
@@ -83,6 +85,7 @@ const CheckoutPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'categories' | 'search' | 'products'>('categories');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
@@ -154,6 +157,18 @@ const CheckoutPage = () => {
     loadCategories();
   }, [getCategories]);
 
+  // Refresh products when language changes
+  useEffect(() => {
+    if (viewMode === 'search' && searchQuery) {
+      handleSearchProducts();
+    } else if (viewMode === 'products' && selectedCategory) {
+      const categoryObj = categories.find(c => c.key === selectedCategory);
+      if (categoryObj) {
+        handleCategorySelect(selectedCategory, categoryObj.name);
+      }
+    }
+  }, [i18n.language]); // Re-run when language changes
+
   const handleScanProduct = async () => {
     if (!barcode.trim()) return;
     
@@ -218,10 +233,11 @@ const CheckoutPage = () => {
     }
   };
 
-  const handleCategorySelect = async (category: string) => {
+  const handleCategorySelect = async (categoryKey: string, categoryName: string) => {
     try {
-      setSelectedCategory(category);
-      await getProductsByCategory(category);
+      setSelectedCategory(categoryKey);
+      setSelectedCategoryName(categoryName);
+      await getProductsByCategory(categoryKey);
       setViewMode('products');
     } catch (error) {
       console.error('Failed to load products for category:', error);
@@ -231,6 +247,7 @@ const CheckoutPage = () => {
   const handleBackToCategories = () => {
     setViewMode('categories');
     setSelectedCategory(null);
+    setSelectedCategoryName(null);
     setSearchQuery('');
     setSelectedProduct(null);
     clearSearchSuggestions();
@@ -372,13 +389,13 @@ const CheckoutPage = () => {
           
           setTransactionCompleteDialogOpen(true);
         } else {
-          throw new Error(paymentResult.error || 'Payment processing failed');
+          throw new Error(paymentResult.error || t('checkout.paymentProcessingFailed'));
         }
       }
     } catch (error) {
       console.error('Checkout failed:', error);
       // Show user-friendly error
-      alert(`Checkout failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`${t('checkout.checkoutFailed')}: ${error instanceof Error ? error.message : t('checkout.unknownError')}`);
     }
   };
 
@@ -412,7 +429,7 @@ const CheckoutPage = () => {
           <Box sx={{ flex: { xs: 1, md: 2 } }}>
             <Paper sx={{ p: 3, height: '100%' }}>
               <Typography variant="h6" gutterBottom>
-                Product Scanner
+                {t('checkout.productScanner')}
               </Typography>
               
               {/* Scanner Status Indicator */}
@@ -422,7 +439,7 @@ const CheckoutPage = () => {
                   sx={{ mb: 2 }}
                   icon={<QrCodeScanner />}
                 >
-                  Scanner Mode Active - Press F again to scan the barcode
+                  {t('checkout.scannerModeActive')}
                 </Alert>
               )}
               
@@ -430,7 +447,7 @@ const CheckoutPage = () => {
               <Box sx={{ mb: 3 }}>
                 <TextField
                   fullWidth
-                  label="Scan or enter barcode"
+                  label={t('checkout.scanOrEnterBarcode')}
                   value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleScanProduct()}
@@ -450,7 +467,7 @@ const CheckoutPage = () => {
                   }}
                 />
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Press 'F' to activate scanner, then press 'F' again to scan
+                  {t('checkout.pressF')}
                 </Typography>
               </Box>
 
@@ -475,8 +492,8 @@ const CheckoutPage = () => {
                   renderInput={(params: any) => (
                     <TextField
                       {...params}
-                      label="Search products"
-                      placeholder="Type at least 2 characters to search..."
+                      label={t('checkout.searchProducts')}
+                      placeholder={t('checkout.typeToSearch')}
                       disabled={productsLoading}
                       InputProps={{
                         ...params.InputProps,
@@ -492,7 +509,7 @@ const CheckoutPage = () => {
                                   handleBackToCategories();
                                 }}
                                 size="small"
-                                title="Clear search"
+                                title={t('checkout.clearSearch')}
                               >
                                 ×
                               </IconButton>
@@ -500,7 +517,7 @@ const CheckoutPage = () => {
                             <IconButton 
                               onClick={() => searchQuery && handleSearchProducts()} 
                               disabled={productsLoading || !searchQuery}
-                              title="Search all products"
+                              title={t('checkout.searchAllProducts')}
                             >
                               {productsLoading ? <CircularProgress size={24} /> : <Search />}
                             </IconButton>
@@ -519,7 +536,7 @@ const CheckoutPage = () => {
                           </Typography>
                           <Box display="flex" justifyContent="space-between" alignItems="center">
                             <Typography variant="caption" color="text.secondary">
-                              {option.category && `${option.category} • `}Stock: {option.quantity_in_stock}
+                              {option.category && `${option.category} • `}{t('checkout.stockLabel')} {option.quantity_in_stock}
                               {option.barcode && ` • ${option.barcode}`}
                             </Typography>
                             <Typography variant="body2" color="primary.main" fontWeight="bold">
@@ -528,7 +545,7 @@ const CheckoutPage = () => {
                           </Box>
                           {option.quantity_in_stock <= (option.low_stock_threshold || 10) && (
                             <Typography variant="caption" color="error.main">
-                              ⚠️ Low Stock
+                              {t('checkout.lowStockWarning')}
                             </Typography>
                           )}
                         </Box>
@@ -537,15 +554,15 @@ const CheckoutPage = () => {
                   }}
                   noOptionsText={
                     searchQuery.length < 2 
-                      ? "Type at least 2 characters to search" 
+                      ? t('checkout.typeToSearchProducts')
                       : productsLoading 
-                        ? "Searching..." 
+                        ? t('checkout.searching')
                         : searchQuery.length > 0
-                          ? "No products found"
-                          : "Start typing to search products"
+                          ? t('checkout.noProductsFound')
+                          : t('checkout.startTypingToSearch')
                   }
                   loading={productsLoading}
-                  loadingText="Searching products..."
+                  loadingText={t('checkout.searching')}
                   openOnFocus={false} // Only open when there are suggestions
                   clearOnBlur={false} // Keep the input value when losing focus
                 />
@@ -555,7 +572,7 @@ const CheckoutPage = () => {
               {viewMode === 'categories' && (
                 <>
                   <Typography variant="subtitle1" gutterBottom>
-                    Select a Category
+                    {t('checkout.selectCategory')}
                   </Typography>
                   <Box
                     sx={{
@@ -572,16 +589,16 @@ const CheckoutPage = () => {
                   >
                     {categories.map((category) => (
                       <Card 
-                        key={category.name} 
+                        key={category.key} 
                         sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
-                        onClick={() => handleCategorySelect(category.name)}
+                        onClick={() => handleCategorySelect(category.key, category.name)}
                       >
                         <CardContent sx={{ textAlign: 'center', py: 3 }}>
                           <Typography variant="h6" fontWeight="bold">
                             {category.name}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {category.product_count} products
+                            {category.product_count} {t('checkout.products')}
                           </Typography>
                         </CardContent>
                       </Card>
@@ -594,7 +611,7 @@ const CheckoutPage = () => {
                 <>
                   <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                     <Typography variant="subtitle1">
-                      {viewMode === 'search' ? 'Search Results' : `${selectedCategory} Products`}
+                      {viewMode === 'search' ? t('checkout.searchResults') : `${selectedCategoryName} ${t('checkout.products')}`}
                     </Typography>
                     <Button 
                       variant="outlined" 
@@ -602,7 +619,7 @@ const CheckoutPage = () => {
                       onClick={handleBackToCategories}
                       sx={{ minWidth: 'auto' }}
                     >
-                      Back to Categories
+                      {t('checkout.backToCategories')}
                     </Button>
                   </Box>
                   <Box
@@ -633,11 +650,11 @@ const CheckoutPage = () => {
                               ${product.price.toFixed(2)}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              Stock: {product.quantity_in_stock}
+                              {t('checkout.stockLabel')} {product.quantity_in_stock}
                             </Typography>
                             {product.quantity_in_stock <= (product.low_stock_threshold || 10) && (
                               <Typography variant="caption" color="error.main" display="block">
-                                Low Stock
+                                {t('checkout.lowStockWarning')}
                               </Typography>
                             )}
                           </CardContent>
@@ -646,7 +663,7 @@ const CheckoutPage = () => {
                     ) : (
                       <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 4 }}>
                         <Typography variant="body2" color="text.secondary">
-                          {viewMode === 'search' ? 'No products found' : 'No products in this category'}
+                          {viewMode === 'search' ? t('checkout.noProductsFound') : t('checkout.noProductsInCategory')}
                         </Typography>
                       </Box>
                     )}
@@ -662,10 +679,10 @@ const CheckoutPage = () => {
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                 <Box display="flex" alignItems="center">
                   <ShoppingCart sx={{ mr: 1 }} />
-                  <Typography variant="h6">Cart ({cart.length} items)</Typography>
+                  <Typography variant="h6">{t('checkout.cart')} ({cart.length} {t('checkout.items')})</Typography>
                 </Box>
                 <Typography variant="caption" color="text.secondary">
-                  Terminal: {terminalId || 'Not connected'}
+                  {t('checkout.terminal')}: {terminalId || t('checkout.notConnected')}
                 </Typography>
               </Box>
               
@@ -674,7 +691,7 @@ const CheckoutPage = () => {
                   <ListItem key={item.product_id} sx={{ px: 0 }}>
                     <ListItemText
                       primary={item.product.name}
-                      secondary={`$${item.unit_price.toFixed(2)} each`}
+                      secondary={`$${item.unit_price.toFixed(2)} ${t('checkout.each')}`}
                     />
                     <ListItemSecondaryAction>
                       <Box display="flex" alignItems="center" gap={1}>
@@ -695,8 +712,8 @@ const CheckoutPage = () => {
                 {cart.length === 0 && (
                   <ListItem>
                     <ListItemText
-                      primary="No items in cart"
-                      secondary="Scan a product or search to add items"
+                      primary={t('checkout.noItemsInCart')}
+                      secondary={t('checkout.scanProductToAdd')}
                     />
                   </ListItem>
                 )}
@@ -706,15 +723,15 @@ const CheckoutPage = () => {
               
               <Box>
                 <Box display="flex" justifyContent="space-between" mb={1}>
-                  <Typography>Subtotal:</Typography>
+                  <Typography>{t('checkout.subtotal')}:</Typography>
                   <Typography>${subtotal.toFixed(2)}</Typography>
                 </Box>
                 <Box display="flex" justifyContent="space-between" mb={1}>
-                  <Typography>Tax ({(taxRate * 100).toFixed(0)}%):</Typography>
+                  <Typography>{t('checkout.tax')} ({(taxRate * 100).toFixed(0)}%):</Typography>
                   <Typography>${taxAmount.toFixed(2)}</Typography>
                 </Box>
                 <Box display="flex" justifyContent="space-between" mb={2}>
-                  <Typography variant="h6">Total:</Typography>
+                  <Typography variant="h6">{t('checkout.total')}:</Typography>
                   <Typography variant="h6">${total.toFixed(2)}</Typography>
                 </Box>
                 
@@ -727,7 +744,7 @@ const CheckoutPage = () => {
                   disabled={cart.length === 0 || transactionLoading}
                   sx={{ py: 1.5 }}
                 >
-                  {transactionLoading ? <CircularProgress size={24} /> : 'Checkout'}
+                  {transactionLoading ? <CircularProgress size={24} /> : t('checkout.checkout')}
                 </Button>
               </Box>
             </Paper>
@@ -736,44 +753,44 @@ const CheckoutPage = () => {
 
         {/* Checkout Dialog */}
         <Dialog open={checkoutDialogOpen} onClose={() => setCheckoutDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Complete Payment</DialogTitle>
+          <DialogTitle>{t('checkout.completePayment')}</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Total Amount: ${total.toFixed(2)}
+                {t('checkout.totalAmount')}: ${total.toFixed(2)}
               </Typography>
               
               <FormControl fullWidth sx={{ mb: 3 }}>
-                <InputLabel>Payment Method</InputLabel>
+                <InputLabel>{t('checkout.paymentMethod')}</InputLabel>
                 <Select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentType['method'])}
-                  label="Payment Method"
+                  label={t('checkout.paymentMethod')}
                 >
-                  <MenuItem value="cash">Cash</MenuItem>
-                  <MenuItem value="card">Card</MenuItem>
-                  <MenuItem value="digital_wallet">Digital Wallet</MenuItem>
+                  <MenuItem value="cash">{t('checkout.cash')}</MenuItem>
+                  <MenuItem value="card">{t('checkout.card')}</MenuItem>
+                  <MenuItem value="digital_wallet">{t('checkout.digitalWallet')}</MenuItem>
                 </Select>
               </FormControl>
 
               {paymentMethod === 'cash' && (
                 <TextField
                   fullWidth
-                  label="Amount Received"
+                  label={t('checkout.amountReceived')}
                   type="number"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   helperText={
                     paymentAmount && parseFloat(paymentAmount) >= total
-                      ? `Change: $${(parseFloat(paymentAmount) - total).toFixed(2)}`
-                      : 'Amount must be equal to or greater than total'
+                      ? `${t('checkout.change')}: $${(parseFloat(paymentAmount) - total).toFixed(2)}`
+                      : t('checkout.amountMustBeGreater')
                   }
                 />
               )}
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setCheckoutDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setCheckoutDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button 
               onClick={handleCheckout}
               variant="contained"
@@ -782,7 +799,7 @@ const CheckoutPage = () => {
                 (paymentMethod === 'cash' && (!paymentAmount || parseFloat(paymentAmount) < total))
               }
             >
-              {transactionLoading ? <CircularProgress size={24} /> : 'Complete Transaction'}
+              {transactionLoading ? <CircularProgress size={24} /> : t('checkout.completeTransaction')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -805,23 +822,23 @@ const CheckoutPage = () => {
               <CheckCircle sx={{ fontSize: 80, color: 'success.main' }} />
               
               <Typography variant="h4" color="success.main" fontWeight="bold">
-                Transaction Complete!
+                {t('checkout.transactionComplete')}
               </Typography>
               
               <Box sx={{ textAlign: 'left', width: '100%', maxWidth: 400 }}>
                 <Typography variant="h6" gutterBottom>
-                  Transaction Details:
+                  {t('checkout.transactionDetails')}
                 </Typography>
                 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body1">Transaction ID:</Typography>
+                  <Typography variant="body1">{t('checkout.transactionId')}</Typography>
                   <Typography variant="body1" fontFamily="monospace" fontWeight="bold">
                     {completedTransactionData?.transactionId}
                   </Typography>
                 </Box>
                 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body1">Total Amount:</Typography>
+                  <Typography variant="body1">{t('checkout.totalAmount')}:</Typography>
                   <Typography variant="body1" fontWeight="bold">
                     ${completedTransactionData?.totalAmount.toFixed(2)}
                   </Typography>
@@ -830,7 +847,7 @@ const CheckoutPage = () => {
                 {completedTransactionData?.paymentMethod === 'cash' && (
                   <>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body1">Amount Received:</Typography>
+                      <Typography variant="body1">{t('checkout.amountReceivedLabel')}</Typography>
                       <Typography variant="body1" fontWeight="bold">
                         ${completedTransactionData?.amountReceived.toFixed(2)}
                       </Typography>
@@ -838,7 +855,7 @@ const CheckoutPage = () => {
                     
                     {completedTransactionData && completedTransactionData.changeAmount > 0 && (
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body1" color="primary.main">Change Due:</Typography>
+                        <Typography variant="body1" color="primary.main">{t('checkout.changeDue')}</Typography>
                         <Typography variant="h6" color="primary.main" fontWeight="bold">
                           ${completedTransactionData.changeAmount.toFixed(2)}
                         </Typography>
@@ -848,7 +865,7 @@ const CheckoutPage = () => {
                 )}
                 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body1">Payment Method:</Typography>
+                  <Typography variant="body1">{t('checkout.paymentMethod')}:</Typography>
                   <Typography variant="body1" fontWeight="bold" sx={{ textTransform: 'capitalize' }}>
                     {completedTransactionData?.paymentMethod.replace('_', ' ')}
                   </Typography>
@@ -856,7 +873,7 @@ const CheckoutPage = () => {
               </Box>
               
               <Typography variant="body2" color="text.secondary">
-                Thank you for your purchase!
+                {t('checkout.thankYou')}
               </Typography>
             </Box>
           </DialogContent>
@@ -868,7 +885,7 @@ const CheckoutPage = () => {
               fullWidth
               sx={{ mx: 3, mb: 2 }}
             >
-              Continue
+              {t('checkout.newTransaction')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -885,7 +902,7 @@ const CheckoutPage = () => {
             severity="warning" 
             sx={{ width: '100%' }}
           >
-            Product not found!
+            {t('checkout.productNotFound')}
           </Alert>
         </Snackbar>
       </Container>

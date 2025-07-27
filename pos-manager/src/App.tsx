@@ -9,6 +9,7 @@ import EmployeesPage from './pages/EmployeesPage';
 import InventoryPage from './pages/InventoryPage';
 import LoginPage from './pages/LoginPage';
 import { theme } from './theme';
+import './utils/i18next'; // Import i18n configuration
 
 function App() {
   return (

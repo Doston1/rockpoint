@@ -176,29 +176,66 @@ class ApiService {
   }
 
   // Product endpoints
-  async searchProducts(query: string, limit = 20, offset = 0): Promise<ApiResponse<{ products: Product[]; total: number; limit: number; offset: number }>> {
+  async searchProducts(query: string, options: {
+    limit?: number;
+    offset?: number;
+    language?: string;
+  } = {}): Promise<ApiResponse<{ products: Product[]; total: number; limit: number; offset: number }>> {
     const params = new URLSearchParams({
       query,
-      limit: limit.toString(),
-      offset: offset.toString()
+      limit: (options.limit || 20).toString(),
+      offset: (options.offset || 0).toString()
     });
+    
+    if (options.language) {
+      params.append('language', options.language);
+    }
+    
     return this.request(`/products/search?${params}`);
   }
 
-  async autocompleteProducts(query: string, limit = 8): Promise<ApiResponse<{ products: Product[] }>> {
+  async autocompleteProducts(query: string, limit = 8, language?: string): Promise<ApiResponse<{ products: Product[] }>> {
     const params = new URLSearchParams({
       query,
       limit: limit.toString()
     });
+    
+    if (language) {
+      params.append('language', language);
+    }
+    
     return this.request(`/products/autocomplete?${params}`);
   }
 
-  async getProductByBarcode(barcode: string): Promise<ApiResponse<{ product: Product; fromCache: boolean }>> {
-    return this.request(`/products/barcode/${barcode}`);
+  async getProductByBarcode(barcode: string, language?: string): Promise<ApiResponse<{ product: Product; fromCache: boolean }>> {
+    const params = new URLSearchParams();
+    if (language) {
+      params.append('language', language);
+    }
+    
+    const url = `/products/barcode/${barcode}${params.toString() ? '?' + params.toString() : ''}`;
+    return this.request(url);
   }
 
-  async getAllProducts(): Promise<ApiResponse<Product[]>> {
-    return this.request('/products');
+  async getAllProducts(options: { 
+    limit?: number; 
+    offset?: number; 
+    category?: string;
+    language?: string;
+  } = {}): Promise<ApiResponse<{ products: Product[]; total: number }>> {
+    const params = new URLSearchParams({
+      limit: (options.limit || 50).toString(),
+      offset: (options.offset || 0).toString(),
+    });
+    
+    if (options.category) {
+      params.append('category', options.category);
+    }
+    if (options.language) {
+      params.append('language', options.language);
+    }
+    
+    return this.request(`/products?${params.toString()}`);
   }
 
   async createProduct(productData: Partial<Product>): Promise<ApiResponse<Product>> {
@@ -221,20 +258,48 @@ class ApiService {
     });
   }
 
-  async getLowStockProducts(): Promise<ApiResponse<Product[]>> {
-    return this.request('/products/low-stock');
+  async getLowStockProducts(language?: string): Promise<ApiResponse<Product[]>> {
+    const params = new URLSearchParams();
+    if (language) {
+      params.append('language', language);
+    }
+    
+    const url = `/products/low-stock${params.toString() ? '?' + params.toString() : ''}`;
+    return this.request(url);
   }
 
-  async getCategories(): Promise<ApiResponse<{ categories: { name: string; product_count: number }[] }>> {
-    return this.request('/products/categories');
+  async getCategories(language?: string): Promise<ApiResponse<{ categories: { key: string; name: string; product_count: number }[] }>> {
+    const params = new URLSearchParams();
+    if (language) {
+      params.append('language', language);
+    }
+    
+    const url = `/products/categories${params.toString() ? '?' + params.toString() : ''}`;
+    return this.request(url);
   }
 
-  async getProductsByCategory(category: string, limit = 50, offset = 0): Promise<ApiResponse<{ products: Product[]; category: string; total: number; limit: number; offset: number }>> {
+  async getProductsByCategory(category: string, options: {
+    limit?: number;
+    offset?: number;
+    language?: string;
+  } = {}): Promise<ApiResponse<{ products: Product[]; total: number }>> {
     const params = new URLSearchParams({
-      limit: limit.toString(),
-      offset: offset.toString()
+      limit: (options.limit || 50).toString(),
+      offset: (options.offset || 0).toString(),
     });
-    return this.request(`/products/category/${encodeURIComponent(category)}?${params}`);
+    
+    if (options.language) {
+      params.append('language', options.language);
+    }
+    
+    return this.request(`/products/category/${category}?${params.toString()}`);
+  }
+
+  async createCategory(categoryData: { name_en: string; name_ru: string; name_uz: string }): Promise<ApiResponse<{ category: any }>> {
+    return this.request('/products/categories', {
+      method: 'POST',
+      body: JSON.stringify(categoryData),
+    });
   }
 
   // Transaction endpoints
