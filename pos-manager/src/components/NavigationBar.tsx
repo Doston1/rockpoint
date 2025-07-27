@@ -21,9 +21,11 @@ import {
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { LanguageSelector } from './LanguageSelector';
 
 export function NavigationBar() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -31,6 +33,7 @@ export function NavigationBar() {
   const { isConnected } = useWebSocket();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -95,7 +98,7 @@ export function NavigationBar() {
               onClick={() => handleNavigate('/dashboard')}
               variant={location.pathname === '/dashboard' ? 'outlined' : 'text'}
             >
-              Dashboard
+              {t('navigation.dashboard')}
             </Button>
           )}
           
@@ -105,9 +108,12 @@ export function NavigationBar() {
             onClick={() => handleNavigate('/checkout')}
             variant={location.pathname === '/checkout' ? 'outlined' : 'text'}
           >
-            Checkout
+            {t('navigation.checkout')}
           </Button>
         </Box>
+
+        {/* Language Selector */}
+        <LanguageSelector />
 
         {/* User Info and Menu */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -147,11 +153,11 @@ export function NavigationBar() {
           >
             <MenuItem onClick={handleMenuClose}>
               <Settings sx={{ mr: 1 }} />
-              Settings
+              {t('common.settings')}
             </MenuItem>
             <MenuItem onClick={handleLogout}>
               <Logout sx={{ mr: 1 }} />
-              Logout
+              {t('auth.logout')}
             </MenuItem>
           </Menu>
         </Box>

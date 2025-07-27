@@ -28,7 +28,12 @@ const createProductSchema = z.object({
   brand: z.string().optional(),
   description: z.string().optional(),
   image_url: z.string().optional(),
-  is_active: z.boolean().optional()
+  is_active: z.boolean().optional(),
+  // Translation fields
+  name_ru: z.string().optional(),
+  name_uz: z.string().optional(),
+  description_ru: z.string().optional(),
+  description_uz: z.string().optional()
 });
 
 const updateProductSchema = z.object({
@@ -45,57 +50,120 @@ const updateProductSchema = z.object({
   is_active: z.boolean().optional()
 });
 
+// Helper function to get localized field names
+const getLocalizedFields = (language: string = 'en') => {
+  let nameField: string;
+  let descField: string;
+  
+  switch (language) {
+    case 'ru':
+      nameField = 'COALESCE(p.name_ru, p.name) as name';
+      descField = 'COALESCE(p.description_ru, p.description) as description';
+      break;
+    case 'uz':
+      nameField = 'COALESCE(p.name_uz, p.name) as name';
+      descField = 'COALESCE(p.description_uz, p.description) as description';
+      break;
+    default:
+      nameField = 'p.name';
+      descField = 'p.description';
+      break;
+  }
+  
+  return { nameField, descField };
+};
+
+// Helper function to get localized category field
+const getLocalizedCategoryField = (language: string = 'en') => {
+  switch (language) {
+    case 'ru':
+      return 'COALESCE(c.name_ru, c.name_en, p.category) as category';
+    case 'uz':
+      return 'COALESCE(c.name_uz, c.name_en, p.category) as category';
+    default:
+      return 'COALESCE(c.name_en, p.category) as category';
+  }
+};
+
 // GET /api/products - Get all products (NEW)
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
-  const allProductsQuery = `
+  const { limit = 50, offset = 0, category } = req.query;
+  const language = (req.query.language as string) || 'en';
+  
+  const { nameField, descField } = getLocalizedFields(language);
+  const categoryField = getLocalizedCategoryField(language);
+  
+  let query = `
     SELECT 
-      id, name, barcode, price, cost, quantity_in_stock, 
-      low_stock_threshold, category, brand, description, image_url, 
-      is_active, created_at, updated_at
-    FROM products 
-    ORDER BY name ASC
+      p.id, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      p.low_stock_threshold
+    FROM products p
+    LEFT JOIN categories c ON p.category = c.key
+    WHERE p.is_active = true
   `;
+  
+  const params: any[] = [Number(limit), Number(offset)];
+  
+  if (category && category !== 'all') {
+    query += ` AND p.category = $3`;
+    params.push(category);
+    query += ` ORDER BY p.name ASC LIMIT $1 OFFSET $2`;
+  } else {
+    query += ` ORDER BY p.name ASC LIMIT $1 OFFSET $2`;
+  }
 
-  const result = await DatabaseManager.query(allProductsQuery);
-
-  res.json({
-    success: true,
-    data: result.rows
-  });
-}));
-
-// GET /api/products/search
-router.get('/search', asyncHandler(async (req: Request, res: Response) => {
-  const { query, limit, offset } = productSearchSchema.parse(req.query);
-
-  const searchQuery = `
-    SELECT 
-      id, name, barcode, price, cost, quantity_in_stock, 
-      category, brand, description, image_url, 
-      is_active, created_at, updated_at
-    FROM products 
-    WHERE 
-      is_active = true 
-      AND (
-        name ILIKE $1 
-        OR barcode ILIKE $1 
-        OR description ILIKE $1
-        OR brand ILIKE $1
-      )
-    ORDER BY name ASC
-    LIMIT $2 OFFSET $3
-  `;
-
-  const searchPattern = `%${query}%`;
-  const result = await DatabaseManager.query(searchQuery, [searchPattern, limit, offset]);
+  const result = await DatabaseManager.query(query, params);
 
   res.json({
     success: true,
     data: {
       products: result.rows,
       total: result.rowCount,
-      limit,
-      offset
+      limit: Number(limit),
+      offset: Number(offset)
+    }
+  });
+}));
+
+// GET /api/products/search
+router.get('/search', asyncHandler(async (req: Request, res: Response) => {
+  const { query, limit = 20, offset = 0 } = req.query;
+  const language = (req.query.language as string) || 'en';
+  
+  const { nameField, descField } = getLocalizedFields(language);
+  const categoryField = getLocalizedCategoryField(language);
+  
+  const searchQuery = `
+    SELECT 
+      p.id, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      p.low_stock_threshold
+    FROM products p
+    LEFT JOIN categories c ON p.category = c.key
+    WHERE 
+      p.is_active = true 
+      AND (
+        p.name ILIKE $1 
+        OR p.barcode ILIKE $1 
+        OR p.description ILIKE $1
+        OR p.brand ILIKE $1
+        OR p.category ILIKE $1
+      )
+    ORDER BY p.name ASC
+    LIMIT $2 OFFSET $3
+  `;
+
+  const searchPattern = `%${query}%`;
+  const result = await DatabaseManager.query(searchQuery, [searchPattern, Number(limit), Number(offset)]);
+
+  res.json({
+    success: true,
+    data: {
+      products: result.rows,
+      total: result.rowCount,
+      limit: Number(limit),
+      offset: Number(offset)
     }
   });
 }));
@@ -104,6 +172,10 @@ router.get('/search', asyncHandler(async (req: Request, res: Response) => {
 router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => {
   const query = req.query.query as string;
   const limit = Math.min(parseInt(req.query.limit as string) || 8, 10); // Max 10 results for autocomplete
+  const language = (req.query.language as string) || 'en';
+  
+  const { nameField } = getLocalizedFields(language);
+  const categoryField = getLocalizedCategoryField(language);
 
   if (!query || query.length < 2) {
     return res.json({
@@ -115,13 +187,14 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
   // First, try exact name matches (higher priority)
   const exactQuery = `
     SELECT 
-      id, name, barcode, price, quantity_in_stock, 
-      category, brand, low_stock_threshold
-    FROM products 
+      p.id, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
+      ${categoryField}, p.brand, p.low_stock_threshold
+    FROM products p
+    LEFT JOIN categories c ON p.category = c.key
     WHERE 
-      is_active = true 
-      AND name ILIKE $1
-    ORDER BY name ASC
+      p.is_active = true 
+      AND p.name ILIKE $1
+    ORDER BY p.name ASC
     LIMIT $2
   `;
 
@@ -148,17 +221,18 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
       const excludeIds = exactResult.rows.map((r: any) => `'${r.id}'`).join(',');
       partialQuery = `
         SELECT 
-          id, name, barcode, price, quantity_in_stock, 
-          category, brand, low_stock_threshold
-        FROM products 
+          p.id, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
+          ${categoryField}, p.brand, p.low_stock_threshold
+        FROM products p
+        LEFT JOIN categories c ON p.category = c.key
         WHERE 
-          is_active = true 
+          p.is_active = true 
           AND (
-            name ILIKE $1 
-            OR barcode ILIKE $1
+            p.name ILIKE $1 
+            OR p.barcode ILIKE $1
           )
-          AND id NOT IN (${excludeIds})
-        ORDER BY name ASC
+          AND p.id NOT IN (${excludeIds})
+        ORDER BY p.name ASC
         LIMIT $2
       `;
       const partialPattern = `%${query}%`;
@@ -167,16 +241,17 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
       // If no exact matches, just do the partial search
       partialQuery = `
         SELECT 
-          id, name, barcode, price, quantity_in_stock, 
-          category, brand, low_stock_threshold
-        FROM products 
+          p.id, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
+          ${categoryField}, p.brand, p.low_stock_threshold
+        FROM products p
+        LEFT JOIN categories c ON p.category = c.key
         WHERE 
-          is_active = true 
+          p.is_active = true 
           AND (
-            name ILIKE $1 
-            OR barcode ILIKE $1
+            p.name ILIKE $1 
+            OR p.barcode ILIKE $1
           )
-        ORDER BY name ASC
+        ORDER BY p.name ASC
         LIMIT $2
       `;
       const partialPattern = `%${query}%`;
@@ -203,23 +278,19 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
 // GET /api/products/barcode/:barcode
 router.get('/barcode/:barcode', asyncHandler(async (req: Request, res: Response) => {
   const { barcode } = barcodeSchema.parse(req.params);
-
-  // Try to get from cache first
-  const cachedProduct = await RedisManager.getCachedProduct(barcode);
-  if (cachedProduct) {
-    return res.json({
-      success: true,
-      data: { product: cachedProduct, fromCache: true }
-    });
-  }
-
+  const language = (req.query.language as string) || 'en';
+  
+  const { nameField, descField } = getLocalizedFields(language);
+  const categoryField = getLocalizedCategoryField(language);
+  
   const productQuery = `
     SELECT 
-      id, name, barcode, price, cost, quantity_in_stock, 
-      category, brand, description, image_url, 
-      is_active, created_at, updated_at
-    FROM products 
-    WHERE barcode = $1 AND is_active = true
+      p.id, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      p.low_stock_threshold
+    FROM products p
+    LEFT JOIN categories c ON p.category = c.key
+    WHERE p.barcode = $1 AND p.is_active = true
   `;
 
   const result = await DatabaseManager.query(productQuery, [barcode]);
@@ -229,23 +300,45 @@ router.get('/barcode/:barcode', asyncHandler(async (req: Request, res: Response)
     throw createError('Product not found', 404);
   }
 
-  // Cache the product for future requests
-  await RedisManager.cacheProduct(barcode, product);
-
   res.json({
     success: true,
     data: { product, fromCache: false }
   });
 }));
 
+// Categories endpoints
 // GET /api/products/categories
 router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
+  const language = (req.query.language as string) || 'en';
+  
+  let categoryNameField: string;
+  let orderByField: string;
+  
+  switch (language) {
+    case 'ru':
+      categoryNameField = 'COALESCE(c.name_ru, c.name_en, p.category) as name';
+      orderByField = 'COALESCE(c.name_ru, c.name_en, p.category)';
+      break;
+    case 'uz':
+      categoryNameField = 'COALESCE(c.name_uz, c.name_en, p.category) as name';
+      orderByField = 'COALESCE(c.name_uz, c.name_en, p.category)';
+      break;
+    default:
+      categoryNameField = 'COALESCE(c.name_en, p.category) as name';
+      orderByField = 'COALESCE(c.name_en, p.category)';
+      break;
+  }
+
   const categoriesQuery = `
-    SELECT DISTINCT category as name, COUNT(*) as product_count
-    FROM products 
-    WHERE is_active = true AND category IS NOT NULL AND category != ''
-    GROUP BY category
-    ORDER BY category ASC
+    SELECT DISTINCT 
+      p.category as key,
+      ${categoryNameField},
+      COUNT(*) as product_count
+    FROM products p
+    LEFT JOIN categories c ON p.category = c.key
+    WHERE p.is_active = true AND p.category IS NOT NULL AND p.category != ''
+    GROUP BY p.category, c.name_en, c.name_ru, c.name_uz
+    ORDER BY ${orderByField} ASC
   `;
 
   const result = await DatabaseManager.query(categoriesQuery);
@@ -256,20 +349,58 @@ router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
+// POST /api/products/categories - Create new category
+router.post('/categories', asyncHandler(async (req: Request, res: Response) => {
+  const { name_en, name_ru, name_uz } = req.body;
+
+  // Validate required fields
+  if (!name_en || !name_ru || !name_uz) {
+    throw createError('All language names are required (name_en, name_ru, name_uz)', 400);
+  }
+
+  // Create category key from English name (lowercase, replace spaces with hyphens)
+  const key = name_en.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
+  const createCategoryQuery = `
+    INSERT INTO categories (key, name_en, name_ru, name_uz, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, NOW(), NOW())
+    RETURNING id, key, name_en, name_ru, name_uz, created_at, updated_at
+  `;
+
+  try {
+    const result = await DatabaseManager.query(createCategoryQuery, [key, name_en, name_ru, name_uz]);
+
+    res.status(201).json({
+      success: true,
+      data: { category: result.rows[0] }
+    });
+  } catch (error: any) {
+    if (error.code === '23505') { // Unique constraint violation
+      throw createError('Category with this name already exists', 409);
+    }
+    throw error;
+  }
+}));
+
 // GET /api/products/low-stock - Must come before /:id route
 router.get('/low-stock', asyncHandler(async (req: Request, res: Response) => {
   const threshold = parseInt(req.query.threshold as string) || 10;
+  const language = (req.query.language as string) || 'en';
+  
+  const { nameField, descField } = getLocalizedFields(language);
+  const categoryField = getLocalizedCategoryField(language);
 
   const lowStockQuery = `
     SELECT 
-      id, name, barcode, price, cost, quantity_in_stock, 
-      low_stock_threshold, category, brand, description, image_url,
-      is_active, created_at, updated_at
-    FROM products 
+      p.id, ${nameField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      p.low_stock_threshold, ${categoryField}, p.brand, ${descField}, p.image_url,
+      p.is_active, p.created_at, p.updated_at
+    FROM products p
+    LEFT JOIN categories c ON p.category = c.key
     WHERE 
-      is_active = true 
-      AND quantity_in_stock <= COALESCE(low_stock_threshold, $1)
-    ORDER BY quantity_in_stock ASC
+      p.is_active = true 
+      AND p.quantity_in_stock <= COALESCE(p.low_stock_threshold, $1)
+    ORDER BY p.quantity_in_stock ASC
   `;
 
   const result = await DatabaseManager.query(lowStockQuery, [threshold]);
@@ -316,31 +447,34 @@ router.get('/popular', asyncHandler(async (req: Request, res: Response) => {
 
 // GET /api/products/category/:category
 router.get('/category/:category', asyncHandler(async (req: Request, res: Response) => {
-  const category = req.params.category;
-  const limit = parseInt(req.query.limit as string) || 50;
-  const offset = parseInt(req.query.offset as string) || 0;
-
-  const categoryQuery = `
+  const { category } = req.params;
+  const { limit = 50, offset = 0 } = req.query;
+  const language = (req.query.language as string) || 'en';
+  
+  const { nameField, descField } = getLocalizedFields(language);
+  const categoryField = getLocalizedCategoryField(language);
+  
+  const query = `
     SELECT 
-      id, name, barcode, price, cost, quantity_in_stock, 
-      category, brand, description, image_url, 
-      is_active, created_at, updated_at
-    FROM products 
-    WHERE category = $1 AND is_active = true
-    ORDER BY name ASC
+      p.id, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      p.low_stock_threshold
+    FROM products p
+    LEFT JOIN categories c ON p.category = c.key
+    WHERE p.category = $1 AND p.is_active = true
+    ORDER BY p.name ASC
     LIMIT $2 OFFSET $3
   `;
 
-  const result = await DatabaseManager.query(categoryQuery, [category, limit, offset]);
+  const result = await DatabaseManager.query(query, [category, Number(limit), Number(offset)]);
 
   res.json({
     success: true,
     data: {
       products: result.rows,
-      category,
       total: result.rowCount,
-      limit,
-      offset
+      limit: Number(limit),
+      offset: Number(offset)
     }
   });
 }));
@@ -353,11 +487,13 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     INSERT INTO products (
       name, barcode, price, cost, quantity_in_stock, 
       low_stock_threshold, category, brand, description, 
-      image_url, is_active, created_at, updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+      image_url, is_active, name_ru, name_uz, description_ru, description_uz,
+      created_at, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
     RETURNING id, name, barcode, price, cost, quantity_in_stock, 
              low_stock_threshold, category, brand, description, 
-             image_url, is_active, created_at, updated_at
+             image_url, is_active, name_ru, name_uz, description_ru, description_uz,
+             created_at, updated_at
   `;
 
   const values = [
@@ -371,7 +507,11 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     validatedData.brand || null,
     validatedData.description || null,
     validatedData.image_url || null,
-    validatedData.is_active !== undefined ? validatedData.is_active : true
+    validatedData.is_active !== undefined ? validatedData.is_active : true,
+    validatedData.name_ru || null,
+    validatedData.name_uz || null,
+    validatedData.description_ru || null,
+    validatedData.description_uz || null
   ];
 
   const result = await DatabaseManager.query(createQuery, values);

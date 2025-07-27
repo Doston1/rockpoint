@@ -39,6 +39,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavigationBar } from '../components/NavigationBar';
 import { useAuth } from '../hooks/useAuth';
 import { useEmployees, type CreateEmployeeData, type Employee, type UpdateEmployeeData } from '../hooks/useEmployees';
@@ -54,6 +55,7 @@ interface EmployeeFormData {
 
 const EmployeesPage = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const {
     employees,
     selectedEmployee,
@@ -149,7 +151,7 @@ const EmployeesPage = () => {
       if (result) {
         setSnackbar({
           open: true,
-          message: 'Employee created successfully',
+          message: t('employees.employeeAddedSuccess'),
           severity: 'success',
         });
         setAddDialogOpen(false);
@@ -188,7 +190,7 @@ const EmployeesPage = () => {
       if (result) {
         setSnackbar({
           open: true,
-          message: 'Employee updated successfully',
+          message: t('employees.employeeUpdatedSuccess'),
           severity: 'success',
         });
         setEditDialogOpen(false);
@@ -236,7 +238,7 @@ const EmployeesPage = () => {
       if (result) {
         setSnackbar({
           open: true,
-          message: 'Password changed successfully',
+          message: t('employees.passwordChangedSuccess'),
           severity: 'success',
         });
         setPasswordDialogOpen(false);
@@ -257,7 +259,7 @@ const EmployeesPage = () => {
       if (result) {
         setSnackbar({
           open: true,
-          message: 'Employee deleted successfully',
+          message: t('employees.employeeDeletedSuccess'),
           severity: 'success',
         });
         setDeleteDialogOpen(false);
@@ -294,7 +296,7 @@ const EmployeesPage = () => {
         <NavigationBar />
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
           <Alert severity="error">
-            Access denied. Only administrators and managers can access employee management.
+            {t('employees.accessDenied')}
           </Alert>
         </Container>
       </>
@@ -312,7 +314,7 @@ const EmployeesPage = () => {
             <Box display="flex" alignItems="center">
               <PeopleIcon sx={{ mr: 1, fontSize: 32 }} />
               <Typography variant="h4" fontWeight="bold">
-                Employee Management
+                {t('employees.employeeManagement')}
               </Typography>
             </Box>
             
@@ -322,7 +324,7 @@ const EmployeesPage = () => {
               onClick={() => setAddDialogOpen(true)}
               size="large"
             >
-              Add Employee
+              {t('employees.addEmployee')}
             </Button>
           </Box>
 
@@ -341,7 +343,7 @@ const EmployeesPage = () => {
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
-                  Total Employees
+                  {t('employees.totalEmployees')}
                 </Typography>
                 <Typography variant="h4">
                   {employees.length}
@@ -352,7 +354,7 @@ const EmployeesPage = () => {
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
-                  Active
+                  {t('employees.active')}
                 </Typography>
                 <Typography variant="h4" color="success.main">
                   {employees.filter(e => e.status === 'active').length}
@@ -363,7 +365,7 @@ const EmployeesPage = () => {
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
-                  Managers
+                  {t('employees.managers')}
                 </Typography>
                 <Typography variant="h4" color="warning.main">
                   {employees.filter(e => e.role === 'manager' || e.role === 'admin').length}
@@ -374,7 +376,7 @@ const EmployeesPage = () => {
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
-                  Cashiers
+                  {t('employees.cashiers')}
                 </Typography>
                 <Typography variant="h4" color="info.main">
                   {employees.filter(e => e.role === 'cashier' || e.role === 'supervisor').length}
@@ -395,7 +397,7 @@ const EmployeesPage = () => {
         <Paper sx={{ p: 2, mb: 2 }}>
           <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
             <TextField
-              label="Search employees"
+              label={t('employees.searchEmployees')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
@@ -406,31 +408,31 @@ const EmployeesPage = () => {
             />
             
             <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Role</InputLabel>
+              <InputLabel>{t('employees.role')}</InputLabel>
               <Select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                label="Role"
+                label={t('employees.role')}
               >
-                <MenuItem value="all">All Roles</MenuItem>
-                <MenuItem value="admin">Admin</MenuItem>
-                <MenuItem value="manager">Manager</MenuItem>
-                <MenuItem value="supervisor">Supervisor</MenuItem>
-                <MenuItem value="cashier">Cashier</MenuItem>
+                <MenuItem value="all">{t('employees.allRoles')}</MenuItem>
+                <MenuItem value="admin">{t('employees.admin')}</MenuItem>
+                <MenuItem value="manager">{t('employees.manager')}</MenuItem>
+                <MenuItem value="supervisor">{t('employees.supervisor')}</MenuItem>
+                <MenuItem value="cashier">{t('employees.cashier')}</MenuItem>
               </Select>
             </FormControl>
 
             <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Status</InputLabel>
+              <InputLabel>{t('employees.status')}</InputLabel>
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                label="Status"
+                label={t('employees.status')}
               >
-                <MenuItem value="all">All Status</MenuItem>
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="inactive">Inactive</MenuItem>
-                <MenuItem value="suspended">Suspended</MenuItem>
+                <MenuItem value="all">{t('employees.allStatus')}</MenuItem>
+                <MenuItem value="active">{t('employees.active')}</MenuItem>
+                <MenuItem value="inactive">{t('employees.inactive')}</MenuItem>
+                <MenuItem value="suspended">{t('employees.suspended')}</MenuItem>
               </Select>
             </FormControl>
 
@@ -445,12 +447,12 @@ const EmployeesPage = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Employee</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Hire Date</TableCell>
-                <TableCell>Last Login</TableCell>
-                <TableCell align="center">Actions</TableCell>
+                <TableCell>{t('employees.employee')}</TableCell>
+                <TableCell>{t('employees.role')}</TableCell>
+                <TableCell>{t('employees.status')}</TableCell>
+                <TableCell>{t('employees.hireDate')}</TableCell>
+                <TableCell>{t('employees.lastLogin')}</TableCell>
+                <TableCell align="center">{t('common.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -491,7 +493,7 @@ const EmployeesPage = () => {
                   </TableCell>
                   <TableCell align="center">
                     <Box display="flex" gap={1} justifyContent="center">
-                      <Tooltip title="View Details">
+                      <Tooltip title={t('employees.viewDetails')}>
                         <IconButton
                           size="small"
                           onClick={() => handleViewDetails(employee)}
@@ -499,7 +501,7 @@ const EmployeesPage = () => {
                           <Visibility />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Edit Employee">
+                      <Tooltip title={t('employees.editEmployee')}>
                         <IconButton
                           size="small"
                           onClick={() => handleEditEmployee(employee)}
@@ -507,7 +509,7 @@ const EmployeesPage = () => {
                           <Edit />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Change Password">
+                      <Tooltip title={t('employees.changePassword')}>
                         <IconButton
                           size="small"
                           onClick={() => {
@@ -518,7 +520,7 @@ const EmployeesPage = () => {
                           <Key />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Delete Employee">
+                      <Tooltip title={t('employees.deleteEmployee')}>
                         <IconButton
                           size="small"
                           color="error"
@@ -553,7 +555,7 @@ const EmployeesPage = () => {
 
         {/* Add Employee Dialog */}
         <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Add New Employee</DialogTitle>
+          <DialogTitle>{t('employees.addNewEmployee')}</DialogTitle>
           <DialogContent>
             <Box 
               sx={{
@@ -568,7 +570,7 @@ const EmployeesPage = () => {
             >
               <TextField
                 fullWidth
-                label="Employee ID"
+                label={t('employees.employeeId')}
                 value={formData.employee_id}
                 onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
                 required
@@ -576,39 +578,39 @@ const EmployeesPage = () => {
               
               <TextField
                 fullWidth
-                label="Full Name"
+                label={t('employees.fullName')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
               
               <FormControl fullWidth>
-                <InputLabel>Role</InputLabel>
+                <InputLabel>{t('employees.role')}</InputLabel>
                 <Select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-                  label="Role"
+                  label={t('employees.role')}
                 >
-                  <MenuItem value="cashier">Cashier</MenuItem>
-                  <MenuItem value="supervisor">Supervisor</MenuItem>
-                  <MenuItem value="manager">Manager</MenuItem>
-                  {user?.role === 'admin' && <MenuItem value="admin">Admin</MenuItem>}
+                  <MenuItem value="cashier">{t('employees.cashier')}</MenuItem>
+                  <MenuItem value="supervisor">{t('employees.supervisor')}</MenuItem>
+                  <MenuItem value="manager">{t('employees.manager')}</MenuItem>
+                  {user?.role === 'admin' && <MenuItem value="admin">{t('employees.admin')}</MenuItem>}
                 </Select>
               </FormControl>
               
               <TextField
                 fullWidth
-                label="PIN"
+                label={t('employees.pin')}
                 type="password"
                 value={formData.pin}
                 onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
-                helperText="Minimum 4 characters"
+                helperText={t('employees.minimumCharacters')}
                 required
               />
               
               <TextField
                 fullWidth
-                label="Hire Date"
+                label={t('employees.hireDate')}
                 type="date"
                 value={formData.hire_date}
                 onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
@@ -616,34 +618,34 @@ const EmployeesPage = () => {
               />
               
               <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
+                <InputLabel>{t('employees.status')}</InputLabel>
                 <Select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  label="Status"
+                  label={t('employees.status')}
                 >
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="inactive">Inactive</MenuItem>
-                  <MenuItem value="suspended">Suspended</MenuItem>
+                  <MenuItem value="active">{t('employees.active')}</MenuItem>
+                  <MenuItem value="inactive">{t('employees.inactive')}</MenuItem>
+                  <MenuItem value="suspended">{t('employees.suspended')}</MenuItem>
                 </Select>
               </FormControl>
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setAddDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button 
               onClick={handleAddEmployee} 
               variant="contained"
               disabled={!formData.employee_id || !formData.name || !formData.pin}
             >
-              Add Employee
+              {t('common.add')} {t('employees.employee')}
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* Edit Employee Dialog */}
         <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Edit Employee</DialogTitle>
+          <DialogTitle>{t('employees.editEmployee')}</DialogTitle>
           <DialogContent>
             <Box 
               sx={{
@@ -661,34 +663,34 @@ const EmployeesPage = () => {
                 label="Employee ID"
                 value={formData.employee_id}
                 disabled
-                helperText="Employee ID cannot be changed"
+                helperText={t('employees.employeeIdCannotChange')}
               />
               
               <TextField
                 fullWidth
-                label="Full Name"
+                label={t('employees.fullName')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
               
               <FormControl fullWidth>
-                <InputLabel>Role</InputLabel>
+                <InputLabel>{t('employees.role')}</InputLabel>
                 <Select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-                  label="Role"
+                  label={t('employees.role')}
                 >
-                  <MenuItem value="cashier">Cashier</MenuItem>
-                  <MenuItem value="supervisor">Supervisor</MenuItem>
-                  <MenuItem value="manager">Manager</MenuItem>
-                  {user?.role === 'admin' && <MenuItem value="admin">Admin</MenuItem>}
+                  <MenuItem value="cashier">{t('employees.cashier')}</MenuItem>
+                  <MenuItem value="supervisor">{t('employees.supervisor')}</MenuItem>
+                  <MenuItem value="manager">{t('employees.manager')}</MenuItem>
+                  {user?.role === 'admin' && <MenuItem value="admin">{t('employees.admin')}</MenuItem>}
                 </Select>
               </FormControl>
               
               <TextField
                 fullWidth
-                label="Hire Date"
+                label={t('employees.hireDate')}
                 type="date"
                 value={formData.hire_date}
                 onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
@@ -696,27 +698,27 @@ const EmployeesPage = () => {
               />
               
               <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
+                <InputLabel>{t('employees.status')}</InputLabel>
                 <Select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  label="Status"
+                  label={t('employees.status')}
                 >
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="inactive">Inactive</MenuItem>
-                  <MenuItem value="suspended">Suspended</MenuItem>
+                  <MenuItem value="active">{t('employees.active')}</MenuItem>
+                  <MenuItem value="inactive">{t('employees.inactive')}</MenuItem>
+                  <MenuItem value="suspended">{t('employees.suspended')}</MenuItem>
                 </Select>
               </FormControl>
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setEditDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button 
               onClick={handleUpdateEmployee} 
               variant="contained"
               disabled={!formData.name}
             >
-              Update Employee
+              {t('employees.updateEmployee')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -728,7 +730,7 @@ const EmployeesPage = () => {
           maxWidth="md" 
           fullWidth
         >
-          <DialogTitle>Employee Details</DialogTitle>
+          <DialogTitle>{t('employees.employeeDetails')}</DialogTitle>
           <DialogContent>
             {selectedEmployee && (
               <Box sx={{ mt: 1 }}>
@@ -751,7 +753,7 @@ const EmployeesPage = () => {
                 <Box display="flex" gap={4} mb={3}>
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Hire Date
+                      {t('employees.hireDate')}
                     </Typography>
                     <Typography variant="body1">
                       {new Date(selectedEmployee.hire_date).toLocaleDateString()}
@@ -759,12 +761,12 @@ const EmployeesPage = () => {
                   </Box>
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Last Login
+                      {t('employees.lastLogin')}
                     </Typography>
                     <Typography variant="body1">
                       {selectedEmployee.last_login 
                         ? new Date(selectedEmployee.last_login).toLocaleString()
-                        : 'Never'
+                        : t('employees.never')
                       }
                     </Typography>
                   </Box>
@@ -773,55 +775,55 @@ const EmployeesPage = () => {
                 {/* Today's Hours */}
                 <Paper sx={{ p: 2, mb: 3, bgcolor: 'background.default' }}>
                   <Typography variant="h6" gutterBottom>
-                    Today's Work Hours
+                    {t('employees.todayWorkHours')}
                   </Typography>
                   {todayHours ? (
                     <Box>
                       <Box display="flex" alignItems="center" gap={2} mb={1}>
                         <AccessTime />
                         <Typography>
-                          Clock In: {new Date(todayHours.clock_in).toLocaleTimeString()}
+                          {t('employees.clockIn')}: {new Date(todayHours.clock_in).toLocaleTimeString()}
                         </Typography>
                         {todayHours.is_clocked_in && (
-                          <Chip label="Currently Working" color="success" size="small" />
+                          <Chip label={t('employees.currentlyWorking')} color="success" size="small" />
                         )}
                       </Box>
                       {todayHours.clock_out && (
                         <Box display="flex" alignItems="center" gap={2} mb={1}>
                           <AccessTime />
                           <Typography>
-                            Clock Out: {new Date(todayHours.clock_out).toLocaleTimeString()}
+                            {t('employees.clockOut')}: {new Date(todayHours.clock_out).toLocaleTimeString()}
                           </Typography>
                         </Box>
                       )}
                       <Typography variant="body2" color="text.secondary">
-                        Hours Worked: {todayHours.hours_worked?.toFixed(2) || '0.00'} hours
+                        {t('employees.hoursWorked')}: {todayHours.hours_worked?.toFixed(2) || '0.00'} {t('employees.hours')}
                       </Typography>
                       {todayHours.notes && (
                         <Typography variant="body2" sx={{ mt: 1 }}>
-                          Notes: {todayHours.notes}
+                          {t('employees.notes')}: {todayHours.notes}
                         </Typography>
                       )}
                     </Box>
                   ) : (
                     <Typography color="text.secondary">
-                      No work hours recorded for today
+                      {t('employees.noWorkHours')}
                     </Typography>
                   )}
                 </Paper>
 
                 {/* Recent Schedule */}
                 <Typography variant="h6" gutterBottom>
-                  Recent Schedule (Last 7 Days)
+                  {t('employees.recentSchedule')}
                 </Typography>
                 <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Clock In</TableCell>
-                        <TableCell>Clock Out</TableCell>
-                        <TableCell>Hours</TableCell>
+                        <TableCell>{t('employees.date')}</TableCell>
+                        <TableCell>{t('employees.clockIn')}</TableCell>
+                        <TableCell>{t('employees.clockOut')}</TableCell>
+                        <TableCell>{t('employees.hoursWorked')}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -837,7 +839,7 @@ const EmployeesPage = () => {
                             <TableCell>
                               {log.clock_out 
                                 ? new Date(log.clock_out).toLocaleTimeString()
-                                : 'Still working'
+                                : t('employees.stillWorking')
                               }
                             </TableCell>
                             <TableCell>
@@ -848,7 +850,7 @@ const EmployeesPage = () => {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={4} align="center">
-                            No schedule data available
+                            {t('employees.noScheduleData')}
                           </TableCell>
                         </TableRow>
                       )}
@@ -859,63 +861,63 @@ const EmployeesPage = () => {
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDetailsDialogOpen(false)}>Close</Button>
+            <Button onClick={() => setDetailsDialogOpen(false)}>{t('close')}</Button>
           </DialogActions>
         </Dialog>
 
         {/* Change Password Dialog */}
         <Dialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Change Employee Password</DialogTitle>
+          <DialogTitle>{t('employees.changeEmployeePassword')}</DialogTitle>
           <DialogContent>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Changing password for: {passwordEmployee?.name}
+              {t('employees.changingPasswordFor', { name: passwordEmployee?.name })}
             </Typography>
             <TextField
               fullWidth
-              label="New PIN"
+              label={t('employees.newPin')}
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              helperText="Minimum 4 characters"
+              helperText={t('employees.minimumCharacters')}
               sx={{ mb: 2 }}
             />
             <TextField
               fullWidth
-              label="Confirm PIN"
+              label={t('employees.confirmPin')}
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               error={confirmPassword !== '' && newPassword !== confirmPassword}
-              helperText={confirmPassword !== '' && newPassword !== confirmPassword ? 'PINs do not match' : ''}
+              helperText={confirmPassword !== '' && newPassword !== confirmPassword ? t('employees.pinsDoNotMatch') : ''}
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setPasswordDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setPasswordDialogOpen(false)}>{t('employees.cancel')}</Button>
             <Button 
               onClick={handleChangePassword} 
               variant="contained"
               disabled={!newPassword || !confirmPassword || newPassword !== confirmPassword}
             >
-              Change Password
+              {t('employees.changePassword')}
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-          <DialogTitle>Delete Employee</DialogTitle>
+          <DialogTitle>{t('employees.deleteEmployee')}</DialogTitle>
           <DialogContent>
             <Typography>
-              Are you sure you want to delete "{employeeToDelete?.name}"? This action cannot be undone.
+              {t('employees.deleteEmployeeConfirm', { name: employeeToDelete?.name })}
             </Typography>
             <Alert severity="warning" sx={{ mt: 2 }}>
-              All time logs and related data for this employee will remain in the system for record keeping.
+              {t('employees.employeeDeleteWarning')}
             </Alert>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setDeleteDialogOpen(false)}>{t('employees.cancel')}</Button>
             <Button onClick={handleDeleteEmployee} color="error" variant="contained">
-              Delete
+              {t('employees.delete')}
             </Button>
           </DialogActions>
         </Dialog>
