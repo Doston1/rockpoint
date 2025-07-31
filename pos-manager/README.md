@@ -1,6 +1,6 @@
-# Zentra POS Frontend
+# RockPoint POS Frontend
 
-This is the frontend application for the Zentra Point of Sale system built with React, TypeScript, and Material-UI.
+This is the frontend application for the RockPoint Point of Sale system built with React, TypeScript, and Material-UI.
 
 ## Features
 
@@ -47,7 +47,7 @@ Create a `.env` file in the root directory with the following variables:
 ```env
 VITE_API_URL=http://localhost:3000/api
 VITE_WS_URL=ws://localhost:3000/ws
-VITE_APP_NAME=Zentra POS
+VITE_APP_NAME=RockPoint POS
 VITE_APP_VERSION=1.0.0
 VITE_DEBUG=true
 ```

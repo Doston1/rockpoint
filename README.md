@@ -1,10 +1,10 @@
-# Zentra - Branch Management Platform
+# RockPoint - Branch Management Platform
 
 A comprehensive platform for managing business branches including **supermarkets, gyms, and children's play centers**. This system provides complete POS functionality with offline-first capabilities and centralized management.
 
 ## 🧠 Overview
 
-Zentra is designed as a distributed system where each business branch operates independently with its own local infrastructure while maintaining synchronization with a central cloud service for enterprise-wide management.
+RockPoint is designed as a distributed system where each business branch operates independently with its own local infrastructure while maintaining synchronization with a central cloud service for enterprise-wide management.
 
 ### Architecture
 
@@ -16,7 +16,7 @@ Zentra is designed as a distributed system where each business branch operates i
 ## 🏗️ Project Structure
 
 ```
-Zentra/
+rockpoint/
 ├── README.md                    # Project overview and setup
 ├── .gitattributes              # Git file handling configuration
 ├── .gitignore                  # Git ignore patterns
@@ -161,8 +161,8 @@ Zentra/
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/Doston1/zentra.git
-   cd Zentra
+   git clone https://github.com/Doston1/rockpoint.git
+   cd rockpoint
    ```
 
 2. **Set up Branch Core (Backend) First**
@@ -176,7 +176,7 @@ Zentra/
    # Edit .env with your database credentials
 
    # Create PostgreSQL database
-   createdb zentra_branch
+   createdb rockpoint_branch
 
    # Run database migrations
    npm run db:migrate
@@ -280,10 +280,10 @@ Create a `.env` file in the `branch-core` directory:
 
 ```env
 # Database Configuration
-DATABASE_URL=postgresql://user:password@localhost:5432/zentra_branch
+DATABASE_URL=postgresql://user:password@localhost:5432/rockpoint_branch
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=zentra_branch
+DB_NAME=rockpoint_branch
 DB_USER=your_username
 DB_PASSWORD=your_password
 
@@ -315,7 +315,7 @@ JWT_SECRET=your-secret-key
 
 # Cloud Sync
 
-CLOUD_API_URL=https://api.zentra-cloud.com
+CLOUD_API_URL=https://api.rockpoint-cloud.com
 SYNC_INTERVAL=24h
 BRANCH_ID=branch-001
 

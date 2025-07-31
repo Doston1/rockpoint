@@ -1,4 +1,4 @@
-// Type definitions for Zentra Branch Core
+// Type definitions for RockPoint Branch Core
 
 export interface Employee {
   id: string;
