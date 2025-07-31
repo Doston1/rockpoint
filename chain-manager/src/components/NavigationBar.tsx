@@ -1,12 +1,12 @@
 import {
   AccountCircle,
+  Business,
   Dashboard,
   Logout,
-  PointOfSale,
+  Menu as MenuIcon,
   Settings,
   SignalWifi4Bar,
   SignalWifiOff,
-  Store,
 } from '@mui/icons-material';
 import {
   AppBar,
@@ -27,7 +27,11 @@ import { useAuth } from '../hooks/useAuth';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { LanguageSelector } from './LanguageSelector';
 
-export function NavigationBar() {
+interface NavigationBarProps {
+  onSidebarToggle: () => void;
+}
+
+export function NavigationBar({ onSidebarToggle }: NavigationBarProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { user, logout } = useAuth();
   const { isConnected } = useWebSocket();
@@ -46,7 +50,7 @@ export function NavigationBar() {
   const handleLogout = async () => {
     handleMenuClose();
     await logout();
-    navigate('/');
+    navigate('/login');
   };
 
   const handleNavigate = (path: string) => {
@@ -60,20 +64,27 @@ export function NavigationBar() {
       case 'admin': return 'error';
       case 'manager': return 'warning';
       case 'supervisor': return 'info';
-      case 'cashier': return 'success';
       default: return 'default';
     }
   };
 
-  const canAccessDashboard = user?.role === 'admin' || user?.role === 'manager';
-
   return (
     <AppBar position="static" elevation={1}>
       <Toolbar>
-        {/* Logo and App Name */}
-        <Store sx={{ mr: 2 }} />
+        {/* Menu Button and Logo */}
+        <IconButton
+          color="inherit"
+          aria-label="toggle sidebar"
+          edge="start"
+          onClick={onSidebarToggle}
+          sx={{ mr: 2 }}
+        >
+          <MenuIcon />
+        </IconButton>
+
+        <Business sx={{ mr: 2 }} />
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          RockPoint POS
+          RockPoint Chain Manager
         </Typography>
 
         {/* Connection Status */}
@@ -91,24 +102,13 @@ export function NavigationBar() {
 
         {/* Navigation Buttons */}
         <Box sx={{ mr: 2, display: 'flex', gap: 1 }}>
-          {canAccessDashboard && (
-            <Button
-              color="inherit"
-              startIcon={<Dashboard />}
-              onClick={() => handleNavigate('/dashboard')}
-              variant={location.pathname === '/dashboard' ? 'outlined' : 'text'}
-            >
-              {t('navigation.dashboard')}
-            </Button>
-          )}
-          
           <Button
             color="inherit"
-            startIcon={<PointOfSale />}
-            onClick={() => handleNavigate('/checkout')}
-            variant={location.pathname === '/checkout' ? 'outlined' : 'text'}
+            startIcon={<Dashboard />}
+            onClick={() => handleNavigate('/dashboard')}
+            variant={location.pathname === '/dashboard' ? 'outlined' : 'text'}
           >
-            {t('navigation.checkout')}
+            {t('navigation.dashboard')}
           </Button>
         </Box>
 

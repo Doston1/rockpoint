@@ -126,7 +126,7 @@ const LoginPage = () => {
           <Box display="flex" alignItems="center" mb={3}>
             <Store sx={{ fontSize: 40, color: 'primary.main', mr: 1 }} />
             <Typography variant="h4" color="primary" fontWeight="bold">
-              Zentra POS
+              RockPoint POS
             </Typography>
           </Box>
           

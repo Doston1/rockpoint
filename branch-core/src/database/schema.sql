@@ -1,4 +1,4 @@
--- Database schema for Zentra Branch Core
+-- Database schema for RockPoint Branch Core
 -- PostgreSQL 14+
 
 -- Extensions

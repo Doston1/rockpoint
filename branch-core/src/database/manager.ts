@@ -12,7 +12,7 @@ export class DatabaseManager {
     this.pool = new Pool({
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
-      database: process.env.DB_NAME || 'zentra_branch',
+      database: process.env.DB_NAME || 'rockpoint_branch',
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'password',
       max: 20, // Maximum number of connections in the pool

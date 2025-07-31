@@ -1,55 +1,54 @@
-import { Language } from '@mui/icons-material';
+import { Translate } from '@mui/icons-material';
 import {
-  Button,
-  ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
+    IconButton,
+    Menu,
+    MenuItem,
 } from '@mui/material';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-const languages = [
+interface Language {
+  code: string;
+  name: string;
+  flag: string;
+}
+
+const languages: Language[] = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
   { code: 'ru', name: 'Русский', flag: '🇷🇺' },
-  { code: 'uz', name: "O'zbek", flag: '🇺🇿' }
+  { code: 'uz', name: 'O\'zbek', flag: '🇺🇿' },
 ];
 
 export function LanguageSelector() {
   const { i18n } = useTranslation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleMenuClose = () => {
+  const handleClose = () => {
     setAnchorEl(null);
   };
 
   const handleLanguageChange = (languageCode: string) => {
     i18n.changeLanguage(languageCode);
-    localStorage.setItem('rockpoint-language', languageCode);
-    handleMenuClose();
+    handleClose();
   };
-
-  const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
 
   return (
     <>
-      <Button
+      <IconButton
         color="inherit"
-        startIcon={<Language />}
-        onClick={handleMenuOpen}
-        sx={{ textTransform: 'none' }}
+        onClick={handleClick}
+        aria-label="change language"
       >
-        {currentLanguage.flag} {currentLanguage.name}
-      </Button>
-
+        <Translate />
+      </IconButton>
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
+        onClose={handleClose}
         anchorOrigin={{
           vertical: 'bottom',
           horizontal: 'right',
@@ -65,10 +64,8 @@ export function LanguageSelector() {
             onClick={() => handleLanguageChange(language.code)}
             selected={language.code === i18n.language}
           >
-            <ListItemIcon sx={{ minWidth: 'auto', mr: 1 }}>
-              {language.flag}
-            </ListItemIcon>
-            <ListItemText>{language.name}</ListItemText>
+            <span style={{ marginRight: 8 }}>{language.flag}</span>
+            {language.name}
           </MenuItem>
         ))}
       </Menu>

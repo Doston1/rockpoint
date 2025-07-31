@@ -45,7 +45,7 @@ cp .env.example .env
 
 ```bash
 # Create PostgreSQL database
-createdb zentra_branch
+createdb rockpoint_branch
 
 # Run database migrations
 npm run db:migrate
@@ -132,7 +132,7 @@ npm run db:reset     # Reset database (use with --confirm)
 
 - Ensure PostgreSQL is running
 - Check database credentials in `.env`
-- Verify database exists: `createdb zentra_branch`
+- Verify database exists: `createdb rockpoint_branch`
 
 ### Redis Connection Issues
 
@@ -160,4 +160,4 @@ npm run db:reset     # Reset database (use with --confirm)
 
 ---
 
-**🎉 Your Zentra Branch Core Server is now ready to use!**
+**🎉 Your RockPoint Branch Core Server is now ready to use!**

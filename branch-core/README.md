@@ -1,6 +1,6 @@
 # Branch Core Server
 
-The backend server for Zentra branch management system. Built with Node.js, TypeScript, Express, WebSocket, and PostgreSQL.
+The backend server for RockPoint branch management system. Built with Node.js, TypeScript, Express, WebSocket, and PostgreSQL.
 
 ## 🚀 Quick Start
 
@@ -33,7 +33,7 @@ The backend server for Zentra branch management system. Built with Node.js, Type
 
    ```bash
    # Create database (if not exists)
-   createdb zentra_branch
+   createdb rockpoint_branch
 
    # Run migrations
    npm run db:migrate
@@ -168,10 +168,10 @@ PORT=3000
 WS_PORT=3001
 
 # Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/zentra_branch
+DATABASE_URL=postgresql://user:pass@localhost:5432/rockpoint_branch
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=zentra_branch
+DB_NAME=rockpoint_branch
 DB_USER=postgres
 DB_PASSWORD=password
 
@@ -189,7 +189,7 @@ BRANCH_NAME=Main Store
 BRANCH_TYPE=supermarket
 
 # Cloud Sync
-CLOUD_API_URL=https://api.zentra-cloud.com
+CLOUD_API_URL=https://api.rockpoint-cloud.com
 SYNC_INTERVAL=24h
 SYNC_ENABLED=true
 ```
@@ -281,8 +281,8 @@ npm start
 ### Docker (Future)
 
 ```bash
-docker build -t zentra-branch-core .
-docker run -p 3000:3000 zentra-branch-core
+docker build -t rockpoint-branch-core .
+docker run -p 3000:3000 rockpoint-branch-core
 ```
 
 ## 🔄 Cloud Synchronization
@@ -316,4 +316,4 @@ For technical support or questions:
 
 ---
 
-**Part of the Zentra Branch Management Platform**
+**Part of the RockPoint Branch Management Platform**

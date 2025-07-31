@@ -1,7 +1,7 @@
 {
   "name": "branch-core",
   "version": "1.0.0",
-  "description": "Backend server for Zentra branch management - Node.js + TypeScript + Express + WebSocket + PostgreSQL",
+  "description": "Backend server for RockPoint branch management - Node.js + TypeScript + Express + WebSocket + PostgreSQL",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon --exec tsx src/server.ts",
@@ -24,7 +24,7 @@
     "websocket",
     "postgresql"
   ],
-  "author": "Zentra Team",
+  "author": "RockPoint Team",
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -103,7 +103,7 @@ class BranchServer {
     // Root route
     this.app.get('/', (req: Request, res: Response) => {
       res.json({
-        message: 'Zentra Branch Core Server',
+        message: 'RockPoint Branch Core Server',
         version: process.env.npm_package_version || '1.0.0',
         branchId: process.env.BRANCH_ID,
         status: 'running',
