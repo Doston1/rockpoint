@@ -112,38 +112,12 @@ const LoginPage = () => {
             <Box sx={{ textAlign: 'center', mb: 4 }}>
               <Business sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
               <Typography variant="h4" component="h1" gutterBottom>
-                {t('auth.mainOfficeLogin')}
+                {t('auth.chainManager')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Sign in to your chain management account
+                {t('auth.signInToYourAccount')}
               </Typography>
             </Box>
-
-            {/* Default Credentials Information */}
-            <Alert severity="info" sx={{ mb: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>Default Admin Credentials:</strong>
-                  </Typography>
-                  <Typography variant="body2" component="div">
-                    Email: admin@rockpoint.com<br />
-                    Password: admin123
-                  </Typography>
-                </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => {
-                    setEmail('admin@rockpoint.com');
-                    setPassword('admin123');
-                  }}
-                  disabled={isLoggingIn}
-                >
-                  Use Default
-                </Button>
-              </Box>
-            </Alert>
 
             {error && (
               <Alert severity="error" sx={{ mb: 3 }}>
@@ -154,7 +128,7 @@ const LoginPage = () => {
             <Stack spacing={3}>
               <TextField
                 fullWidth
-                label={t('auth.email')}
+                label={t('common.email')}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -171,7 +145,7 @@ const LoginPage = () => {
 
               <TextField
                 fullWidth
-                label={t('auth.password')}
+                label={t('common.password')}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

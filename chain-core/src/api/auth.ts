@@ -26,7 +26,7 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
 
   // Find user by email
   const userQuery = `
-    SELECT id, name, email, password_hash, role, permissions, branch_id
+    SELECT id, name, email, password_hash, role, permissions
     FROM users 
     WHERE email = $1 AND is_active = true
   `;
@@ -70,7 +70,6 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
     email: user.email,
     role: user.role,
     permissions: user.permissions || [],
-    branchId: user.branch_id,
   };
 
   res.json({
@@ -147,7 +146,7 @@ router.post('/verify-token', asyncHandler(async (req: Request, res: Response) =>
     
     // Get fresh user data
     const userQuery = `
-      SELECT id, name, email, role, permissions, branch_id
+      SELECT id, name, email, role, permissions
       FROM users 
       WHERE id = $1 AND is_active = true
     `;

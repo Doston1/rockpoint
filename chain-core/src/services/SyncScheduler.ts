@@ -17,6 +17,7 @@ interface SyncTask {
 
 interface SyncResult {
   taskId: string;
+  taskType: string;
   success: boolean;
   recordsProcessed: number;
   errorMessage?: string;
@@ -101,6 +102,9 @@ export class SyncScheduler {
     // Load tasks from database
     await this.loadTasksFromDatabase();
 
+    // Save default tasks to database if they don't exist
+    await this.ensureDefaultTasksInDatabase();
+
     // Schedule all active tasks
     for (const task of this.tasks.values()) {
       if (task.isActive) {
@@ -160,6 +164,36 @@ export class SyncScheduler {
     }
   }
 
+  private async ensureDefaultTasksInDatabase(): Promise<void> {
+    try {
+      // For each task in memory, check if it exists in database and insert if not
+      for (const task of this.tasks.values()) {
+        const existingTask = await DatabaseManager.query(
+          'SELECT id FROM sync_tasks WHERE id = $1',
+          [task.id]
+        );
+
+        if (existingTask.rows.length === 0) {
+          // Task doesn't exist in database, insert it
+          await DatabaseManager.query(`
+            INSERT INTO sync_tasks (
+              id, task_type, branch_id, schedule_type, interval_minutes,
+              cron_expression, is_active, status, priority
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          `, [
+            task.id, task.type, task.branchId, task.scheduleType,
+            task.intervalMinutes, task.cronExpression, task.isActive,
+            task.status, task.priority
+          ]);
+          
+          console.log(`Created default sync task in database: ${task.type} (${task.id})`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to ensure default tasks in database:', error);
+    }
+  }
+
   private async scheduleTask(task: SyncTask): Promise<void> {
     if (task.scheduleType === 'interval' && task.intervalMinutes) {
       const intervalMs = task.intervalMinutes * 60 * 1000;
@@ -192,6 +226,7 @@ export class SyncScheduler {
       console.log(`Task ${task.id} is already running, skipping...`);
       return {
         taskId: task.id,
+        taskType: task.type,
         success: false,
         recordsProcessed: 0,
         errorMessage: 'Task already running',
@@ -255,6 +290,7 @@ export class SyncScheduler {
       
       const result: SyncResult = {
         taskId: task.id,
+        taskType: task.type,
         success: false,
         recordsProcessed: 0,
         errorMessage,
@@ -282,6 +318,7 @@ export class SyncScheduler {
     
     return {
       taskId: task.id,
+      taskType: task.type,
       success: true,
       recordsProcessed,
       duration: 0, // Will be set by caller
@@ -296,9 +333,9 @@ export class SyncScheduler {
     try {
       // Get inventory items that need syncing
       let query = `
-        SELECT id, product_id, branch_id, quantity, last_updated
-        FROM inventory
-        WHERE last_updated < NOW() - INTERVAL '1 hour'
+        SELECT id, product_id, branch_id, quantity_in_stock, updated_at
+        FROM branch_inventory
+        WHERE updated_at < NOW() - INTERVAL '1 hour'
       `;
       
       const params: any[] = [];
@@ -319,6 +356,7 @@ export class SyncScheduler {
 
     return {
       taskId: task.id,
+      taskType: task.type,
       success: true,
       recordsProcessed,
       duration: 0,
@@ -357,6 +395,7 @@ export class SyncScheduler {
 
     return {
       taskId: task.id,
+      taskType: task.type,
       success: true,
       recordsProcessed,
       duration: 0,
@@ -372,6 +411,7 @@ export class SyncScheduler {
     
     return {
       taskId: task.id,
+      taskType: task.type,
       success: true,
       recordsProcessed,
       duration: 0,
@@ -387,6 +427,7 @@ export class SyncScheduler {
     
     return {
       taskId: task.id,
+      taskType: task.type,
       success: true,
       recordsProcessed,
       duration: 0,
@@ -413,11 +454,12 @@ export class SyncScheduler {
           task_id, integration_type, entity_type, sync_status, 
           records_synced, error_message, started_at, completed_at
         ) VALUES (
-          $1, 'scheduler', (SELECT task_type FROM sync_tasks WHERE id = $1), $2, 
-          $3, $4, $5, $6
+          $1, 'scheduler', $2, $3, 
+          $4, $5, $6, $7
         )
       `, [
         result.taskId,
+        result.taskType,
         result.success ? 'completed' : 'failed',
         result.recordsProcessed,
         result.errorMessage,
