@@ -20,6 +20,7 @@ import { requestLogger } from './middleware/logger';
 
 // Import API routes
 import oneCRoutes from './api/1c';
+import oneCIntegrationRoutes from './api/1c-integration';
 import authRoutes from './api/auth';
 import branchesRoutes from './api/branches';
 import dashboardRoutes from './api/dashboard';
@@ -31,7 +32,7 @@ import reportsRoutes from './api/reports';
 // Load environment variables
 dotenv.config();
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3001; // Chain server runs on port 3001
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 class ChainServer {
@@ -106,6 +107,7 @@ class ChainServer {
     this.app.use('/api/inventory', inventoryRoutes);
     this.app.use('/api/reports', reportsRoutes);
     this.app.use('/api/1c', oneCRoutes);
+    this.app.use('/api/1c-integration', oneCIntegrationRoutes); // New comprehensive 1C API
     this.app.use('/api/dashboard', dashboardRoutes);
 
     // Serve static files (uploads, exports, etc.)

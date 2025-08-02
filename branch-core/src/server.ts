@@ -15,6 +15,7 @@ import { WebSocketManager } from './services/websocket';
 
 // Import API routes
 import authRoutes from './api/auth';
+import chainCoreRoutes from './api/chain-core';
 import employeesRoutes from './api/employees';
 import productsRoutes from './api/products';
 import reportsRoutes from './api/reports';
@@ -24,7 +25,7 @@ import transactionsRoutes from './api/transactions';
 // Load environment variables
 dotenv.config();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Branch server runs on port 3000
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 class BranchServer {
@@ -82,6 +83,7 @@ class BranchServer {
   private setupRoutes(): void {
     // API routes
     this.app.use('/api/auth', authRoutes);
+    this.app.use('/api/chain-core', chainCoreRoutes);
     this.app.use('/api/products', productsRoutes);
     this.app.use('/api/transactions', transactionsRoutes);
     this.app.use('/api/employees', employeesRoutes);

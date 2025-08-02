@@ -219,6 +219,37 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Sync tasks for scheduler
+CREATE TABLE IF NOT EXISTS sync_tasks (
+    id VARCHAR(255) PRIMARY KEY,
+    task_type VARCHAR(50) NOT NULL CHECK (task_type IN ('products', 'inventory', 'transactions', 'employees', 'branches')),
+    branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
+    schedule_type VARCHAR(20) NOT NULL CHECK (schedule_type IN ('interval', 'cron', 'manual')),
+    interval_minutes INTEGER,
+    cron_expression VARCHAR(100),
+    is_active BOOLEAN DEFAULT true,
+    last_run TIMESTAMP WITH TIME ZONE,
+    next_run TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(20) DEFAULT 'idle' CHECK (status IN ('idle', 'running', 'failed', 'completed')),
+    priority INTEGER DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Sync history for tracking sync execution results
+CREATE TABLE IF NOT EXISTS sync_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    task_id VARCHAR(255) REFERENCES sync_tasks(id) ON DELETE CASCADE,
+    integration_type VARCHAR(50) NOT NULL,
+    entity_type VARCHAR(50) NOT NULL,
+    sync_status VARCHAR(20) NOT NULL CHECK (sync_status IN ('started', 'in_progress', 'completed', 'failed')),
+    records_synced INTEGER DEFAULT 0,
+    error_message TEXT,
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 1C sync logs
 CREATE TABLE IF NOT EXISTS oneC_sync_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -290,6 +321,17 @@ CREATE INDEX IF NOT EXISTS idx_transaction_items_product_id ON transaction_items
 CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments(transaction_id);
 CREATE INDEX IF NOT EXISTS idx_payments_method ON payments(method);
 
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_task_type ON sync_tasks(task_type);
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_branch_id ON sync_tasks(branch_id);
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_status ON sync_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_is_active ON sync_tasks(is_active);
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_next_run ON sync_tasks(next_run);
+
+CREATE INDEX IF NOT EXISTS idx_sync_history_task_id ON sync_history(task_id);
+CREATE INDEX IF NOT EXISTS idx_sync_history_entity_type ON sync_history(entity_type);
+CREATE INDEX IF NOT EXISTS idx_sync_history_sync_status ON sync_history(sync_status);
+CREATE INDEX IF NOT EXISTS idx_sync_history_started_at ON sync_history(started_at);
+
 CREATE INDEX IF NOT EXISTS idx_oneC_sync_logs_sync_type ON oneC_sync_logs(sync_type);
 CREATE INDEX IF NOT EXISTS idx_oneC_sync_logs_status ON oneC_sync_logs(status);
 CREATE INDEX IF NOT EXISTS idx_oneC_sync_logs_started_at ON oneC_sync_logs(started_at);
@@ -326,6 +368,9 @@ CREATE TRIGGER update_branch_inventory_updated_at BEFORE UPDATE ON branch_invent
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_sync_tasks_updated_at BEFORE UPDATE ON sync_tasks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON system_settings

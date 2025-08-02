@@ -84,7 +84,7 @@ class ApiService {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    this.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
     
     this.api = axios.create({
       baseURL: `${this.baseURL}/api`,
@@ -110,7 +110,8 @@ class ApiService {
     this.api.interceptors.response.use(
       (response: AxiosResponse) => response,
       (error) => {
-        if (error.response?.status === 401) {
+        // Don't redirect to login if we're already on the login page or trying to login
+        if (error.response?.status === 401 && !window.location.pathname.includes('/login') && !error.config?.url?.includes('/auth/login')) {
           this.clearToken();
           window.location.href = '/login';
         }
@@ -136,16 +137,21 @@ class ApiService {
   // Auth APIs
   async login(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
     try {
+      console.log('API: Sending login request to:', `${this.baseURL}/api/auth/login`);
       const response = await this.api.post('/auth/login', { email, password });
+      console.log('API: Login response:', response.data);
       if (response.data.success) {
+        console.log('API: Login successful, storing token');
         this.setToken(response.data.data.token);
         localStorage.setItem('user_data', JSON.stringify(response.data.data.user));
       }
       return response.data;
     } catch (error: any) {
+      console.error('API: Login error:', error);
+      console.error('API: Error response:', error.response?.data);
       return {
         success: false,
-        error: error.response?.data?.error || 'Login failed',
+        error: error.response?.data?.error || error.message || 'Login failed',
       };
     }
   }
@@ -162,7 +168,7 @@ class ApiService {
 
   async verifyToken(): Promise<ApiResponse<{ user: User }>> {
     try {
-      const response = await this.api.post('/auth/verify');
+      const response = await this.api.post('/auth/verify-token');
       return response.data;
     } catch (error: any) {
       return {

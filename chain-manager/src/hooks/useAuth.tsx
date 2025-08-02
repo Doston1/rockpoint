@@ -32,13 +32,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const token = apiService.getToken();
       if (token) {
+        console.log('Found token, verifying...');
         const response = await apiService.verifyToken();
+        console.log('Verify response:', response);
         if (response.success && response.data) {
           setUser(response.data.user);
         } else {
+          console.log('Token verification failed, clearing token');
           apiService.clearToken();
           setUser(null);
         }
+      } else {
+        // Only log this during initial app load, not on every render
+        if (isLoading) {
+          console.log('No token found - user needs to login');
+        }
+        setUser(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -50,21 +59,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const login = async (email: string, password: string) => {
+    console.log('🔑 UseAuth: Login function called with:', { email, password: '***' });
     setIsLoading(true);
     try {
+      console.log('🌐 UseAuth: Calling apiService.login...');
       const response: ApiResponse<LoginResponse> = await apiService.login(email, password);
+      console.log('📨 UseAuth: API response received:', response);
       
       if (response.success && response.data) {
+        console.log('👤 UseAuth: Setting user data:', response.data.user);
         setUser(response.data.user);
         return { success: true };
       } else {
+        console.log('❌ UseAuth: Login failed:', response.error);
         return { 
           success: false, 
           error: response.error || 'Login failed' 
         };
       }
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('💥 UseAuth: Login error:', error);
       return { 
         success: false, 
         error: error.message || 'Network error occurred' 

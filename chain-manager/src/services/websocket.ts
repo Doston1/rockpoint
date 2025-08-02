@@ -22,7 +22,7 @@ class WebSocketService {
   private connectionListeners: ((connected: boolean) => void)[] = [];
 
   constructor() {
-    this.url = process.env.REACT_APP_WS_URL || 'ws://localhost:3001/ws';
+    this.url = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws';
   }
 
   connect(): void {
