@@ -183,4 +183,17 @@ router.post('/logout', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
+// Temporary endpoint to generate hash - remove after use
+router.get('/generate-hash/:password', asyncHandler(async (req: Request, res: Response) => {
+  const { password } = req.params;
+  const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
+  const hash = await bcrypt.hash(password, saltRounds);
+  
+  res.json({
+    password,
+    hash,
+    sql: `UPDATE users SET password_hash = '${hash}' WHERE email = 'admin@rockpoint.com';`
+  });
+}));
+
 export default router;

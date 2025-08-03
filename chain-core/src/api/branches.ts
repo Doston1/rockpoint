@@ -91,10 +91,10 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   
   const insertQuery = `
     INSERT INTO branches (
-      chain_id, name, code, address, phone, email, manager_name,
+      name, code, address, phone, email, manager_name,
       timezone, currency, is_active, created_at, updated_at
     ) VALUES (
-      (SELECT id FROM chains LIMIT 1), $1, $2, $3, $4, $5, $6, $7, $8, true, NOW(), NOW()
+      $1, $2, $3, $4, $5, $6, $7, $8, true, NOW(), NOW()
     )
     RETURNING id, name, code, address, phone, email, manager_name as manager,
              timezone, currency, is_active as status, created_at, updated_at

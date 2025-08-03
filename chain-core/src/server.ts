@@ -11,7 +11,6 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { DatabaseManager } from './database/manager';
 import { OneCIntegration } from './integrations/OneCIntegration';
 import { RedisManager } from './services/redis';
-import { SyncScheduler } from './services/SyncScheduler';
 import { WebSocketManager } from './services/websocket';
 
 // Import middleware
@@ -41,7 +40,6 @@ class ChainServer {
   private wsServer: WebSocketServer;
   private wsManager: WebSocketManager;
   private oneCIntegration: OneCIntegration;
-  private syncScheduler: SyncScheduler;
   private redisManager: RedisManager;
 
   constructor() {
@@ -53,7 +51,6 @@ class ChainServer {
     });
     this.wsManager = WebSocketManager.getInstance(this.httpServer);
     this.oneCIntegration = OneCIntegration.getInstance();
-    this.syncScheduler = SyncScheduler.getInstance();
     this.redisManager = RedisManager.getInstance();
 
     this.setupMiddleware();
@@ -195,10 +192,6 @@ class ChainServer {
       this.wsManager.initialize();
       console.log('✅ WebSocket server initialized');
 
-      // Start sync scheduler
-      this.syncScheduler.start();
-      console.log('✅ Sync scheduler started');
-
     } catch (error) {
       console.error('❌ Failed to start server:', error);
       process.exit(1);
@@ -209,10 +202,6 @@ class ChainServer {
     console.log(`\n🛑 Graceful shutdown initiated (${signal})`);
 
     try {
-      // Stop sync scheduler
-      this.syncScheduler.stop();
-      console.log('✅ Sync scheduler stopped');
-
       // Close WebSocket connections
       this.wsManager.closeAll();
       console.log('✅ WebSocket connections closed');

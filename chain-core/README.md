@@ -79,9 +79,10 @@ Main office server for RockPoint chain management system. This server manages mu
 
 ### 1C Integration
 
-- `POST /api/1c/sync/products` - Sync products from 1C
-- `POST /api/1c/sync/employees` - Sync employees from 1C
+- `POST /api/1c/sync/products` - Manual sync products from 1C
+- `POST /api/1c/sync/employees` - Manual sync employees from 1C
 - `GET /api/1c/status` - Get 1C connection status
+- **Note**: All 1C synchronization is manual/API-driven, no automatic background sync
 
 ### Reports
 

@@ -10,7 +10,6 @@ export interface User {
 
 export interface Branch {
   id: string;
-  chainId: string;
   name: string;
   code: string;
   address?: string;
@@ -24,6 +23,8 @@ export interface Branch {
   lastSyncAt?: Date;
   apiEndpoint?: string;
   apiKey?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Employee {
@@ -37,8 +38,10 @@ export interface Employee {
   hireDate?: Date;
   salary?: number;
   status: 'active' | 'inactive' | 'terminated';
-  syncStatus: 'synced' | 'pending' | 'error';
+  lastLogin?: Date;
   oneCId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Product {
@@ -62,6 +65,8 @@ export interface Product {
   attributes?: Record<string, any>;
   isActive: boolean;
   oneCId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Category {
@@ -77,6 +82,8 @@ export interface Category {
   sortOrder: number;
   isActive: boolean;
   oneCId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Transaction {
@@ -93,8 +100,10 @@ export interface Transaction {
   paymentMethod?: string;
   status: 'pending' | 'completed' | 'cancelled' | 'refunded';
   completedAt?: Date;
-  syncStatus: 'synced' | 'pending' | 'error';
+  notes?: string;
   oneCId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface BranchInventory {
@@ -108,7 +117,8 @@ export interface BranchInventory {
   reorderPoint?: number;
   lastCountedAt?: Date;
   lastMovementAt?: Date;
-  syncStatus: 'synced' | 'pending' | 'error';
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface OneCSync {

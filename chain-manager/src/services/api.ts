@@ -1,82 +1,203 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { transformBranch, transformCategory, transformEmployee, transformInventory, transformProduct } from '../utils/transformers';
 
-// Types
+// Types - Updated to match chain-core backend
 export interface User {
   id: string;
-  name: string;
+  username: string;
   email: string;
-  role: 'admin' | 'manager' | 'supervisor';
+  name: string;
+  role: 'super_admin' | 'chain_admin' | 'manager' | 'analyst' | 'auditor';
   permissions: string[];
-  branchId?: string;
-  branchName?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LoginResponse {
   user: User;
   token: string;
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
-  error?: string;
   message?: string;
+  error?: string;
+  timestamp: string;
+}
+
+export interface PaginatedResponse<T = any> {
+  success: boolean;
+  data: {
+    items: T[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  message?: string;
+  error?: string;
+  timestamp: string;
 }
 
 export interface Branch {
   id: string;
   name: string;
   code: string;
-  address: string;
-  phone: string;
-  email: string;
-  manager: string;
-  status: 'active' | 'inactive';
-  createdAt: string;
-  updatedAt: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  managerName?: string;
+  timezone: string;
+  currency: string;
+  taxRate: number;
+  isActive: boolean;
+  lastSyncAt?: Date;
+  apiEndpoint?: string;
+  apiKey?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Employee {
   id: string;
-  name: string;
-  code: string;
-  position: string;
-  department: string;
+  employeeId: string;
   branchId: string;
-  branchName: string;
-  hireDate: string;
-  salary: number;
-  status: 'active' | 'inactive' | 'suspended';
-  createdAt: string;
-  updatedAt: string;
+  name: string;
+  role: 'admin' | 'manager' | 'supervisor' | 'cashier';
+  phone?: string;
+  email?: string;
+  hireDate?: Date;
+  salary?: number;
+  status: 'active' | 'inactive' | 'terminated';
+  lastLogin?: Date;
+  oneCId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Product {
   id: string;
-  name: string;
-  code: string;
+  sku: string;
   barcode?: string;
-  category: string;
-  price: number;
-  cost: number;
-  quantity: number;
-  lowStockThreshold: number;
+  name: string;
+  nameRu?: string;
+  nameUz?: string;
   description?: string;
+  descriptionRu?: string;
+  descriptionUz?: string;
+  categoryId?: string;
+  brand?: string;
+  unitOfMeasure: string;
+  basePrice: number;
+  cost?: number;
+  taxRate: number;
   imageUrl?: string;
-  status: 'active' | 'inactive';
-  createdAt: string;
-  updatedAt: string;
+  images?: string[];
+  attributes?: Record<string, any>;
+  isActive: boolean;
+  oneCId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Category {
+  id: string;
+  key: string;
+  name: string;
+  nameRu?: string;
+  nameUz?: string;
+  description?: string;
+  descriptionRu?: string;
+  descriptionUz?: string;
+  parentId?: string;
+  sortOrder: number;
+  isActive: boolean;
+  oneCId?: string;
+}
+
+export interface BranchInventory {
+  id: string;
+  branchId: string;
+  productId: string;
+  quantityInStock: number;
+  reservedQuantity: number;
+  minStockLevel: number;
+  maxStockLevel?: number;
+  reorderPoint?: number;
+  lastCountedAt?: Date;
+  lastMovementAt?: Date;
+}
+
+export interface Transaction {
+  id: string;
+  branchId: string;
+  transactionNumber: string;
+  employeeId?: string;
+  customerId?: string;
+  terminalId?: string;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  paymentMethod?: string;
+  status: 'pending' | 'completed' | 'cancelled' | 'refunded';
+  completedAt?: Date;
+  oneCId?: string;
 }
 
 export interface DashboardStats {
-  totalBranches: number;
-  totalEmployees: number;
-  totalProducts: number;
-  totalSales: number;
-  recentActivity: any[];
-  branchPerformance: any[];
-  salesOverview: any[];
+  today_sales: {
+    transaction_count: number;
+    total_sales: number;
+    average_sale: number;
+  };
+  month_sales: {
+    transaction_count: number;
+    total_sales: number;
+  };
+  active_employees: number;
+  low_stock_items: number;
+  recent_transactions: Array<{
+    id: string;
+    total_amount: number;
+    payment_method: string;
+    created_at: string;
+    employee_name: string;
+    branch_name: string;
+  }>;
+}
+
+export interface Promotion {
+  id: string;
+  branchId: string;
+  name: string;
+  description?: string;
+  type: 'percentage' | 'fixed_amount' | 'buy_x_get_y' | 'bulk_discount';
+  productId?: string;
+  categoryId?: string;
+  discountPercentage?: number;
+  discountAmount?: number;
+  minQuantity?: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface OneCSync {
+  id: string;
+  syncType: 'products' | 'categories' | 'employees' | 'transactions' | 'inventory';
+  direction: 'import' | 'export';
+  status: 'started' | 'in_progress' | 'completed' | 'failed';
+  recordsProcessed: number;
+  recordsFailed: number;
+  errorMessage?: string;
+  startedAt: Date;
+  completedAt?: Date;
 }
 
 class ApiService {
@@ -134,7 +255,7 @@ class ApiService {
     localStorage.removeItem('user_data');
   }
 
-  // Auth APIs
+    // Auth APIs
   async login(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
     try {
       console.log('API: Sending login request to:', `${this.baseURL}/api/auth/login`);
@@ -152,6 +273,7 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || error.message || 'Login failed',
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -174,32 +296,44 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Token verification failed',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
   // Dashboard APIs
-  async getDashboardStats(): Promise<ApiResponse<DashboardStats>> {
+  async getDashboardStats(branchId?: string): Promise<ApiResponse<DashboardStats>> {
     try {
-      const response = await this.api.get('/dashboard/stats');
+      const params = branchId ? { branch_id: branchId } : {};
+      const response = await this.api.get('/dashboard/overview', { params });
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch dashboard stats',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
   // Branch APIs
-  async getBranches(): Promise<ApiResponse<Branch[]>> {
+  async getBranches(): Promise<ApiResponse<{ branches: Branch[] }>> {
     try {
       const response = await this.api.get('/branches');
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: {
+            branches: response.data.data.branches.map(transformBranch)
+          }
+        };
+      }
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch branches',
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -212,30 +346,33 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch branch',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
-  async createBranch(branch: Partial<Branch>): Promise<ApiResponse<Branch>> {
+  async createBranch(branchData: Partial<Branch>): Promise<ApiResponse<Branch>> {
     try {
-      const response = await this.api.post('/branches', branch);
+      const response = await this.api.post('/branches', branchData);
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to create branch',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
-  async updateBranch(id: string, branch: Partial<Branch>): Promise<ApiResponse<Branch>> {
+  async updateBranch(id: string, branchData: Partial<Branch>): Promise<ApiResponse<Branch>> {
     try {
-      const response = await this.api.put(`/branches/${id}`, branch);
+      const response = await this.api.put(`/branches/${id}`, branchData);
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to update branch',
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -248,19 +385,30 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to delete branch',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
   // Employee APIs
-  async getEmployees(): Promise<ApiResponse<Employee[]>> {
+  async getEmployees(branchId?: string): Promise<ApiResponse<{ employees: Employee[] }>> {
     try {
-      const response = await this.api.get('/employees');
+      const params = branchId ? { branch_id: branchId } : {};
+      const response = await this.api.get('/employees', { params });
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: {
+            employees: response.data.data.employees.map(transformEmployee)
+          }
+        };
+      }
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch employees',
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -273,30 +421,33 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch employee',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
-  async createEmployee(employee: Partial<Employee>): Promise<ApiResponse<Employee>> {
+  async createEmployee(employeeData: Partial<Employee>): Promise<ApiResponse<Employee>> {
     try {
-      const response = await this.api.post('/employees', employee);
+      const response = await this.api.post('/employees', employeeData);
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to create employee',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
-  async updateEmployee(id: string, employee: Partial<Employee>): Promise<ApiResponse<Employee>> {
+  async updateEmployee(id: string, employeeData: Partial<Employee>): Promise<ApiResponse<Employee>> {
     try {
-      const response = await this.api.put(`/employees/${id}`, employee);
+      const response = await this.api.put(`/employees/${id}`, employeeData);
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to update employee',
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -309,19 +460,29 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to delete employee',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
   // Product APIs
-  async getProducts(): Promise<ApiResponse<Product[]>> {
+  async getProducts(filters?: { category?: string; branch_id?: string; is_active?: boolean }): Promise<ApiResponse<{ products: Product[] }>> {
     try {
-      const response = await this.api.get('/products');
+      const response = await this.api.get('/products', { params: filters });
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: {
+            products: response.data.data.products.map(transformProduct)
+          }
+        };
+      }
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch products',
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -334,30 +495,33 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch product',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
-  async createProduct(product: Partial<Product>): Promise<ApiResponse<Product>> {
+  async createProduct(productData: Partial<Product>): Promise<ApiResponse<Product>> {
     try {
-      const response = await this.api.post('/products', product);
+      const response = await this.api.post('/products', productData);
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to create product',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
-  async updateProduct(id: string, product: Partial<Product>): Promise<ApiResponse<Product>> {
+  async updateProduct(id: string, productData: Partial<Product>): Promise<ApiResponse<Product>> {
     try {
-      const response = await this.api.put(`/products/${id}`, product);
+      const response = await this.api.put(`/products/${id}`, productData);
       return response.data;
     } catch (error: any) {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to update product',
+        timestamp: new Date().toISOString(),
       };
     }
   }
@@ -370,22 +534,280 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to delete product',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Category APIs
+  async getCategories(): Promise<ApiResponse<{ categories: Category[] }>> {
+    try {
+      const response = await this.api.get('/products/categories');
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: {
+            categories: response.data.data.categories.map(transformCategory)
+          }
+        };
+      }
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch categories',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async createCategory(categoryData: Partial<Category>): Promise<ApiResponse<Category>> {
+    try {
+      const response = await this.api.post('/products/categories', categoryData);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to create category',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Inventory APIs
+  async getGeneralInventory(): Promise<ApiResponse<{ inventory: BranchInventory[] }>> {
+    try {
+      const response = await this.api.get('/inventory');
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: {
+            inventory: response.data.data.inventory.map(transformInventory)
+          }
+        };
+      }
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch general inventory',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getBranchInventory(branchId: string): Promise<ApiResponse<{ inventory: BranchInventory[] }>> {
+    try {
+      const response = await this.api.get(`/inventory/branch/${branchId}`);
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: {
+            inventory: response.data.data.inventory.map(transformInventory)
+          }
+        };
+      }
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch inventory',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async updateInventory(branchId: string, productId: string, data: Partial<BranchInventory>): Promise<ApiResponse<BranchInventory>> {
+    try {
+      const response = await this.api.put(`/inventory/branch/${branchId}/product/${productId}`, data);
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: transformInventory(response.data.data)
+        };
+      }
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to update inventory',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Promotions APIs
+  async getBranchPromotions(branchId: string): Promise<ApiResponse<{ promotions: Promotion[] }>> {
+    try {
+      const response = await this.api.get(`/promotions/branch/${branchId}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch promotions',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async createPromotion(branchId: string, data: Omit<Promotion, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Promotion>> {
+    try {
+      const response = await this.api.post(`/promotions/branch/${branchId}`, data);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to create promotion',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async updatePromotion(promotionId: string, data: Partial<Promotion>): Promise<ApiResponse<Promotion>> {
+    try {
+      const response = await this.api.put(`/promotions/${promotionId}`, data);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to update promotion',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async deletePromotion(promotionId: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.delete(`/promotions/${promotionId}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to delete promotion',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Sync to Branch APIs (placeholders for future branch-specific sync)
+  async syncProductsToBranch(branchId: string): Promise<ApiResponse<{ synced: number }>> {
+    try {
+      // Placeholder - will be implemented when branch endpoints are ready
+      console.log(`Syncing products to branch ${branchId}`);
+      return {
+        success: true,
+        data: { synced: 0 },
+        message: 'Products sync initiated (placeholder)',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: 'Failed to sync products to branch',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async syncPricesToBranch(branchId: string): Promise<ApiResponse<{ synced: number }>> {
+    try {
+      // Placeholder - will be implemented when branch endpoints are ready
+      console.log(`Syncing prices to branch ${branchId}`);
+      return {
+        success: true,
+        data: { synced: 0 },
+        message: 'Prices sync initiated (placeholder)',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: 'Failed to sync prices to branch',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async syncPromotionsToBranch(branchId: string): Promise<ApiResponse<{ synced: number }>> {
+    try {
+      // Placeholder - will be implemented when branch endpoints are ready
+      console.log(`Syncing promotions to branch ${branchId}`);
+      return {
+        success: true,
+        data: { synced: 0 },
+        message: 'Promotions sync initiated (placeholder)',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: 'Failed to sync promotions to branch',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Sync APIs
+  async getOneCStatus(): Promise<ApiResponse<OneCSync[]>> {
+    try {
+      const response = await this.api.get('/1c/status');
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch 1C sync status',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async triggerSync(syncType: OneCSync['syncType'], direction: OneCSync['direction'] = 'import'): Promise<ApiResponse<OneCSync>> {
+    try {
+      const response = await this.api.post('/1c/sync', { syncType, direction });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to trigger sync',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 
   // Reports APIs
-  async getReports(type: string, params?: any): Promise<ApiResponse<any>> {
+  async getSalesReport(filters: { 
+    dateFrom?: string; 
+    dateTo?: string; 
+    branchIds?: string[]; 
+    employeeIds?: string[]; 
+  }): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.get(`/reports/${type}`, { params });
+      const response = await this.api.get('/reports/sales', { params: filters });
       return response.data;
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to fetch reports',
+        error: error.response?.data?.error || 'Failed to fetch sales report',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getInventoryReport(branchId?: string): Promise<ApiResponse<any>> {
+    try {
+      const params = branchId ? { branch_id: branchId } : {};
+      const response = await this.api.get('/reports/inventory', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch inventory report',
+        timestamp: new Date().toISOString(),
       };
     }
   }
 }
 
-export const apiService = new ApiService();
+// Create and export API service instance
+const apiService = new ApiService();
+export default apiService;

@@ -9,15 +9,17 @@ const router = Router();
 const createInventoryItemSchema = z.object({
   product_id: z.string().uuid('Valid product ID is required'),
   branch_id: z.string().uuid('Valid branch ID is required'),
-  quantity: z.number().min(0, 'Quantity must be non-negative'),
-  min_stock: z.number().min(0, 'Minimum stock must be non-negative').default(0),
-  max_stock: z.number().min(0, 'Maximum stock must be non-negative').optional(),
+  quantity_in_stock: z.number().min(0, 'Quantity must be non-negative'),
+  min_stock_level: z.number().min(0, 'Minimum stock must be non-negative').default(0),
+  max_stock_level: z.number().min(0, 'Maximum stock must be non-negative').optional(),
+  reorder_point: z.number().min(0, 'Reorder point must be non-negative').optional(),
 });
 
 const updateInventorySchema = z.object({
-  quantity: z.number().min(0, 'Quantity must be non-negative').optional(),
-  min_stock: z.number().min(0, 'Minimum stock must be non-negative').optional(),
-  max_stock: z.number().min(0, 'Maximum stock must be non-negative').optional(),
+  quantity_in_stock: z.number().min(0, 'Quantity must be non-negative').optional(),
+  min_stock_level: z.number().min(0, 'Minimum stock must be non-negative').optional(),
+  max_stock_level: z.number().min(0, 'Maximum stock must be non-negative').optional(),
+  reorder_point: z.number().min(0, 'Reorder point must be non-negative').optional(),
 });
 
 const adjustInventorySchema = z.object({
@@ -32,12 +34,13 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   
   let query = `
     SELECT 
-      i.id, i.product_id, i.branch_id, i.quantity, i.min_stock, i.max_stock,
-      i.last_updated, i.created_at,
-      p.name as product_name, p.sku, p.barcode, p.price,
+      i.id, i.product_id, i.branch_id, i.quantity_in_stock, i.min_stock_level, 
+      i.max_stock_level, i.reorder_point, i.last_counted_at, i.last_movement_at, 
+      i.created_at, i.updated_at,
+      p.name as product_name, p.sku, p.barcode, p.base_price,
       b.name as branch_name,
       c.name as category_name
-    FROM inventory i
+    FROM branch_inventory i
     LEFT JOIN products p ON i.product_id = p.id
     LEFT JOIN branches b ON i.branch_id = b.id
     LEFT JOIN categories c ON p.category_id = c.id
@@ -60,7 +63,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   }
   
   if (low_stock === 'true') {
-    query += ` AND i.quantity <= i.min_stock`;
+    query += ` AND i.quantity_in_stock <= i.min_stock_level`;
   }
   
   query += ` ORDER BY p.name ASC`;
@@ -72,9 +75,9 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     data: {
       inventory: result.rows.map((item: any) => ({
         ...item,
-        is_low_stock: item.quantity <= item.min_stock,
-        stock_status: item.quantity === 0 ? 'out_of_stock' : 
-                     item.quantity <= item.min_stock ? 'low_stock' : 'in_stock'
+        is_low_stock: item.quantity_in_stock <= item.min_stock_level,
+        stock_status: item.quantity_in_stock === 0 ? 'out_of_stock' : 
+                     item.quantity_in_stock <= item.min_stock_level ? 'low_stock' : 'in_stock'
       }))
     }
   });
@@ -86,12 +89,13 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   
   const query = `
     SELECT 
-      i.id, i.product_id, i.branch_id, i.quantity, i.min_stock, i.max_stock,
-      i.last_updated, i.created_at,
-      p.name as product_name, p.sku, p.barcode, p.price,
+      i.id, i.product_id, i.branch_id, i.quantity_in_stock, i.min_stock_level, 
+      i.max_stock_level, i.reorder_point, i.last_counted_at, i.last_movement_at, 
+      i.created_at, i.updated_at,
+      p.name as product_name, p.sku, p.barcode, p.base_price,
       b.name as branch_name,
       c.name as category_name
-    FROM inventory i
+    FROM branch_inventory i
     LEFT JOIN products p ON i.product_id = p.id
     LEFT JOIN branches b ON i.branch_id = b.id
     LEFT JOIN categories c ON p.category_id = c.id
@@ -154,7 +158,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   
   // Check if inventory item already exists
   const existingItem = await DatabaseManager.query(
-    'SELECT id FROM inventory WHERE product_id = $1 AND branch_id = $2',
+    'SELECT id FROM branch_inventory WHERE product_id = $1 AND branch_id = $2',
     [validatedData.product_id, validatedData.branch_id]
   );
   
@@ -166,21 +170,23 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   }
   
   const insertQuery = `
-    INSERT INTO inventory (
-      product_id, branch_id, quantity, min_stock, max_stock,
-      last_updated, created_at
+    INSERT INTO branch_inventory (
+      product_id, branch_id, quantity_in_stock, min_stock_level, max_stock_level, reorder_point,
+      created_at, updated_at
     ) VALUES (
-      $1, $2, $3, $4, $5, NOW(), NOW()
+      $1, $2, $3, $4, $5, $6, NOW(), NOW()
     )
-    RETURNING id, product_id, branch_id, quantity, min_stock, max_stock, last_updated, created_at
+    RETURNING id, product_id, branch_id, quantity_in_stock, min_stock_level, max_stock_level, 
+             reorder_point, created_at, updated_at
   `;
   
   const result = await DatabaseManager.query(insertQuery, [
     validatedData.product_id,
     validatedData.branch_id,
-    validatedData.quantity,
-    validatedData.min_stock,
-    validatedData.max_stock
+    validatedData.quantity_in_stock,
+    validatedData.min_stock_level,
+    validatedData.max_stock_level,
+    validatedData.reorder_point
   ]);
   
   res.status(201).json({
@@ -196,7 +202,7 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   
   // Check if inventory item exists
   const existingItem = await DatabaseManager.query(
-    'SELECT id FROM inventory WHERE id = $1',
+    'SELECT id FROM branch_inventory WHERE id = $1',
     [id]
   );
   
@@ -231,10 +237,11 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   values.push(id);
   
   const updateQuery = `
-    UPDATE inventory 
+    UPDATE branch_inventory 
     SET ${updateFields.join(', ')}
     WHERE id = $${paramIndex}
-    RETURNING id, product_id, branch_id, quantity, min_stock, max_stock, last_updated, created_at
+    RETURNING id, product_id, branch_id, quantity_in_stock, min_stock_level, max_stock_level, 
+             reorder_point, created_at, updated_at
   `;
   
   const result = await DatabaseManager.query(updateQuery, values);
@@ -252,7 +259,7 @@ router.post('/:id/adjust', asyncHandler(async (req: Request, res: Response) => {
   
   // Get current inventory item
   const currentItem = await DatabaseManager.query(
-    'SELECT * FROM inventory WHERE id = $1',
+    'SELECT * FROM branch_inventory WHERE id = $1',
     [id]
   );
   
@@ -264,14 +271,14 @@ router.post('/:id/adjust', asyncHandler(async (req: Request, res: Response) => {
   }
   
   const current = currentItem.rows[0];
-  let newQuantity = current.quantity;
+  let newQuantity = current.quantity_in_stock;
   
   switch (adjustment_type) {
     case 'increase':
       newQuantity += quantity;
       break;
     case 'decrease':
-      newQuantity = Math.max(0, current.quantity - quantity);
+      newQuantity = Math.max(0, current.quantity_in_stock - quantity);
       break;
     case 'set':
       newQuantity = quantity;
@@ -280,22 +287,20 @@ router.post('/:id/adjust', asyncHandler(async (req: Request, res: Response) => {
   
   // Update inventory
   const updateResult = await DatabaseManager.query(
-    'UPDATE inventory SET quantity = $1, last_updated = NOW() WHERE id = $2 RETURNING *',
+    'UPDATE branch_inventory SET quantity_in_stock = $1, last_movement_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING *',
     [newQuantity, id]
   );
   
-  // Log the adjustment
+  // Log the stock movement
   await DatabaseManager.query(`
-    INSERT INTO inventory_adjustments (
-      inventory_id, previous_quantity, new_quantity, adjustment_type, 
-      quantity_changed, reason, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    INSERT INTO stock_movements (
+      branch_id, product_id, movement_type, quantity, notes, created_at
+    ) VALUES ($1, $2, $3, $4, $5, NOW())
   `, [
-    id, 
-    current.quantity, 
-    newQuantity, 
-    adjustment_type, 
-    Math.abs(newQuantity - current.quantity),
+    current.branch_id, 
+    current.product_id, 
+    'adjustment',
+    newQuantity - current.quantity_in_stock,
     reason
   ]);
   
@@ -304,7 +309,7 @@ router.post('/:id/adjust', asyncHandler(async (req: Request, res: Response) => {
     data: { 
       inventory_item: updateResult.rows[0],
       adjustment: {
-        previous_quantity: current.quantity,
+        previous_quantity: current.quantity_in_stock,
         new_quantity: newQuantity,
         adjustment_type,
         reason
@@ -313,25 +318,41 @@ router.post('/:id/adjust', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
-// GET /api/inventory/:id/history - Get inventory adjustment history
+// GET /api/inventory/:id/history - Get stock movement history
 router.get('/:id/history', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   
+  // First get the branch_id and product_id for this inventory item
+  const inventoryItem = await DatabaseManager.query(
+    'SELECT branch_id, product_id FROM branch_inventory WHERE id = $1',
+    [id]
+  );
+  
+  if (inventoryItem.rows.length === 0) {
+    return res.status(404).json({
+      success: false,
+      error: 'Inventory item not found'
+    });
+  }
+  
+  const { branch_id, product_id } = inventoryItem.rows[0];
+  
   const query = `
     SELECT 
-      ia.id, ia.previous_quantity, ia.new_quantity, ia.adjustment_type,
-      ia.quantity_changed, ia.reason, ia.created_at
-    FROM inventory_adjustments ia
-    WHERE ia.inventory_id = $1
-    ORDER BY ia.created_at DESC
+      sm.id, sm.movement_type, sm.quantity, sm.notes, sm.created_at,
+      e.name as employee_name
+    FROM stock_movements sm
+    LEFT JOIN employees e ON sm.employee_id = e.id
+    WHERE sm.branch_id = $1 AND sm.product_id = $2
+    ORDER BY sm.created_at DESC
     LIMIT 50
   `;
   
-  const result = await DatabaseManager.query(query, [id]);
+  const result = await DatabaseManager.query(query, [branch_id, product_id]);
   
   res.json({
     success: true,
-    data: { adjustments: result.rows }
+    data: { movements: result.rows }
   });
 }));
 
@@ -340,7 +361,7 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   
   const result = await DatabaseManager.query(
-    'DELETE FROM inventory WHERE id = $1 RETURNING id',
+    'DELETE FROM branch_inventory WHERE id = $1 RETURNING id',
     [id]
   );
   

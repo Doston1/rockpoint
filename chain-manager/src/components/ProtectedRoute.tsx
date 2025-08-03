@@ -23,7 +23,9 @@ export function ProtectedRoute({ children, permissions = [] }: ProtectedRoutePro
   if (permissions.length > 0 && user) {
     const hasPermission = permissions.some(permission => 
       user.permissions.includes(permission) || 
-      user.role === 'admin' // Admin has all permissions
+      user.permissions.includes('*') || // User has all permissions
+      user.role === 'super_admin' || // Super admin has all permissions
+      user.role === 'chain_admin' // Chain admin has all permissions
     );
 
     if (!hasPermission) {

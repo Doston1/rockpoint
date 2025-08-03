@@ -7,6 +7,7 @@ export class DatabaseManager {
   private static instance: DatabaseManager;
   private pool: Pool;
   private isInitialized = false;
+  private verboseLogging = true;
 
   private constructor() {
     this.pool = new Pool({
@@ -84,12 +85,18 @@ export class DatabaseManager {
       const result = await this.pool.query(text, params);
       const duration = Date.now() - start;
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📊 Query executed:', { 
-          text: text.substring(0, 100) + (text.length > 100 ? '...' : ''), 
-          duration: `${duration}ms`, 
-          rows: result.rowCount 
-        });
+      // Only log verbose query info if enabled and in development
+      if (process.env.NODE_ENV === 'development' && this.verboseLogging) {
+        // Skip logging frequent sync task updates to reduce noise
+        const isSyncTaskUpdate = text.includes('UPDATE sync_tasks');
+        
+        if (!isSyncTaskUpdate) {
+          console.log('📊 Query executed:', { 
+            text: text.substring(0, 100) + (text.length > 100 ? '...' : ''), 
+            duration: `${duration}ms`, 
+            rows: result.rowCount 
+          });
+        }
       }
       
       return result;
@@ -193,5 +200,15 @@ export class DatabaseManager {
       LIMIT 5
     `);
     return result.rows;
+  }
+
+  // Control verbose logging
+  public setVerboseLogging(enabled: boolean): void {
+    this.verboseLogging = enabled;
+  }
+
+  public static setVerboseLogging(enabled: boolean): void {
+    const instance = DatabaseManager.getInstance();
+    instance.setVerboseLogging(enabled);
   }
 }
