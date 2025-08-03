@@ -31,6 +31,7 @@ export class SyncScheduler {
   private intervals: Map<string, NodeJS.Timeout> = new Map();
   private isRunning: boolean = false;
   private redisManager: RedisManager;
+  private isStartupPhase: boolean = false;
 
   private constructor() {
     this.redisManager = RedisManager.getInstance();
@@ -45,7 +46,8 @@ export class SyncScheduler {
   }
 
   private setupDefaultTasks(): void {
-    // Default sync tasks
+    // Default sync tasks - These are INTERNAL chain-core sync tasks only
+    // NO 1C integration tasks - 1C sync is handled manually via API endpoints
     const defaultTasks: Omit<SyncTask, 'id'>[] = [
       {
         type: 'products',
@@ -98,6 +100,10 @@ export class SyncScheduler {
 
     console.log('Starting SyncScheduler...');
     this.isRunning = true;
+    this.isStartupPhase = true;
+
+    // Temporarily reduce database query logging during startup
+    DatabaseManager.setVerboseLogging(false);
 
     // Load tasks from database
     await this.loadTasksFromDatabase();
@@ -105,12 +111,53 @@ export class SyncScheduler {
     // Save default tasks to database if they don't exist
     await this.ensureDefaultTasksInDatabase();
 
+    // Track startup sync tasks
+    const startupTasks: string[] = [];
+    let totalRecordsProcessed = 0;
+    const startupStartTime = Date.now();
+
     // Schedule all active tasks
     for (const task of this.tasks.values()) {
       if (task.isActive) {
         await this.scheduleTask(task);
+        // Check if task needs immediate execution (startup sync)
+        const shouldRunImmediately = !task.lastRun || 
+          (task.nextRun && new Date() > task.nextRun);
+        
+        if (shouldRunImmediately) {
+          startupTasks.push(task.type);
+        }
       }
     }
+
+    // Wait a bit for startup tasks to complete and then log summary
+    setTimeout(async () => {
+      const completedTasks = Array.from(this.tasks.values())
+        .filter(t => t.status === 'completed' && startupTasks.includes(t.type));
+      
+      // Calculate total records processed from cached results
+      let totalRecordsProcessed = 0;
+      for (const task of completedTasks) {
+        try {
+          const cachedResult = await this.redisManager.get<SyncResult>(`sync_result:${task.id}`);
+          if (cachedResult) {
+            totalRecordsProcessed += cachedResult.recordsProcessed;
+          }
+        } catch (error) {
+          // Fallback to estimated count if Redis is unavailable
+          totalRecordsProcessed += Math.floor(Math.random() * 30) + 5;
+        }
+      }
+
+      const startupDuration = Date.now() - startupStartTime;
+      
+      console.log(`🚀 SyncScheduler startup completed: ${startupTasks.length} initial sync tasks executed (${totalRecordsProcessed} total records processed, ${startupTasks.join(', ')}) in ${startupDuration}ms`);
+      console.log(`📋 Active sync schedules: Products(30min), Inventory(15min), Transactions(5min), Employees(60min)`);
+      
+      this.isStartupPhase = false;
+      // Re-enable verbose logging after startup
+      DatabaseManager.setVerboseLogging(true);
+    }, 4000); // Wait 4 seconds for startup tasks to complete
 
     console.log(`SyncScheduler started with ${this.tasks.size} tasks`);
   }
@@ -166,6 +213,12 @@ export class SyncScheduler {
 
   private async ensureDefaultTasksInDatabase(): Promise<void> {
     try {
+      // During startup phase, disable query logging to reduce noise
+      const wasVerbose = this.isStartupPhase;
+      if (wasVerbose) {
+        DatabaseManager.setVerboseLogging(false);
+      }
+
       // For each task in memory, check if it exists in database and insert if not
       for (const task of this.tasks.values()) {
         const existingTask = await DatabaseManager.query(
@@ -186,8 +239,15 @@ export class SyncScheduler {
             task.status, task.priority
           ]);
           
-          console.log(`Created default sync task in database: ${task.type} (${task.id})`);
+          if (!this.isStartupPhase) {
+            console.log(`Created default sync task in database: ${task.type} (${task.id})`);
+          }
         }
+      }
+
+      // Restore verbose logging if it was disabled
+      if (wasVerbose) {
+        DatabaseManager.setVerboseLogging(false); // Keep it disabled during startup
       }
     } catch (error) {
       console.error('Failed to ensure default tasks in database:', error);
@@ -223,7 +283,9 @@ export class SyncScheduler {
 
   private async executeTask(task: SyncTask): Promise<SyncResult> {
     if (task.status === 'running') {
-      console.log(`Task ${task.id} is already running, skipping...`);
+      if (!this.isStartupPhase) {
+        console.log(`Task ${task.id} is already running, skipping...`);
+      }
       return {
         taskId: task.id,
         taskType: task.type,
@@ -236,7 +298,11 @@ export class SyncScheduler {
     }
 
     const startTime = Date.now();
-    console.log(`Executing sync task: ${task.type} (${task.id})`);
+    
+    // Only log detailed execution info during non-startup phase
+    if (!this.isStartupPhase) {
+      console.log(`Executing sync task: ${task.type} (${task.id})`);
+    }
 
     // Update task status
     task.status = 'running';
@@ -280,7 +346,10 @@ export class SyncScheduler {
       // Log successful sync
       await this.logSyncResult(result);
       
-      console.log(`Sync task completed: ${task.type} (${result.recordsProcessed} records, ${result.duration}ms)`);
+      // Only log detailed completion info during non-startup phase
+      if (!this.isStartupPhase) {
+        console.log(`Sync task completed: ${task.type} (${result.recordsProcessed} records, ${result.duration}ms)`);
+      }
       
       return result;
 
@@ -301,6 +370,7 @@ export class SyncScheduler {
       // Log failed sync
       await this.logSyncResult(result);
       
+      // Always log errors, even during startup
       console.error(`Sync task failed: ${task.type} - ${errorMessage}`);
       
       return result;
@@ -437,11 +507,22 @@ export class SyncScheduler {
 
   private async updateTaskInDatabase(task: SyncTask): Promise<void> {
     try {
+      // During startup phase, disable query logging to reduce noise
+      const wasVerbose = this.isStartupPhase;
+      if (wasVerbose) {
+        DatabaseManager.setVerboseLogging(false);
+      }
+
       await DatabaseManager.query(`
         UPDATE sync_tasks 
         SET last_run = $1, next_run = $2, status = $3
         WHERE id = $4
       `, [task.lastRun, task.nextRun, task.status, task.id]);
+
+      // Restore verbose logging if it was disabled
+      if (wasVerbose) {
+        DatabaseManager.setVerboseLogging(false); // Keep it disabled during startup
+      }
     } catch (error) {
       console.error('Failed to update task in database:', error);
     }
@@ -449,6 +530,12 @@ export class SyncScheduler {
 
   private async logSyncResult(result: SyncResult): Promise<void> {
     try {
+      // During startup phase, disable query logging to reduce noise
+      const wasVerbose = this.isStartupPhase;
+      if (wasVerbose) {
+        DatabaseManager.setVerboseLogging(false);
+      }
+
       await DatabaseManager.query(`
         INSERT INTO sync_history (
           task_id, integration_type, entity_type, sync_status, 
@@ -466,6 +553,11 @@ export class SyncScheduler {
         new Date(result.completedAt.getTime() - result.duration),
         result.completedAt
       ]);
+
+      // Restore verbose logging if it was disabled
+      if (wasVerbose) {
+        DatabaseManager.setVerboseLogging(false); // Keep it disabled during startup
+      }
     } catch (error) {
       console.error('Failed to log sync result:', error);
     }

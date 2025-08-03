@@ -52,15 +52,15 @@ import { InventoryDialog } from '../components/inventory/InventoryDialog';
 import { ProductDialog } from '../components/inventory/ProductDialog';
 import { PromotionDialog } from '../components/inventory/PromotionDialog';
 import { StockAdjustmentDialog } from '../components/inventory/StockAdjustmentDialog';
-import { useCategories } from '../hooks';
 import { useBranches } from '../hooks/useBranches';
+import { useCategories } from '../hooks/useCategories';
 import { useInventoryManagement } from '../hooks/useInventoryManagement';
 import { BranchInventory, Product, Promotion } from '../services/api';
 
 const InventoryPage = () => {
   const { t } = useTranslation();
   const { branches, isLoading: branchesLoading } = useBranches();
-  const { categories } = useCategories();
+  const { categories, isLoading: categoriesLoading } = useCategories();
   
   const {
     generalInventory,
@@ -122,16 +122,9 @@ const InventoryPage = () => {
   const currentInventory = selectedBranchId ? branchInventory : generalInventory;
   const isLoading = selectedBranchId ? isLoadingBranch : isLoadingGeneral;
 
-  // Safe fallbacks for data
-  const safeCategories = categories || [];
-  const safeBranches = branches || [];
-  const safeProducts = products || [];
-  const safePromotions = promotions || [];
-  const safeCurrentInventory = currentInventory || [];
-
   // Filter products based on search and filters
   const filteredProducts = useMemo(() => {
-    return safeProducts.filter(product => {
+    return products.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (product.barcode && product.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -140,12 +133,12 @@ const InventoryPage = () => {
       
       return matchesSearch && matchesActive;
     });
-  }, [safeProducts, searchTerm, showActiveOnly]);
+  }, [products, searchTerm, showActiveOnly]);
 
   // Filter inventory based on search and filters
   const filteredInventory = useMemo(() => {
-    const inventoryWithProducts = safeCurrentInventory.map(item => {
-      const product = safeProducts.find(p => p.id === item.productId);
+    const inventoryWithProducts = currentInventory.map(item => {
+      const product = products.find(p => p.id === item.productId);
       return { ...item, product };
     }).filter(item => item.product);
 
@@ -158,7 +151,7 @@ const InventoryPage = () => {
       
       return matchesSearch && matchesLowStock;
     });
-  }, [safeCurrentInventory, safeProducts, searchTerm, showLowStockOnly]);
+  }, [currentInventory, products, searchTerm, showLowStockOnly]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -500,13 +493,13 @@ const InventoryPage = () => {
       field: 'basePrice', 
       headerName: t('inventory.price'), 
       width: 100,
-      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '$0.00'
+      valueFormatter: (value: number) => `$${value.toFixed(2)}`
     },
     { 
       field: 'cost', 
       headerName: t('inventory.cost'), 
       width: 100,
-      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '-'
+      valueFormatter: (value: number) => value ? `$${value.toFixed(2)}` : '-'
     },
     { 
       field: 'isActive', 
@@ -604,7 +597,7 @@ const InventoryPage = () => {
   ];
 
   // Show loading spinner if essential data is loading
-  if (branchesLoading) {
+  if (branchesLoading || categoriesLoading) {
     return <LoadingSpinner />;
   }
 
@@ -679,7 +672,7 @@ const InventoryPage = () => {
                 <MenuItem value="">
                   <em>{t('inventory.generalInventory')}</em>
                 </MenuItem>
-                {safeBranches.map(branch => (
+                {branches.map(branch => (
                   <MenuItem key={branch.id} value={branch.id}>
                     {branch.name} ({branch.code})
                   </MenuItem>
@@ -892,7 +885,7 @@ const InventoryPage = () => {
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">
-                {t('inventory.promotions')} ({safePromotions.length})
+                {t('inventory.promotions')} ({promotions.length})
               </Typography>
               <Button
                 variant="contained"
@@ -917,7 +910,7 @@ const InventoryPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {safePromotions.map((promotion) => (
+                  {promotions.map((promotion) => (
                     <TableRow key={promotion.id}>
                       <TableCell>{promotion.name}</TableCell>
                       <TableCell>
@@ -968,7 +961,7 @@ const InventoryPage = () => {
         onClose={() => setProductDialogOpen(false)}
         onSave={handleSaveProduct}
         product={editingProduct}
-        categories={safeCategories}
+        categories={categories}
         isLoading={isLoadingProducts}
       />
 
@@ -978,8 +971,8 @@ const InventoryPage = () => {
           onClose={() => setPromotionDialogOpen(false)}
           onSave={handleSavePromotion}
           promotion={editingPromotion}
-          categories={safeCategories}
-          products={safeProducts}
+          categories={categories}
+          products={products}
           branchId={selectedBranchId}
           isLoading={isLoadingPromotions}
         />

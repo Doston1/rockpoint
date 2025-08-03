@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ApiResponse, LoginResponse, User } from '../services/api';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 
 export interface AuthContextType {
   user: User | null;

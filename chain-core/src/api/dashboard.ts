@@ -72,14 +72,14 @@ router.get('/overview', asyncHandler(async (req: Request, res: Response) => {
   // Low stock items
   let lowStockQuery = `
     SELECT COUNT(*) as low_stock_items
-    FROM inventory i
-    JOIN products p ON i.product_id = p.id
-    WHERE i.quantity <= i.min_stock
+    FROM branch_inventory bi
+    JOIN products p ON bi.product_id = p.id
+    WHERE bi.quantity_in_stock <= bi.min_stock_level
     AND p.is_active = true
   `;
   
   if (branch_id) {
-    lowStockQuery += ` AND i.branch_id = $1`;
+    lowStockQuery += ` AND bi.branch_id = $1`;
     const lowStockResult = await DatabaseManager.query(lowStockQuery, [branch_id]);
   } else {
     var lowStockResult = await DatabaseManager.query(lowStockQuery);

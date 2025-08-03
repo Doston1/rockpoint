@@ -8,14 +8,20 @@ const router = Router();
 // Validation schemas
 const createProductSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
+  name_ru: z.string().optional(),
+  name_uz: z.string().optional(),
   sku: z.string().min(1, 'SKU is required'),
   barcode: z.string().optional(),
   category_id: z.string().uuid('Valid category ID is required'),
-  price: z.number().min(0, 'Price must be non-negative'),
+  base_price: z.number().min(0, 'Price must be non-negative'),
   cost: z.number().min(0, 'Cost must be non-negative').optional(),
   description: z.string().optional(),
-  unit: z.string().default('pcs'),
+  description_ru: z.string().optional(),
+  description_uz: z.string().optional(),
+  brand: z.string().optional(),
+  unit_of_measure: z.string().default('pcs'),
   tax_rate: z.number().min(0).max(1).default(0),
+  image_url: z.string().optional(),
   is_active: z.boolean().default(true),
 });
 
@@ -27,9 +33,11 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   
   let query = `
     SELECT 
-      p.id, p.name, p.sku, p.barcode, p.category_id, p.price, p.cost,
-      p.description, p.unit, p.tax_rate, p.is_active, p.created_at, p.updated_at,
-      c.name as category_name
+      p.id, p.name, p.name_ru, p.name_uz, p.sku, p.barcode, p.category_id, 
+      p.base_price, p.cost, p.description, p.description_ru, p.description_uz,
+      p.brand, p.unit_of_measure, p.tax_rate, p.image_url, p.is_active, 
+      p.created_at, p.updated_at,
+      c.name as category_name, c.name_ru as category_name_ru, c.name_uz as category_name_uz
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE 1=1
@@ -68,15 +76,81 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
+// GET /api/products/categories - Get all categories
+router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
+  const query = `
+    SELECT id, key, name, name_ru, name_uz, description, description_ru, description_uz, 
+           parent_id, sort_order, is_active, created_at, updated_at
+    FROM categories
+    WHERE is_active = true
+    ORDER BY sort_order ASC, name ASC
+  `;
+  
+  const result = await DatabaseManager.query(query);
+  
+  res.json({
+    success: true,
+    data: { categories: result.rows }
+  });
+}));
+
+// POST /api/products/categories - Create new category
+router.post('/categories', asyncHandler(async (req: Request, res: Response) => {
+  const { key, name, name_ru, name_uz, description, description_ru, description_uz, parent_id, sort_order } = z.object({
+    key: z.string().min(1, 'Category key is required'),
+    name: z.string().min(1, 'Category name is required'),
+    name_ru: z.string().optional(),
+    name_uz: z.string().optional(),
+    description: z.string().optional(),
+    description_ru: z.string().optional(),
+    description_uz: z.string().optional(),
+    parent_id: z.string().uuid().optional(),
+    sort_order: z.number().default(0),
+  }).parse(req.body);
+  
+  // Check if category key already exists
+  const existingCategory = await DatabaseManager.query(
+    'SELECT id FROM categories WHERE key = $1',
+    [key]
+  );
+  
+  if (existingCategory.rows.length > 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Category key already exists'
+    });
+  }
+  
+  const insertQuery = `
+    INSERT INTO categories (key, name, name_ru, name_uz, description, description_ru, description_uz, 
+                           parent_id, sort_order, is_active, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW(), NOW())
+    RETURNING id, key, name, name_ru, name_uz, description, description_ru, description_uz, 
+             parent_id, sort_order, is_active, created_at, updated_at
+  `;
+  
+  const result = await DatabaseManager.query(insertQuery, [
+    key, name, name_ru, name_uz, description, description_ru, description_uz, 
+    parent_id, sort_order
+  ]);
+  
+  res.status(201).json({
+    success: true,
+    data: { category: result.rows[0] }
+  });
+}));
+
 // GET /api/products/:id - Get specific product
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   
   const query = `
     SELECT 
-      p.id, p.name, p.sku, p.barcode, p.category_id, p.price, p.cost,
-      p.description, p.unit, p.tax_rate, p.is_active, p.created_at, p.updated_at,
-      c.name as category_name
+      p.id, p.name, p.name_ru, p.name_uz, p.sku, p.barcode, p.category_id, 
+      p.base_price, p.cost, p.description, p.description_ru, p.description_uz,
+      p.brand, p.unit_of_measure, p.tax_rate, p.image_url, p.is_active, 
+      p.created_at, p.updated_at,
+      c.name as category_name, c.name_ru as category_name_ru, c.name_uz as category_name_uz
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE p.id = $1
@@ -103,9 +177,11 @@ router.get('/by-sku/:sku', asyncHandler(async (req: Request, res: Response) => {
   
   const query = `
     SELECT 
-      p.id, p.name, p.sku, p.barcode, p.category_id, p.price, p.cost,
-      p.description, p.unit, p.tax_rate, p.is_active, p.created_at, p.updated_at,
-      c.name as category_name
+      p.id, p.name, p.name_ru, p.name_uz, p.sku, p.barcode, p.category_id, 
+      p.base_price, p.cost, p.description, p.description_ru, p.description_uz,
+      p.brand, p.unit_of_measure, p.tax_rate, p.image_url, p.is_active, 
+      p.created_at, p.updated_at,
+      c.name as category_name, c.name_ru as category_name_ru, c.name_uz as category_name_uz
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE p.sku = $1
@@ -132,9 +208,11 @@ router.get('/by-barcode/:barcode', asyncHandler(async (req: Request, res: Respon
   
   const query = `
     SELECT 
-      p.id, p.name, p.sku, p.barcode, p.category_id, p.price, p.cost,
-      p.description, p.unit, p.tax_rate, p.is_active, p.created_at, p.updated_at,
-      c.name as category_name
+      p.id, p.name, p.name_ru, p.name_uz, p.sku, p.barcode, p.category_id, 
+      p.base_price, p.cost, p.description, p.description_ru, p.description_uz,
+      p.brand, p.unit_of_measure, p.tax_rate, p.image_url, p.is_active, 
+      p.created_at, p.updated_at,
+      c.name as category_name, c.name_ru as category_name_ru, c.name_uz as category_name_uz
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE p.barcode = $1
@@ -202,37 +280,47 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   
   const insertQuery = `
     INSERT INTO products (
-      name, sku, barcode, category_id, price, cost, description,
-      unit, tax_rate, is_active, created_at, updated_at
+      name, name_ru, name_uz, sku, barcode, category_id, base_price, cost, 
+      description, description_ru, description_uz, brand, unit_of_measure, 
+      tax_rate, image_url, is_active, created_at, updated_at
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW()
     )
-    RETURNING id, name, sku, barcode, category_id, price, cost, description,
-             unit, tax_rate, is_active, created_at, updated_at
+    RETURNING id, name, name_ru, name_uz, sku, barcode, category_id, base_price, cost, 
+             description, description_ru, description_uz, brand, unit_of_measure, 
+             tax_rate, image_url, is_active, created_at, updated_at
   `;
   
   const result = await DatabaseManager.query(insertQuery, [
     validatedData.name,
+    validatedData.name_ru,
+    validatedData.name_uz,
     validatedData.sku,
     validatedData.barcode,
     validatedData.category_id,
-    validatedData.price,
+    validatedData.base_price,
     validatedData.cost,
     validatedData.description,
-    validatedData.unit,
+    validatedData.description_ru,
+    validatedData.description_uz,
+    validatedData.brand,
+    validatedData.unit_of_measure,
     validatedData.tax_rate,
+    validatedData.image_url,
     validatedData.is_active
   ]);
   
   // Get category name for response
   const categoryResult = await DatabaseManager.query(
-    'SELECT name FROM categories WHERE id = $1',
+    'SELECT name, name_ru, name_uz FROM categories WHERE id = $1',
     [validatedData.category_id]
   );
   
   const product = {
     ...result.rows[0],
-    category_name: categoryResult.rows[0]?.name
+    category_name: categoryResult.rows[0]?.name,
+    category_name_ru: categoryResult.rows[0]?.name_ru,
+    category_name_uz: categoryResult.rows[0]?.name_uz
   };
   
   res.status(201).json({
@@ -316,21 +404,24 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
     UPDATE products 
     SET ${updateFields.join(', ')}
     WHERE id = $${paramIndex}
-    RETURNING id, name, sku, barcode, category_id, price, cost, description,
-             unit, tax_rate, is_active, created_at, updated_at
+    RETURNING id, name, name_ru, name_uz, sku, barcode, category_id, base_price, cost, 
+             description, description_ru, description_uz, brand, unit_of_measure, 
+             tax_rate, image_url, is_active, created_at, updated_at
   `;
   
   const result = await DatabaseManager.query(updateQuery, values);
   
   // Get category name for response
   const categoryResult = await DatabaseManager.query(
-    'SELECT name FROM categories WHERE id = $1',
+    'SELECT name, name_ru, name_uz FROM categories WHERE id = $1',
     [result.rows[0].category_id]
   );
   
   const product = {
     ...result.rows[0],
-    category_name: categoryResult.rows[0]?.name
+    category_name: categoryResult.rows[0]?.name,
+    category_name_ru: categoryResult.rows[0]?.name_ru,
+    category_name_uz: categoryResult.rows[0]?.name_uz
   };
   
   res.json({
@@ -358,57 +449,6 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'Product deactivated successfully'
-  });
-}));
-
-// GET /api/products/categories - Get all categories
-router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
-  const query = `
-    SELECT id, name, description, is_active, created_at, updated_at
-    FROM categories
-    WHERE is_active = true
-    ORDER BY name ASC
-  `;
-  
-  const result = await DatabaseManager.query(query);
-  
-  res.json({
-    success: true,
-    data: { categories: result.rows }
-  });
-}));
-
-// POST /api/products/categories - Create new category
-router.post('/categories', asyncHandler(async (req: Request, res: Response) => {
-  const { name, description } = z.object({
-    name: z.string().min(1, 'Category name is required'),
-    description: z.string().optional(),
-  }).parse(req.body);
-  
-  // Check if category name already exists
-  const existingCategory = await DatabaseManager.query(
-    'SELECT id FROM categories WHERE name = $1',
-    [name]
-  );
-  
-  if (existingCategory.rows.length > 0) {
-    return res.status(400).json({
-      success: false,
-      error: 'Category name already exists'
-    });
-  }
-  
-  const insertQuery = `
-    INSERT INTO categories (name, description, is_active, created_at, updated_at)
-    VALUES ($1, $2, true, NOW(), NOW())
-    RETURNING id, name, description, is_active, created_at, updated_at
-  `;
-  
-  const result = await DatabaseManager.query(insertQuery, [name, description]);
-  
-  res.status(201).json({
-    success: true,
-    data: { category: result.rows[0] }
   });
 }));
 

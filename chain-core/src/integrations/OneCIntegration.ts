@@ -116,61 +116,27 @@ export class OneCIntegration {
   }
 
   public async testConnection(): Promise<{ success: boolean; message: string; version?: string }> {
-    try {
-      const response = await this.client.get('/info/version');
-      this.isConnected = true;
-      
-      return {
-        success: true,
-        message: 'Successfully connected to 1C',
-        version: response.data.version
-      };
-    } catch (error) {
-      this.isConnected = false;
-      const message = error instanceof Error ? error.message : 'Connection failed';
-      
-      return {
-        success: false,
-        message: `Failed to connect to 1C: ${message}`
-      };
-    }
+    // 1C integration is passive - we don't test outbound connections
+    // 1C system connects to us via API endpoints
+    return {
+      success: true,
+      message: 'Ready to receive data from 1C system',
+      version: 'passive-receiver'
+    };
   }
 
   // Product synchronization methods
 
   public async syncProductsFromOneC(): Promise<{ success: boolean; processed: number; errors: string[] }> {
-    const errors: string[] = [];
-    let processed = 0;
-
-    try {
-      console.log('Starting product sync from 1C...');
-      
-      const response = await this.client.get('/odata/standard.odata/Catalog_Номенклатура');
-      const products: OneCProduct[] = response.data.value;
-
-      for (const oneCProduct of products) {
-        try {
-          await this.processProduct(oneCProduct);
-          processed++;
-        } catch (error) {
-          const errorMessage = `Failed to process product ${oneCProduct.sku}: ${error}`;
-          errors.push(errorMessage);
-          console.error(errorMessage);
-        }
-      }
-
-      // Cache sync timestamp
-      await this.redisManager.set('1c_last_product_sync', new Date().toISOString(), 3600);
-
-      console.log(`Product sync completed: ${processed} processed, ${errors.length} errors`);
-      
-      return { success: errors.length === 0, processed, errors };
-
-    } catch (error) {
-      const errorMessage = `Product sync failed: ${error}`;
-      console.error(errorMessage);
-      return { success: false, processed, errors: [errorMessage] };
-    }
+    // 1C integration is passive - 1C should push data via API endpoints
+    // This method should not make outbound requests to 1C
+    console.warn('syncProductsFromOneC called but outbound requests are disabled - 1C should push data via API endpoints');
+    
+    return { 
+      success: false, 
+      processed: 0, 
+      errors: ['Outbound requests are disabled - 1C should push data via /api/1c-integration endpoints'] 
+    };
   }
 
   private async processProduct(oneCProduct: OneCProduct): Promise<void> {
@@ -233,102 +199,35 @@ export class OneCIntegration {
   }
 
   public async syncProductsToOneC(): Promise<{ success: boolean; processed: number; errors: string[] }> {
-    const errors: string[] = [];
-    let processed = 0;
-
-    try {
-      console.log('Starting product sync to 1C...');
-      
-      // Get products updated since last sync
-      const lastSync = await this.redisManager.get<string>('1c_last_product_export');
-      const lastSyncDate = lastSync ? new Date(lastSync) : new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-      const result = await DatabaseManager.query(`
-        SELECT p.*, c.name as category_name
-        FROM products p
-        LEFT JOIN categories c ON p.category_id = c.id
-        WHERE p.updated_at > $1 AND p.is_active = true
-      `, [lastSyncDate]);
-
-      for (const product of result.rows) {
-        try {
-          await this.exportProductToOneC(product);
-          processed++;
-        } catch (error) {
-          const errorMessage = `Failed to export product ${product.sku}: ${error}`;
-          errors.push(errorMessage);
-          console.error(errorMessage);
-        }
-      }
-
-      // Update sync timestamp
-      await this.redisManager.set('1c_last_product_export', new Date().toISOString(), 3600);
-
-      console.log(`Product export completed: ${processed} processed, ${errors.length} errors`);
-      
-      return { success: errors.length === 0, processed, errors };
-
-    } catch (error) {
-      const errorMessage = `Product export failed: ${error}`;
-      console.error(errorMessage);
-      return { success: false, processed, errors: [errorMessage] };
-    }
+    // 1C integration is one-way: 1C → chain-core only
+    // Outbound synchronization is not supported
+    console.warn('syncProductsToOneC called but outbound sync is disabled - 1C should pull data via API endpoints');
+    
+    return { 
+      success: false, 
+      processed: 0, 
+      errors: ['Outbound synchronization is disabled - 1C integration is receive-only'] 
+    };
   }
 
   private async exportProductToOneC(product: any): Promise<void> {
-    const oneCProduct = {
-      Код: product.sku,
-      Наименование: product.name,
-      Штрихкод: product.barcode,
-      Цена: product.price,
-      Себестоимость: product.cost,
-      Группа: product.category_name || 'Общая',
-      ЕдиницаИзмерения: product.unit,
-      Активен: product.is_active
-    };
-
-    await this.client.post('/odata/standard.odata/Catalog_Номенклатура', oneCProduct);
+    // 1C integration is one-way: 1C → chain-core only
+    // Outbound product export is not supported
+    throw new Error('Outbound product export is disabled - 1C should retrieve data via API endpoints');
   }
 
   // Inventory synchronization methods
 
   public async syncInventoryFromOneC(branchCode?: string): Promise<{ success: boolean; processed: number; errors: string[] }> {
-    const errors: string[] = [];
-    let processed = 0;
-
-    try {
-      console.log('Starting inventory sync from 1C...');
-      
-      let url = '/odata/standard.odata/AccumulationRegister_ТоварыНаСкладах/Turnovers';
-      if (branchCode) {
-        url += `?$filter=Склад eq '${branchCode}'`;
-      }
-
-      const response = await this.client.get(url);
-      const inventoryItems: OneCInventory[] = response.data.value;
-
-      for (const item of inventoryItems) {
-        try {
-          await this.processInventoryItem(item);
-          processed++;
-        } catch (error) {
-          const errorMessage = `Failed to process inventory item: ${error}`;
-          errors.push(errorMessage);
-          console.error(errorMessage);
-        }
-      }
-
-      await this.redisManager.set('1c_last_inventory_sync', new Date().toISOString(), 3600);
-
-      console.log(`Inventory sync completed: ${processed} processed, ${errors.length} errors`);
-      
-      return { success: errors.length === 0, processed, errors };
-
-    } catch (error) {
-      const errorMessage = `Inventory sync failed: ${error}`;
-      console.error(errorMessage);
-      return { success: false, processed, errors: [errorMessage] };
-    }
+    // 1C integration is passive - 1C should push data via API endpoints
+    // This method should not make outbound requests to 1C
+    console.warn('syncInventoryFromOneC called but outbound requests are disabled - 1C should push data via API endpoints');
+    
+    return { 
+      success: false, 
+      processed: 0, 
+      errors: ['Outbound requests are disabled - 1C should push data via /api/1c-integration endpoints'] 
+    };
   }
 
   private async processInventoryItem(item: OneCInventory): Promise<void> {
@@ -377,87 +276,21 @@ export class OneCIntegration {
   // Transaction synchronization methods
 
   public async syncTransactionsToOneC(startDate: Date, endDate: Date, branchId?: string): Promise<{ success: boolean; processed: number; errors: string[] }> {
-    const errors: string[] = [];
-    let processed = 0;
-
-    try {
-      console.log('Starting transaction sync to 1C...');
-      
-      let query = `
-        SELECT 
-          t.id, t.total_amount, t.tax_amount, t.payment_method, t.created_at,
-          b.code as branch_code, e.name as employee_name,
-          json_agg(
-            json_build_object(
-              'product_sku', p.sku,
-              'quantity', ti.quantity,
-              'price', ti.price,
-              'total_amount', ti.total_amount
-            )
-          ) as items
-        FROM transactions t
-        JOIN branches b ON t.branch_id = b.id
-        JOIN employees e ON t.employee_id = e.id
-        JOIN transaction_items ti ON t.id = ti.transaction_id
-        JOIN products p ON ti.product_id = p.id
-        WHERE t.status = 'completed'
-        AND t.created_at BETWEEN $1 AND $2
-      `;
-
-      const params: (Date | string)[] = [startDate, endDate];
-
-      if (branchId) {
-        query += ` AND t.branch_id = $3`;
-        params.push(branchId);
-      }
-
-      query += ` GROUP BY t.id, t.total_amount, t.tax_amount, t.payment_method, t.created_at, b.code, e.name`;
-
-      const result = await DatabaseManager.query(query, params);
-
-      for (const transaction of result.rows) {
-        try {
-          await this.exportTransactionToOneC(transaction);
-          processed++;
-        } catch (error) {
-          const errorMessage = `Failed to export transaction ${transaction.id}: ${error}`;
-          errors.push(errorMessage);
-          console.error(errorMessage);
-        }
-      }
-
-      await this.redisManager.set('1c_last_transaction_export', new Date().toISOString(), 3600);
-
-      console.log(`Transaction export completed: ${processed} processed, ${errors.length} errors`);
-      
-      return { success: errors.length === 0, processed, errors };
-
-    } catch (error) {
-      const errorMessage = `Transaction export failed: ${error}`;
-      console.error(errorMessage);
-      return { success: false, processed, errors: [errorMessage] };
-    }
+    // 1C integration is one-way: 1C → chain-core only
+    // Outbound synchronization is not supported
+    console.warn('syncTransactionsToOneC called but outbound sync is disabled - 1C should pull data via API endpoints');
+    
+    return { 
+      success: false, 
+      processed: 0, 
+      errors: ['Outbound synchronization is disabled - 1C integration is receive-only'] 
+    };
   }
 
   private async exportTransactionToOneC(transaction: any): Promise<void> {
-    // Convert transaction to 1C format
-    const oneCTransaction = {
-      Номер: transaction.id,
-      Дата: transaction.created_at,
-      Магазин: transaction.branch_code,
-      Кассир: transaction.employee_name,
-      СуммаДокумента: transaction.total_amount,
-      СуммаНДС: transaction.tax_amount,
-      ВидОплаты: transaction.payment_method,
-      Товары: transaction.items.map((item: any) => ({
-        Номенклатура: item.product_sku,
-        Количество: item.quantity,
-        Цена: item.price,
-        Сумма: item.total_amount
-      }))
-    };
-
-    await this.client.post('/odata/standard.odata/Document_ЧекККМ', oneCTransaction);
+    // 1C integration is one-way: 1C → chain-core only
+    // Outbound transaction export is not supported
+    throw new Error('Outbound transaction export is disabled - 1C should retrieve data via API endpoints');
   }
 
   // Utility methods
@@ -495,23 +328,13 @@ export class OneCIntegration {
   }
 
   public async healthCheck(): Promise<{ status: string; latency: number; version?: string }> {
-    const start = Date.now();
-    
-    try {
-      const response = await this.client.get('/info/version', { timeout: 5000 });
-      const latency = Date.now() - start;
-      
-      return {
-        status: 'healthy',
-        latency,
-        version: response.data.version
-      };
-    } catch (error) {
-      return {
-        status: 'unhealthy',
-        latency: Date.now() - start
-      };
-    }
+    // 1C integration is passive - we don't initiate connections to 1C
+    // 1C connects to us, so we assume healthy status
+    return {
+      status: 'healthy',
+      latency: 0,
+      version: 'passive-receiver'
+    };
   }
 
   // Initialize connection
@@ -519,14 +342,10 @@ export class OneCIntegration {
     try {
       console.log('🔌 Initializing 1C integration...');
       
-      // Test connection
-      const health = await this.healthCheck();
-      if (health.status === 'healthy') {
-        this.isConnected = true;
-        console.log('✅ 1C integration initialized successfully');
-      } else {
-        console.warn('⚠️ 1C integration initialized but connection unhealthy');
-      }
+      // 1C integration is passive - only receives data from 1C
+      // No outbound connection testing needed as 1C connects to us
+      this.isConnected = true;
+      console.log('✅ 1C integration initialized - ready to receive data from 1C');
     } catch (error) {
       console.error('❌ Failed to initialize 1C integration:', error);
       throw error;

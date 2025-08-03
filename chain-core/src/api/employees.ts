@@ -8,21 +8,22 @@ const router = Router();
 
 // Validation schemas
 const createEmployeeSchema = z.object({
+  employee_id: z.string().min(1, 'Employee ID is required'),
   name: z.string().min(1, 'Employee name is required'),
-  email: z.string().email('Valid email is required'),
+  email: z.string().email('Valid email is required').optional(),
   phone: z.string().optional(),
   role: z.enum(['admin', 'manager', 'supervisor', 'cashier']),
   branch_id: z.string().uuid('Valid branch ID is required'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  pin: z.string().min(4, 'PIN must be at least 4 characters'),
   salary: z.number().optional(),
   hire_date: z.string().optional(),
 });
 
-const updateEmployeeSchema = createEmployeeSchema.partial().omit({ password: true });
+const updateEmployeeSchema = createEmployeeSchema.partial().omit({ pin: true });
 
-const changePasswordSchema = z.object({
-  current_password: z.string().min(1, 'Current password is required'),
-  new_password: z.string().min(6, 'New password must be at least 6 characters'),
+const changePinSchema = z.object({
+  current_pin: z.string().min(1, 'Current PIN is required'),
+  new_pin: z.string().min(4, 'New PIN must be at least 4 characters'),
 });
 
 // GET /api/employees - Get all employees
@@ -31,8 +32,8 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   
   let query = `
     SELECT 
-      e.id, e.name, e.email, e.phone, e.role, e.branch_id,
-      e.salary, e.hire_date, e.status, e.created_at, e.updated_at,
+      e.id, e.employee_id, e.name, e.email, e.phone, e.role, e.branch_id,
+      e.salary, e.hire_date, e.status, e.last_login, e.created_at, e.updated_at,
       b.name as branch_name
     FROM employees e
     LEFT JOIN branches b ON e.branch_id = b.id
@@ -78,8 +79,8 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   
   const query = `
     SELECT 
-      e.id, e.name, e.email, e.phone, e.role, e.branch_id,
-      e.salary, e.hire_date, e.status, e.created_at, e.updated_at,
+      e.id, e.employee_id, e.name, e.email, e.phone, e.role, e.branch_id,
+      e.salary, e.hire_date, e.status, e.last_login, e.created_at, e.updated_at,
       b.name as branch_name
     FROM employees e
     LEFT JOIN branches b ON e.branch_id = b.id
@@ -105,17 +106,32 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const validatedData = createEmployeeSchema.parse(req.body);
   
-  // Check if email already exists
+  // Check if employee_id already exists
   const existingEmployee = await DatabaseManager.query(
-    'SELECT id FROM employees WHERE email = $1',
-    [validatedData.email]
+    'SELECT id FROM employees WHERE employee_id = $1',
+    [validatedData.employee_id]
   );
   
   if (existingEmployee.rows.length > 0) {
     return res.status(400).json({
       success: false,
-      error: 'Email already exists'
+      error: 'Employee ID already exists'
     });
+  }
+  
+  // Check if email already exists (if provided)
+  if (validatedData.email) {
+    const existingEmail = await DatabaseManager.query(
+      'SELECT id FROM employees WHERE email = $1',
+      [validatedData.email]
+    );
+    
+    if (existingEmail.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email already exists'
+      });
+    }
   }
   
   // Verify branch exists
@@ -131,26 +147,27 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
   
-  // Hash password
-  const hashedPassword = await bcrypt.hash(validatedData.password, 12);
+  // Hash PIN
+  const hashedPin = await bcrypt.hash(validatedData.pin, 12);
   
   const insertQuery = `
     INSERT INTO employees (
-      name, email, phone, role, branch_id, password_hash,
+      employee_id, name, email, phone, role, branch_id, pin_hash,
       salary, hire_date, status, created_at, updated_at
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, 'active', NOW(), NOW()
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', NOW(), NOW()
     )
-    RETURNING id, name, email, phone, role, branch_id, salary, hire_date, status, created_at, updated_at
+    RETURNING id, employee_id, name, email, phone, role, branch_id, salary, hire_date, status, created_at, updated_at
   `;
   
   const result = await DatabaseManager.query(insertQuery, [
+    validatedData.employee_id,
     validatedData.name,
     validatedData.email,
     validatedData.phone,
     validatedData.role,
     validatedData.branch_id,
-    hashedPassword,
+    hashedPin,
     validatedData.salary,
     validatedData.hire_date || new Date().toISOString().split('T')[0]
   ]);
@@ -261,14 +278,14 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
-// POST /api/employees/:id/change-password - Change employee password
-router.post('/:id/change-password', asyncHandler(async (req: Request, res: Response) => {
+// POST /api/employees/:id/change-pin - Change employee PIN
+router.post('/:id/change-pin', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { current_password, new_password } = changePasswordSchema.parse(req.body);
+  const { current_pin, new_pin } = changePinSchema.parse(req.body);
   
-  // Get current password hash
+  // Get current PIN hash
   const employeeResult = await DatabaseManager.query(
-    'SELECT password_hash FROM employees WHERE id = $1',
+    'SELECT pin_hash FROM employees WHERE id = $1',
     [id]
   );
   
@@ -279,31 +296,31 @@ router.post('/:id/change-password', asyncHandler(async (req: Request, res: Respo
     });
   }
   
-  // Verify current password
-  const isCurrentPasswordValid = await bcrypt.compare(
-    current_password,
-    employeeResult.rows[0].password_hash
+  // Verify current PIN
+  const isCurrentPinValid = await bcrypt.compare(
+    current_pin,
+    employeeResult.rows[0].pin_hash
   );
   
-  if (!isCurrentPasswordValid) {
+  if (!isCurrentPinValid) {
     return res.status(400).json({
       success: false,
-      error: 'Current password is incorrect'
+      error: 'Current PIN is incorrect'
     });
   }
   
-  // Hash new password
-  const hashedNewPassword = await bcrypt.hash(new_password, 12);
+  // Hash new PIN
+  const hashedNewPin = await bcrypt.hash(new_pin, 12);
   
-  // Update password
+  // Update PIN
   await DatabaseManager.query(
-    'UPDATE employees SET password_hash = $1, updated_at = NOW() WHERE id = $2',
-    [hashedNewPassword, id]
+    'UPDATE employees SET pin_hash = $1, updated_at = NOW() WHERE id = $2',
+    [hashedNewPin, id]
   );
   
   res.json({
     success: true,
-    message: 'Password changed successfully'
+    message: 'PIN changed successfully'
   });
 }));
 
