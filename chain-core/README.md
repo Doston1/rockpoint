@@ -75,7 +75,18 @@ Main office server for RockPoint chain management system. This server manages mu
 - `GET /api/products` - Get all products
 - `POST /api/products` - Create product
 - `PUT /api/products/:id` - Update product
+- `GET /api/inventory` - Get all inventory items
+- `GET /api/inventory/branch/:branchId` - Get inventory for specific branch
+- `PUT /api/inventory/branch/:branchId/product/:productId` - Update inventory for specific branch and product
 - `GET /api/inventory/stock-levels` - Get stock levels
+
+### Promotions
+
+- `GET /api/promotions` - Get all promotions
+- `GET /api/promotions/branch/:branchId` - Get promotions for specific branch
+- `POST /api/promotions/branch/:branchId` - Create promotion for specific branch
+- `PUT /api/promotions/:id` - Update promotion
+- `DELETE /api/promotions/:id` - Delete promotion
 
 ### 1C Integration
 

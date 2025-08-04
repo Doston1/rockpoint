@@ -13,6 +13,7 @@ import {
     Stack,
     Switch,
     TextField,
+    Typography,
 } from '@mui/material';
 import React from 'react';
 import { Category, Product } from '../../services/api';
@@ -24,6 +25,7 @@ interface ProductDialogProps {
   product?: Product;
   categories: Category[];
   isLoading?: boolean;
+  selectedBranchId?: string | null; // Add branch context
 }
 
 export const ProductDialog: React.FC<ProductDialogProps> = ({
@@ -33,6 +35,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
   product,
   categories,
   isLoading = false,
+  selectedBranchId,
 }) => {
   const [formData, setFormData] = React.useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>({
     sku: '',
@@ -58,6 +61,14 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
 
   React.useEffect(() => {
     if (product) {
+      // Use branch-specific pricing if available and branch is selected, otherwise use global pricing
+      const effectivePrice = selectedBranchId && product.branch_price !== undefined 
+        ? product.branch_price 
+        : product.basePrice;
+      const effectiveCost = selectedBranchId && product.branch_cost !== undefined 
+        ? product.branch_cost 
+        : (product.cost || 0);
+
       setFormData({
         sku: product.sku,
         barcode: product.barcode || '',
@@ -70,8 +81,8 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
         categoryId: product.categoryId || '',
         brand: product.brand || '',
         unitOfMeasure: product.unitOfMeasure,
-        basePrice: product.basePrice,
-        cost: product.cost || 0,
+        basePrice: effectivePrice,
+        cost: effectiveCost,
         taxRate: product.taxRate,
         imageUrl: product.imageUrl || '',
         images: product.images || [],
@@ -102,7 +113,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
         oneCId: '',
       });
     }
-  }, [product, open]);
+  }, [product, open, selectedBranchId]);
 
   const handleSave = async () => {
     await onSave(formData);
@@ -120,6 +131,31 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
         {product ? 'Edit Product' : 'Add New Product'}
       </DialogTitle>
       <DialogContent>
+        {selectedBranchId && (
+          <Box sx={{ 
+            mb: 2, 
+            p: 2, 
+            bgcolor: 'primary.50', 
+            border: 1, 
+            borderColor: 'primary.200', 
+            borderRadius: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}>
+            <Box sx={{ 
+              width: 8, 
+              height: 8, 
+              bgcolor: 'primary.main', 
+              borderRadius: '50%' 
+            }} />
+            <Box>
+              <strong>Branch-Specific Editing Mode</strong>
+              <br />
+              <small>Price and cost changes will only affect this branch. Other product details update globally.</small>
+            </Box>
+          </Box>
+        )}
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
@@ -202,21 +238,31 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
             />
             <TextField
               fullWidth
-              label="Base Price"
+              label={selectedBranchId ? "Branch Price" : "Base Price"}
               type="number"
               value={formData.basePrice}
               onChange={handleChange('basePrice')}
               required
+              helperText={
+                selectedBranchId 
+                  ? "Price for this specific branch (see global reference below)" 
+                  : "Global base price for all branches"
+              }
             />
           </Box>
           
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
-              label="Cost"
+              label={selectedBranchId ? "Branch Cost" : "Base Cost"}
               type="number"
               value={formData.cost}
               onChange={handleChange('cost')}
+              helperText={
+                selectedBranchId 
+                  ? "Cost for this specific branch (see global reference below)" 
+                  : "Global cost for all branches"
+              }
             />
             <TextField
               fullWidth
@@ -226,6 +272,48 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               onChange={handleChange('taxRate')}
             />
           </Box>
+
+          {/* Global Pricing Reference - Only show when in branch mode */}
+          {selectedBranchId && product && (
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: 'grey.50', 
+              border: 1, 
+              borderColor: 'grey.300', 
+              borderRadius: 1 
+            }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                Global Reference (Read-only)
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Global Base Price"
+                  type="number"
+                  value={Number(product.basePrice).toFixed(2)}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  variant="filled"
+                  size="small"
+                  helperText="Base price used across all branches"
+                />
+                <TextField
+                  fullWidth
+                  label="Global Base Cost"
+                  type="number"
+                  value={product.cost ? Number(product.cost).toFixed(2) : '0.00'}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  variant="filled"
+                  size="small"
+                  helperText="Base cost used across all branches"
+                />
+              </Box>
+            </Box>
+          )}
           
           <TextField
             fullWidth

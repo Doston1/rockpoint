@@ -9,22 +9,22 @@ const router = Router();
 const createInventoryItemSchema = z.object({
   product_id: z.string().uuid('Valid product ID is required'),
   branch_id: z.string().uuid('Valid branch ID is required'),
-  quantity_in_stock: z.number().min(0, 'Quantity must be non-negative'),
-  min_stock_level: z.number().min(0, 'Minimum stock must be non-negative').default(0),
-  max_stock_level: z.number().min(0, 'Maximum stock must be non-negative').optional(),
-  reorder_point: z.number().min(0, 'Reorder point must be non-negative').optional(),
+  quantity_in_stock: z.coerce.number().min(0, 'Quantity must be non-negative'),
+  min_stock_level: z.coerce.number().min(0, 'Minimum stock must be non-negative').default(0),
+  max_stock_level: z.coerce.number().min(0, 'Maximum stock must be non-negative').optional(),
+  reorder_point: z.coerce.number().min(0, 'Reorder point must be non-negative').optional(),
 });
 
 const updateInventorySchema = z.object({
-  quantity_in_stock: z.number().min(0, 'Quantity must be non-negative').optional(),
-  min_stock_level: z.number().min(0, 'Minimum stock must be non-negative').optional(),
-  max_stock_level: z.number().min(0, 'Maximum stock must be non-negative').optional(),
-  reorder_point: z.number().min(0, 'Reorder point must be non-negative').optional(),
+  quantity_in_stock: z.coerce.number().min(0, 'Quantity must be non-negative').optional(),
+  min_stock_level: z.coerce.number().min(0, 'Minimum stock must be non-negative').optional(),
+  max_stock_level: z.coerce.number().min(0, 'Maximum stock must be non-negative').optional(),
+  reorder_point: z.coerce.number().min(0, 'Reorder point must be non-negative').optional(),
 });
 
 const adjustInventorySchema = z.object({
   adjustment_type: z.enum(['increase', 'decrease', 'set']),
-  quantity: z.number().min(0, 'Quantity must be non-negative'),
+  quantity: z.coerce.number().min(0, 'Quantity must be non-negative'),
   reason: z.string().min(1, 'Reason is required'),
 });
 
@@ -38,12 +38,16 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
       i.max_stock_level, i.reorder_point, i.last_counted_at, i.last_movement_at, 
       i.created_at, i.updated_at,
       p.name as product_name, p.sku, p.barcode, p.base_price,
+      COALESCE(bpp.price, p.base_price) as branch_price,
+      COALESCE(bpp.cost, p.cost) as branch_cost,
+      bpp.is_available,
       b.name as branch_name,
       c.name as category_name
     FROM branch_inventory i
     LEFT JOIN products p ON i.product_id = p.id
     LEFT JOIN branches b ON i.branch_id = b.id
     LEFT JOIN categories c ON p.category_id = c.id
+    LEFT JOIN branch_product_pricing bpp ON i.branch_id = bpp.branch_id AND i.product_id = bpp.product_id
     WHERE 1=1
   `;
   
@@ -83,6 +87,60 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
+// GET /api/inventory/branch/:branchId - Get inventory for specific branch
+router.get('/branch/:branchId', asyncHandler(async (req: Request, res: Response) => {
+  const { branchId } = req.params;
+  const { product_id, low_stock } = req.query;
+  
+  let query = `
+    SELECT 
+      i.id, i.product_id, i.branch_id, i.quantity_in_stock, i.min_stock_level, 
+      i.max_stock_level, i.reorder_point, i.last_counted_at, i.last_movement_at, 
+      i.created_at, i.updated_at,
+      p.name as product_name, p.sku, p.barcode, p.base_price,
+      COALESCE(bpp.price, p.base_price) as branch_price,
+      COALESCE(bpp.cost, p.cost) as branch_cost,
+      bpp.is_available,
+      b.name as branch_name,
+      c.name as category_name
+    FROM branch_inventory i
+    LEFT JOIN products p ON i.product_id = p.id
+    LEFT JOIN branches b ON i.branch_id = b.id
+    LEFT JOIN categories c ON p.category_id = c.id
+    LEFT JOIN branch_product_pricing bpp ON i.branch_id = bpp.branch_id AND i.product_id = bpp.product_id
+    WHERE i.branch_id = $1
+  `;
+  
+  const params: any[] = [branchId];
+  let paramIndex = 2;
+  
+  if (product_id) {
+    query += ` AND i.product_id = $${paramIndex}`;
+    params.push(product_id);
+    paramIndex++;
+  }
+  
+  if (low_stock === 'true') {
+    query += ` AND i.quantity_in_stock <= i.min_stock_level`;
+  }
+  
+  query += ` ORDER BY p.name ASC`;
+  
+  const result = await DatabaseManager.query(query, params);
+  
+  res.json({
+    success: true,
+    data: {
+      inventory: result.rows.map((item: any) => ({
+        ...item,
+        is_low_stock: item.quantity_in_stock <= item.min_stock_level,
+        stock_status: item.quantity_in_stock === 0 ? 'out_of_stock' : 
+                     item.quantity_in_stock <= item.min_stock_level ? 'low_stock' : 'in_stock'
+      }))
+    }
+  });
+}));
+
 // GET /api/inventory/:id - Get specific inventory item
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -93,12 +151,16 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
       i.max_stock_level, i.reorder_point, i.last_counted_at, i.last_movement_at, 
       i.created_at, i.updated_at,
       p.name as product_name, p.sku, p.barcode, p.base_price,
+      COALESCE(bpp.price, p.base_price) as branch_price,
+      COALESCE(bpp.cost, p.cost) as branch_cost,
+      bpp.is_available,
       b.name as branch_name,
       c.name as category_name
     FROM branch_inventory i
     LEFT JOIN products p ON i.product_id = p.id
     LEFT JOIN branches b ON i.branch_id = b.id
     LEFT JOIN categories c ON p.category_id = c.id
+    LEFT JOIN branch_product_pricing bpp ON i.branch_id = bpp.branch_id AND i.product_id = bpp.product_id
     WHERE i.id = $1
   `;
   
@@ -240,6 +302,63 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
     UPDATE branch_inventory 
     SET ${updateFields.join(', ')}
     WHERE id = $${paramIndex}
+    RETURNING id, product_id, branch_id, quantity_in_stock, min_stock_level, max_stock_level, 
+             reorder_point, created_at, updated_at
+  `;
+  
+  const result = await DatabaseManager.query(updateQuery, values);
+  
+  res.json({
+    success: true,
+    data: { inventory_item: result.rows[0] }
+  });
+}));
+
+// PUT /api/inventory/branch/:branchId/product/:productId - Update inventory for specific branch and product
+router.put('/branch/:branchId/product/:productId', asyncHandler(async (req: Request, res: Response) => {
+  const { branchId, productId } = req.params;
+  const validatedData = updateInventorySchema.parse(req.body);
+  
+  // Check if inventory item exists
+  const existingItem = await DatabaseManager.query(
+    'SELECT id FROM branch_inventory WHERE branch_id = $1 AND product_id = $2',
+    [branchId, productId]
+  );
+  
+  if (existingItem.rows.length === 0) {
+    return res.status(404).json({
+      success: false,
+      error: 'Inventory item not found for this branch and product'
+    });
+  }
+  
+  // Build dynamic update query
+  const updateFields = [];
+  const values = [];
+  let paramIndex = 1;
+  
+  for (const [key, value] of Object.entries(validatedData)) {
+    if (value !== undefined) {
+      updateFields.push(`${key} = $${paramIndex}`);
+      values.push(value);
+      paramIndex++;
+    }
+  }
+  
+  if (updateFields.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'No fields to update'
+    });
+  }
+  
+  updateFields.push(`updated_at = NOW()`);
+  values.push(branchId, productId);
+  
+  const updateQuery = `
+    UPDATE branch_inventory 
+    SET ${updateFields.join(', ')}
+    WHERE branch_id = $${paramIndex} AND product_id = $${paramIndex + 1}
     RETURNING id, product_id, branch_id, quantity_in_stock, min_stock_level, max_stock_level, 
              reorder_point, created_at, updated_at
   `;

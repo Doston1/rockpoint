@@ -13,14 +13,14 @@ const createProductSchema = z.object({
   sku: z.string().min(1, 'SKU is required'),
   barcode: z.string().optional(),
   category_id: z.string().uuid('Valid category ID is required'),
-  base_price: z.number().min(0, 'Price must be non-negative'),
-  cost: z.number().min(0, 'Cost must be non-negative').optional(),
+  base_price: z.coerce.number().min(0, 'Price must be non-negative'),
+  cost: z.coerce.number().min(0, 'Cost must be non-negative').optional(),
   description: z.string().optional(),
   description_ru: z.string().optional(),
   description_uz: z.string().optional(),
   brand: z.string().optional(),
   unit_of_measure: z.string().default('pcs'),
-  tax_rate: z.number().min(0).max(1).default(0),
+  tax_rate: z.coerce.number().min(0).max(1).default(0),
   image_url: z.string().optional(),
   is_active: z.boolean().default(true),
 });
@@ -29,7 +29,7 @@ const updateProductSchema = createProductSchema.partial();
 
 // GET /api/products - Get all products
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
-  const { category_id, is_active, search } = req.query;
+  const { category_id, is_active, search, branch_id } = req.query;
   
   let query = `
     SELECT 
@@ -38,13 +38,35 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
       p.brand, p.unit_of_measure, p.tax_rate, p.image_url, p.is_active, 
       p.created_at, p.updated_at,
       c.name as category_name, c.name_ru as category_name_ru, c.name_uz as category_name_uz
+  `;
+  
+  // Add branch pricing fields if branch_id is provided
+  if (branch_id) {
+    query += `,
+      COALESCE(bpp.price, p.base_price) as branch_price,
+      COALESCE(bpp.cost, p.cost) as branch_cost,
+      bpp.is_available
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
+    LEFT JOIN branch_product_pricing bpp ON p.id = bpp.product_id AND bpp.branch_id = $1`;
+  } else {
+    query += `
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id`;
+  }
+  
+  query += `
     WHERE 1=1
   `;
   
   const params: any[] = [];
   let paramIndex = 1;
+  
+  // Add branch_id as first parameter if provided
+  if (branch_id) {
+    params.push(branch_id);
+    paramIndex++;
+  }
   
   if (category_id) {
     query += ` AND p.category_id = $${paramIndex}`;

@@ -21,11 +21,13 @@ import { requestLogger } from './middleware/logger';
 import oneCRoutes from './api/1c';
 import oneCIntegrationRoutes from './api/1c-integration';
 import authRoutes from './api/auth';
+import branchPricingRoutes from './api/branch-pricing';
 import branchesRoutes from './api/branches';
 import dashboardRoutes from './api/dashboard';
 import employeesRoutes from './api/employees';
 import inventoryRoutes from './api/inventory';
 import productsRoutes from './api/products';
+import promotionsRoutes from './api/promotions';
 import reportsRoutes from './api/reports';
 
 // Load environment variables
@@ -99,9 +101,11 @@ class ChainServer {
     // API routes
     this.app.use('/api/auth', authRoutes);
     this.app.use('/api/branches', branchesRoutes);
+    this.app.use('/api/branch-pricing', branchPricingRoutes);
     this.app.use('/api/employees', employeesRoutes);
     this.app.use('/api/products', productsRoutes);
     this.app.use('/api/inventory', inventoryRoutes);
+    this.app.use('/api/promotions', promotionsRoutes);
     this.app.use('/api/reports', reportsRoutes);
     this.app.use('/api/1c', oneCRoutes);
     this.app.use('/api/1c-integration', oneCIntegrationRoutes); // New comprehensive 1C API
