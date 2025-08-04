@@ -15,7 +15,7 @@ const createEmployeeSchema = z.object({
   role: z.enum(['admin', 'manager', 'supervisor', 'cashier']),
   branch_id: z.string().uuid('Valid branch ID is required'),
   pin: z.string().min(4, 'PIN must be at least 4 characters'),
-  salary: z.number().optional(),
+  salary: z.coerce.number().optional(),
   hire_date: z.string().optional(),
 });
 

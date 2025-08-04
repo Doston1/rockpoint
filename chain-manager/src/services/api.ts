@@ -101,6 +101,10 @@ export interface Product {
   oneCId?: string;
   createdAt?: string;
   updatedAt?: string;
+  // Branch-specific pricing fields (populated when branch_id is provided)
+  branch_price?: number;
+  branch_cost?: number;
+  is_available?: boolean;
 }
 
 export interface Category {
@@ -129,6 +133,10 @@ export interface BranchInventory {
   reorderPoint?: number;
   lastCountedAt?: Date;
   lastMovementAt?: Date;
+  // Branch-specific pricing fields from backend JOIN with branch_product_pricing
+  branch_price?: number;
+  branch_cost?: number;
+  is_available?: boolean;
 }
 
 export interface Transaction {
@@ -802,6 +810,79 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch inventory report',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Branch Pricing Methods
+  async getBranchPricing(branchId?: string, productId?: string): Promise<ApiResponse<{ branch_pricing: any[] }>> {
+    try {
+      let url = '/branch-pricing';
+      const params = new URLSearchParams();
+      
+      if (branchId) params.append('branch_id', branchId);
+      if (productId) params.append('product_id', productId);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      const response = await this.api.get(url);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch branch pricing',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async createBranchPricing(data: {
+    branch_id: string;
+    product_id: string;
+    price?: number;
+    cost?: number;
+    is_available?: boolean;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/branch-pricing', data);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to create branch pricing',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async updateBranchPricing(id: string, data: Partial<{
+    price: number;
+    cost: number;
+    is_available: boolean;
+  }>): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put(`/branch-pricing/${id}`, data);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to update branch pricing',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async deleteBranchPricing(id: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.delete(`/branch-pricing/${id}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to delete branch pricing',
         timestamp: new Date().toISOString(),
       };
     }

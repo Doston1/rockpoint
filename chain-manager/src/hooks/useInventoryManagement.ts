@@ -112,7 +112,13 @@ export const useInventoryManagement = (): UseInventoryManagementReturn => {
       setIsLoadingProducts(true);
       setError(null);
       
-      const response = await apiService.getProducts();
+      // Include branch_id in the request if a branch is selected
+      const filters: any = {};
+      if (selectedBranchId) {
+        filters.branch_id = selectedBranchId;
+      }
+      
+      const response = await apiService.getProducts(filters);
       
       if (response.success && response.data) {
         setProducts(response.data.products);
@@ -124,7 +130,7 @@ export const useInventoryManagement = (): UseInventoryManagementReturn => {
     } finally {
       setIsLoadingProducts(false);
     }
-  }, []);
+  }, [selectedBranchId]);
 
   // Fetch promotions
   const fetchPromotions = useCallback(async () => {
@@ -171,20 +177,105 @@ export const useInventoryManagement = (): UseInventoryManagementReturn => {
 
   const updateProduct = useCallback(async (productId: string, data: Partial<Product>): Promise<Product | null> => {
     try {
-      const response = await apiService.updateProduct(productId, data);
-      
-      if (response.success && response.data) {
-        setProducts(prev => prev.map(p => p.id === productId ? response.data! : p));
-        return response.data;
-      } else {
-        setError(response.error || 'Failed to update product');
+      // If we have a selected branch and the update includes pricing (basePrice or cost),
+      // we should update branch-specific pricing instead of global product
+      if (selectedBranchId && (data.basePrice !== undefined || data.cost !== undefined)) {
+        // Create or update branch-specific pricing
+        const branchPricingData = {
+          branch_id: selectedBranchId,
+          product_id: productId,
+          price: data.basePrice,
+          cost: data.cost,
+        };
+        
+        // Try to update existing branch pricing first
+        try {
+          const existingPricing = await apiService.getBranchPricing(selectedBranchId, productId);
+          
+          if (existingPricing.success && existingPricing.data?.branch_pricing && existingPricing.data.branch_pricing.length > 0) {
+            // Update existing branch pricing
+            const pricingId = existingPricing.data.branch_pricing[0].id;
+            
+            const updateData: any = {};
+            if (data.basePrice !== undefined) updateData.price = data.basePrice;
+            if (data.cost !== undefined) updateData.cost = data.cost;
+            
+            const updateResult = await apiService.updateBranchPricing(pricingId, updateData);
+            
+            if (!updateResult.success) {
+              throw new Error(`Failed to update branch pricing: ${updateResult.error}`);
+            }
+          } else {
+            // Create new branch pricing
+            const createResult = await apiService.createBranchPricing(branchPricingData);
+            
+            if (!createResult.success) {
+              throw new Error(`Failed to create branch pricing: ${createResult.error}`);
+            }
+          }
+        } catch (error) {
+          console.error('Error managing branch pricing:', error);
+          // Don't fall back to global update for pricing changes - this would be incorrect
+          throw error;
+        }
+        
+        // Remove pricing fields from global product update
+        const { basePrice, cost, ...globalData } = data;
+        
+        // Update global product with non-pricing fields only
+        if (Object.keys(globalData).length > 0) {
+          const response = await apiService.updateProduct(productId, globalData);
+          if (response.success && response.data) {
+            setProducts(prev => {
+              const updated = prev.map(p => p.id === productId ? { ...p, ...response.data! } : p);
+              return updated;
+            });
+          }
+        }
+        
+        // Refetch inventory to get updated branch pricing
+        if (selectedBranchId) {
+          await fetchBranchInventory();
+        } else {
+          await fetchGeneralInventory();
+        }
+        
+        // Refetch products to get updated branch pricing
+        await fetchProducts();
+        
+        // Return the updated product (we need to fetch it to get the latest data)
+        const filters: any = {};
+        if (selectedBranchId) {
+          filters.branch_id = selectedBranchId;
+        }
+        const products = await apiService.getProducts(filters);
+        if (products.success && products.data) {
+          const updatedProduct = products.data.products.find((p: any) => p.id === productId);
+          return updatedProduct || null;
+        }
+        
         return null;
+      } else {
+        // Regular global product update (when no branch selected or no pricing changes)
+        const response = await apiService.updateProduct(productId, data);
+        
+        if (response.success && response.data) {
+          // Update the local state with the returned product data
+          setProducts(prev => {
+            const updated = prev.map(p => p.id === productId ? { ...p, ...response.data! } : p);
+            return updated;
+          });
+          return response.data;
+        } else {
+          setError(response.error || 'Failed to update product');
+          return null;
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       return null;
     }
-  }, []);
+  }, [selectedBranchId, fetchBranchInventory, fetchGeneralInventory]);
 
   const deleteProduct = useCallback(async (productId: string): Promise<boolean> => {
     try {

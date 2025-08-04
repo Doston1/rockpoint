@@ -119,6 +119,10 @@ export function transformProduct(product: any) {
     oneCId: product.onec_id || product.oneC_id,
     createdAt: product.created_at,
     updatedAt: product.updated_at,
+    // Branch-specific pricing fields
+    branch_price: product.branch_price,
+    branch_cost: product.branch_cost,
+    is_available: product.is_available,
   };
 }
 

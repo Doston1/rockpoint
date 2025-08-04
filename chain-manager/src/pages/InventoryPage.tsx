@@ -131,28 +131,44 @@ const InventoryPage = () => {
 
   // Filter products based on search and filters
   const filteredProducts = useMemo(() => {
+    const safeSearchTerm = (searchTerm || '').toLowerCase();
     return safeProducts.filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (product.barcode && product.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesSearch = (product.name || '').toLowerCase().includes(safeSearchTerm) ||
+                           (product.sku || '').toLowerCase().includes(safeSearchTerm) ||
+                           (product.barcode && product.barcode.toLowerCase().includes(safeSearchTerm));
       
       const matchesActive = !showActiveOnly || product.isActive;
       
       return matchesSearch && matchesActive;
+    }).map((product, index) => {
+      // Ensure each product has a unique id for DataGrid
+      return {
+        ...product,
+        id: product.id || `product-${index}`
+      };
     });
   }, [safeProducts, searchTerm, showActiveOnly]);
 
   // Filter inventory based on search and filters
   const filteredInventory = useMemo(() => {
-    const inventoryWithProducts = safeCurrentInventory.map(item => {
+    const inventoryWithProducts = safeCurrentInventory.map((item, index) => {
       const product = safeProducts.find(p => p.id === item.productId);
-      return { ...item, product };
+      // Create a guaranteed unique ID for DataGrid
+      const uniqueId = item.id || `${item.branchId || 'global'}-${item.productId || 'unknown'}-${index}`;
+      
+      return { 
+        ...item, 
+        product,
+        // Ensure each row has a unique id for DataGrid - must be at top level
+        id: uniqueId
+      };
     }).filter(item => item.product);
 
     return inventoryWithProducts.filter(item => {
       const product = item.product!;
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           product.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      const safeSearchTerm = (searchTerm || '').toLowerCase();
+      const matchesSearch = (product.name || '').toLowerCase().includes(safeSearchTerm) ||
+                           (product.sku || '').toLowerCase().includes(safeSearchTerm);
       
       const matchesLowStock = !showLowStockOnly || item.quantityInStock <= item.minStockLevel;
       
@@ -170,8 +186,9 @@ const InventoryPage = () => {
       item.quantityInStock === 0
     ).length;
     const totalValue = filteredInventory.reduce((sum, item) => {
-      const product = item.product;
-      return sum + (product ? product.basePrice * item.quantityInStock : 0);
+      // Use branch price if available, otherwise fall back to base price
+      const price = item.branch_price || item.product?.basePrice || 0;
+      return sum + (price * item.quantityInStock);
     }, 0);
 
     return {
@@ -236,12 +253,14 @@ const InventoryPage = () => {
 
   const handleSaveProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      let success;
+      let result;
       if (editingProduct) {
-        success = await updateProduct(editingProduct.id, productData);
+        result = await updateProduct(editingProduct.id, productData);
       } else {
-        success = await createProduct(productData);
+        result = await createProduct(productData);
       }
+      
+      const success = result !== null;
       
       setSnackbar({
         open: true,
@@ -252,6 +271,8 @@ const InventoryPage = () => {
       if (success) {
         setProductDialogOpen(false);
         setEditingProduct(undefined);
+        // Explicitly refetch products to ensure UI is updated
+        await refetchProducts();
       }
     } catch (error) {
       setSnackbar({
@@ -498,15 +519,17 @@ const InventoryPage = () => {
     { field: 'name', headerName: t('inventory.product'), flex: 1, minWidth: 200 },
     { 
       field: 'basePrice', 
-      headerName: t('inventory.price'), 
-      width: 100,
-      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '$0.00'
+      headerName: selectedBranchId ? t('inventory.branchPrice') : t('inventory.basePrice'), 
+      width: 120,
+      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '$0.00',
+      valueGetter: (_value: any, row: any) => selectedBranchId ? (row.branch_price || row.basePrice) : row.basePrice
     },
     { 
       field: 'cost', 
-      headerName: t('inventory.cost'), 
-      width: 100,
-      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '-'
+      headerName: selectedBranchId ? t('inventory.branchCost') : t('inventory.baseCost'), 
+      width: 120,
+      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '-',
+      valueGetter: (_value: any, row: any) => selectedBranchId ? (row.branch_cost || row.cost) : row.cost
     },
     { 
       field: 'isActive', 
@@ -559,6 +582,20 @@ const InventoryPage = () => {
       flex: 1, 
       minWidth: 200, 
       valueGetter: (_value: any, row: any) => row.product?.name 
+    },
+    { 
+      field: 'branch_price', 
+      headerName: selectedBranchId ? t('inventory.branchPrice') : t('inventory.basePrice'), 
+      width: 120,
+      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '$0.00',
+      valueGetter: (_value: any, row: any) => row.branch_price || row.product?.base_price || 0
+    },
+    { 
+      field: 'branch_cost', 
+      headerName: selectedBranchId ? t('inventory.branchCost') : t('inventory.baseCost'), 
+      width: 120,
+      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '-',
+      valueGetter: (_value: any, row: any) => row.branch_cost || row.product?.cost || 0
     },
     { field: 'quantityInStock', headerName: t('inventory.quantity'), width: 100 },
     { field: 'minStockLevel', headerName: t('inventory.minStock'), width: 100 },
@@ -970,6 +1007,7 @@ const InventoryPage = () => {
         product={editingProduct}
         categories={safeCategories}
         isLoading={isLoadingProducts}
+        selectedBranchId={selectedBranchId}
       />
 
       {selectedBranchId && (
