@@ -28,6 +28,15 @@ const paymentSchema = z.object({
   changeGiven: z.number().optional()
 });
 
+const splitPaymentSchema = z.object({
+  payments: z.array(z.object({
+    method: z.enum(['cash', 'card', 'digital_wallet', 'store_credit']),
+    amount: z.number().min(0),
+    reference: z.string().optional(),
+    cardLast4: z.string().optional()
+  })).min(1, 'At least one payment is required')
+});
+
 // POST /api/transactions
 router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const { terminalId, employeeId, customerId, items } = createTransactionSchema.parse(req.body);
@@ -48,8 +57,8 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
 
-  const tax = subtotal * 0.1; // 10% tax rate - should be configurable
-  const total = subtotal + tax;
+  const tax = subtotal * 0.08; // 8% tax rate - matching frontend calculation
+  const total = Math.round((subtotal + tax) * 10) / 10; // Round to 1 decimal place to match frontend
 
   await DatabaseManager.transaction(async (client) => {
     // Create transaction record
@@ -164,6 +173,84 @@ router.post('/:id/payment', asyncHandler(async (req: Request, res: Response) => 
       paymentMethod: payment.method,
       amountPaid: payment.amount,
       changeGiven: payment.method === 'cash' ? payment.amount - (await getTransactionTotal(transactionId)) : 0
+    }
+  });
+}));
+
+// POST /api/transactions/:id/split-payment - Handle multiple payments
+router.post('/:id/split-payment', asyncHandler(async (req: Request, res: Response) => {
+  const transactionId = req.params.id;
+  const { payments } = splitPaymentSchema.parse(req.body);
+
+  await DatabaseManager.transaction(async (client) => {
+    // Get transaction details
+    const transactionQuery = 'SELECT * FROM transactions WHERE id = $1 AND status = $2';
+    const transactionResult = await client.query(transactionQuery, [transactionId, 'pending']);
+    const transaction = transactionResult.rows[0];
+
+    if (!transaction) {
+      throw createError('Transaction not found or already completed', 404);
+    }
+
+    // Calculate total payment amount
+    const totalPaymentAmount = Math.round(payments.reduce((sum, payment) => sum + payment.amount, 0) * 100) / 100;
+    const transactionTotal = Math.round(transaction.total_amount * 100) / 100;
+
+    console.log('💰 Backend Split Payment Debug:', {
+      transactionId,
+      transactionTotalAmount: transactionTotal,
+      payments: payments,
+      totalPaymentAmount: totalPaymentAmount,
+      difference: Math.round((totalPaymentAmount - transactionTotal) * 100) / 100
+    });
+
+    // Validate total payment amount (allow overpayment for cash) with precision handling
+    // Use 0.1 tolerance to account for frontend rounding to 1 decimal place
+    if (totalPaymentAmount < transactionTotal - 0.1) { // Allow 10 cent tolerance
+      throw createError('Total payment amount is insufficient', 400);
+    }
+
+    // Record all payments
+    const changeGiven = totalPaymentAmount - transaction.total_amount;
+    
+    for (const payment of payments) {
+      const paymentQuery = `
+        INSERT INTO payments 
+        (transaction_id, method, amount, reference, card_last4, change_given, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        RETURNING *
+      `;
+
+      // Only the last payment gets the change amount if it's cash
+      const paymentChangeGiven = (payment === payments[payments.length - 1] && payment.method === 'cash') ? changeGiven : 0;
+
+      await client.query(paymentQuery, [
+        transactionId,
+        payment.method,
+        payment.amount,
+        payment.reference,
+        payment.cardLast4,
+        paymentChangeGiven
+      ]);
+    }
+
+    // Update transaction status
+    await client.query(
+      'UPDATE transactions SET status = $1, completed_at = NOW() WHERE id = $2',
+      ['completed', transactionId]
+    );
+  });
+
+  businessLogger.transaction.complete(transactionId, payments.reduce((sum, p) => sum + p.amount, 0), 'split');
+
+  res.json({
+    success: true,
+    data: {
+      transactionId,
+      status: 'completed',
+      payments: payments.length,
+      totalPaid: payments.reduce((sum, p) => sum + p.amount, 0),
+      changeGiven: Math.max(0, payments.reduce((sum, p) => sum + p.amount, 0) - (await getTransactionTotal(transactionId)))
     }
   });
 }));
