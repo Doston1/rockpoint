@@ -20,18 +20,13 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle,
   Divider,
-  FormControl,
   IconButton,
-  InputLabel,
   List,
   ListItem,
   ListItemSecondaryAction,
   ListItemText,
-  MenuItem,
   Paper,
-  Select,
   Snackbar,
   TextField,
   Typography,
@@ -39,11 +34,13 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavigationBar } from '../components/NavigationBar';
+import { EnhancedPaymentDialog } from '../components/checkout/EnhancedPaymentDialog';
+import { ReceiptDialog } from '../components/checkout/ReceiptDialog';
 import { useAuth } from '../hooks/useAuth';
 import { useProducts } from '../hooks/useProducts';
 import { useTransactions } from '../hooks/useTransactions';
 import { useWebSocket } from '../hooks/useWebSocket';
-import type { Payment as PaymentType, Product, TransactionItem } from '../services/api';
+import type { Product, TransactionItem } from '../services/api';
 import { apiService } from '../services/api';
 
 interface CartItem extends TransactionItem {
@@ -89,8 +86,7 @@ const CheckoutPage = () => {
   const [viewMode, setViewMode] = useState<'categories' | 'search' | 'products'>('categories');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentType['method']>('cash');
-  const [paymentAmount, setPaymentAmount] = useState('');
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [transactionCompleteDialogOpen, setTransactionCompleteDialogOpen] = useState(false);
   const [completedTransactionData, setCompletedTransactionData] = useState<{
     transactionId: string;
@@ -98,6 +94,8 @@ const CheckoutPage = () => {
     totalAmount: number;
     amountReceived: number;
     paymentMethod: string;
+    payments?: any[];
+    receiptData?: any;
   } | null>(null);
 
   // Scanner-related state
@@ -107,8 +105,8 @@ const CheckoutPage = () => {
 
   const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
   const taxRate = 0.08; // 8% tax rate
-  const taxAmount = subtotal * taxRate;
-  const total = subtotal + taxAmount;
+  const taxAmount = Math.round(subtotal * taxRate * 10) / 10; // Round to 1 decimal place
+  const total = Math.round((subtotal + taxAmount) * 10) / 10; // Round to 1 decimal place
 
   // Handle scanner key events
   useEffect(() => {
@@ -315,6 +313,12 @@ const CheckoutPage = () => {
 
   const handleCheckout = async () => {
     if (!user || !terminalId || cart.length === 0) return;
+    // Just open the enhanced payment dialog
+    setCheckoutDialogOpen(true);
+  };
+
+  const handlePaymentComplete = async (payments: any[], receiptData: any) => {
+    if (!user || !terminalId || cart.length === 0) return;
 
     clearTransactionError();
 
@@ -352,45 +356,54 @@ const CheckoutPage = () => {
           throw new Error('Transaction created but no ID returned');
         }
 
-        // Step 2: Process payment
-        const paymentData = {
-          method: paymentMethod,
-          amount: paymentMethod === 'cash' ? parseFloat(paymentAmount) : total,
-          reference: paymentMethod === 'cash' ? undefined : `REF-${Date.now()}`,
-          cardLast4: paymentMethod === 'card' ? '****' : undefined
-        };
+        // Step 2: Process all payments using split payment endpoint
+        const paymentData = payments.map(payment => ({
+          method: payment.method,
+          amount: payment.amount,
+          reference: payment.method === 'cash' ? undefined : `REF-${Date.now()}-${payment.id}`,
+          cardLast4: payment.method === 'card' ? '****' : undefined
+        }));
 
-        // Make payment request using the API service
-        const paymentResult = await apiService.processPayment(transactionId, paymentData);
+        console.log('💰 Payment Debug Info:', {
+          totalAmount: total,
+          payments: payments,
+          paymentData: paymentData,
+          totalPaymentAmount: paymentData.reduce((sum, p) => sum + p.amount, 0),
+          receiptDataPaidAmount: receiptData.paidAmount
+        });
+
+        // Use split payment endpoint
+        const paymentResult = await apiService.processSplitPayment(transactionId, paymentData);
         
-        if (paymentResult.success) {
-          // Sync with WebSocket if connected
-          if (isConnected) {
-            syncTransaction({
-              ...transactionResponse,
-              id: transactionId,
-              status: 'completed'
-            });
-          }
-          
-          const changeAmount = paymentResult.data?.changeGiven || 0;
-          setCompletedTransactionData({
-            transactionId,
-            changeAmount,
-            totalAmount: total,
-            amountReceived: paymentMethod === 'cash' ? parseFloat(paymentAmount) : total,
-            paymentMethod: paymentMethod
-          });
-          
-          // Clear cart and close dialog AFTER storing the data
-          setCart([]);
-          setCheckoutDialogOpen(false);
-          setPaymentAmount('');
-          
-          setTransactionCompleteDialogOpen(true);
-        } else {
-          throw new Error(paymentResult.error || t('checkout.paymentProcessingFailed'));
+        if (!paymentResult.success) {
+          throw new Error(paymentResult.error || 'Payment processing failed');
         }
+
+        // Sync with WebSocket if connected
+        if (isConnected) {
+          syncTransaction({
+            ...transactionResponse,
+            id: transactionId,
+            status: 'completed'
+          });
+        }
+        
+        setCompletedTransactionData({
+          transactionId,
+          changeAmount: receiptData.changeAmount,
+          totalAmount: total,
+          amountReceived: receiptData.paidAmount,
+          paymentMethod: payments.length > 1 ? 'mixed' : payments[0]?.method,
+          payments,
+          receiptData
+        });
+        
+        // Clear cart and close dialogs
+        setCart([]);
+        setCheckoutDialogOpen(false);
+        
+        // Open receipt dialog instead of simple completion dialog
+        setReceiptDialogOpen(true);
       }
     } catch (error) {
       console.error('Checkout failed:', error);
@@ -724,15 +737,15 @@ const CheckoutPage = () => {
               <Box>
                 <Box display="flex" justifyContent="space-between" mb={1}>
                   <Typography>{t('checkout.subtotal')}:</Typography>
-                  <Typography>${subtotal.toFixed(2)}</Typography>
+                  <Typography>${subtotal.toFixed(1)}</Typography>
                 </Box>
                 <Box display="flex" justifyContent="space-between" mb={1}>
                   <Typography>{t('checkout.tax')} ({(taxRate * 100).toFixed(0)}%):</Typography>
-                  <Typography>${taxAmount.toFixed(2)}</Typography>
+                  <Typography>${taxAmount.toFixed(1)}</Typography>
                 </Box>
                 <Box display="flex" justifyContent="space-between" mb={2}>
                   <Typography variant="h6">{t('checkout.total')}:</Typography>
-                  <Typography variant="h6">${total.toFixed(2)}</Typography>
+                  <Typography variant="h6">${total.toFixed(1)}</Typography>
                 </Box>
                 
                 <Button
@@ -740,7 +753,7 @@ const CheckoutPage = () => {
                   variant="contained"
                   size="large"
                   startIcon={<PaymentIcon />}
-                  onClick={() => setCheckoutDialogOpen(true)}
+                  onClick={handleCheckout}
                   disabled={cart.length === 0 || transactionLoading}
                   sx={{ py: 1.5 }}
                 >
@@ -751,58 +764,46 @@ const CheckoutPage = () => {
           </Box>
         </Box>
 
-        {/* Checkout Dialog */}
-        <Dialog open={checkoutDialogOpen} onClose={() => setCheckoutDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>{t('checkout.completePayment')}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ pt: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                {t('checkout.totalAmount')}: ${total.toFixed(2)}
-              </Typography>
-              
-              <FormControl fullWidth sx={{ mb: 3 }}>
-                <InputLabel>{t('checkout.paymentMethod')}</InputLabel>
-                <Select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as PaymentType['method'])}
-                  label={t('checkout.paymentMethod')}
-                >
-                  <MenuItem value="cash">{t('checkout.cash')}</MenuItem>
-                  <MenuItem value="card">{t('checkout.card')}</MenuItem>
-                  <MenuItem value="digital_wallet">{t('checkout.digitalWallet')}</MenuItem>
-                </Select>
-              </FormControl>
+        {/* Enhanced Payment Dialog */}
+        <EnhancedPaymentDialog
+          open={checkoutDialogOpen}
+          onClose={() => setCheckoutDialogOpen(false)}
+          totalAmount={total}
+          onPaymentComplete={handlePaymentComplete}
+          isProcessing={transactionLoading}
+          cartItems={cart}
+          taxAmount={taxAmount}
+          subtotal={subtotal}
+          employeeName={user?.name}
+          terminalId={terminalId || undefined}
+        />
 
-              {paymentMethod === 'cash' && (
-                <TextField
-                  fullWidth
-                  label={t('checkout.amountReceived')}
-                  type="number"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  helperText={
-                    paymentAmount && parseFloat(paymentAmount) >= total
-                      ? `${t('checkout.change')}: $${(parseFloat(paymentAmount) - total).toFixed(2)}`
-                      : t('checkout.amountMustBeGreater')
-                  }
-                />
-              )}
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setCheckoutDialogOpen(false)}>{t('common.cancel')}</Button>
-            <Button 
-              onClick={handleCheckout}
-              variant="contained"
-              disabled={
-                transactionLoading || 
-                (paymentMethod === 'cash' && (!paymentAmount || parseFloat(paymentAmount) < total))
-              }
-            >
-              {transactionLoading ? <CircularProgress size={24} /> : t('checkout.completeTransaction')}
-            </Button>
-          </DialogActions>
-        </Dialog>
+        {/* Receipt Dialog */}
+        <ReceiptDialog
+          open={receiptDialogOpen}
+          onClose={() => {
+            setReceiptDialogOpen(false);
+            setCompletedTransactionData(null);
+          }}
+          transactionId={completedTransactionData?.transactionId || ''}
+          cartItems={completedTransactionData?.receiptData?.cartItems || cart.map(item => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.quantity * item.unit_price,
+            product: {
+              name: item.product?.name || '',
+              barcode: item.product?.barcode
+            }
+          }))}
+          payments={completedTransactionData?.payments || []}
+          subtotal={subtotal}
+          taxAmount={taxAmount}
+          totalAmount={total}
+          changeAmount={completedTransactionData?.changeAmount || 0}
+          employeeName={user?.name}
+          terminalId={terminalId || undefined}
+        />
 
         {/* Transaction Complete Dialog */}
         <Dialog 

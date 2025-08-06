@@ -341,6 +341,13 @@ class ApiService {
     });
   }
 
+  async processSplitPayment(transactionId: string, payments: Partial<Payment>[]): Promise<ApiResponse> {
+    return this.request(`/transactions/${transactionId}/split-payment`, {
+      method: 'POST',
+      body: JSON.stringify({ payments }),
+    });
+  }
+
   async voidTransaction(id: string, reason: string): Promise<ApiResponse> {
     return this.request(`/transactions/${id}/void`, {
       method: 'POST',
