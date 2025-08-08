@@ -324,4 +324,139 @@ router.post('/:id/change-pin', asyncHandler(async (req: Request, res: Response) 
   });
 }));
 
+// GET /api/employees/:id/time-logs - Get employee time logs
+router.get('/:id/time-logs', asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { start_date, end_date } = req.query;
+  
+  let query = `
+    SELECT 
+      etl.id, etl.employee_id, etl.clock_in, etl.clock_out, 
+      etl.break_start, etl.break_end, etl.total_hours, etl.overtime_hours,
+      etl.status, etl.notes, etl.created_at,
+      CASE 
+        WHEN etl.clock_out IS NOT NULL THEN EXTRACT(EPOCH FROM (etl.clock_out - etl.clock_in))/3600
+        ELSE EXTRACT(EPOCH FROM (NOW() - etl.clock_in))/3600
+      END as hours_worked
+    FROM employee_time_logs etl
+    WHERE etl.employee_id = $1
+  `;
+  
+  const params: any[] = [id];
+  let paramIndex = 2;
+  
+  if (start_date) {
+    query += ` AND DATE(etl.clock_in) >= $${paramIndex}`;
+    params.push(start_date as string);
+    paramIndex++;
+  }
+  
+  if (end_date) {
+    query += ` AND DATE(etl.clock_in) <= $${paramIndex}`;
+    params.push(end_date as string);
+    paramIndex++;
+  }
+  
+  query += ` ORDER BY etl.clock_in DESC`;
+  
+  const result = await DatabaseManager.query(query, params);
+  
+  res.json({
+    success: true,
+    data: {
+      timeLogs: result.rows,
+      period: { start_date, end_date }
+    }
+  });
+}));
+
+// GET /api/employees/:id/stats - Get employee statistics
+router.get('/:id/stats', asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { month, year } = req.query;
+  
+  // Default to current month/year if not provided
+  const currentDate = new Date();
+  const targetMonth = month ? parseInt(month as string) : currentDate.getMonth() + 1;
+  const targetYear = year ? parseInt(year as string) : currentDate.getFullYear();
+  
+  // Build date range for the target month
+  const startDate = `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`;
+  const endDate = new Date(targetYear, targetMonth, 0).toISOString().split('T')[0];
+  
+  const query = `
+    WITH monthly_stats AS (
+      SELECT 
+        COUNT(DISTINCT DATE(etl.clock_in)) as working_days,
+        SUM(
+          CASE 
+            WHEN etl.clock_out IS NOT NULL THEN EXTRACT(EPOCH FROM (etl.clock_out - etl.clock_in))/3600
+            ELSE 0
+          END
+        ) as total_hours,
+        SUM(etl.overtime_hours) as overtime_hours,
+        AVG(
+          CASE 
+            WHEN etl.clock_out IS NOT NULL THEN EXTRACT(EPOCH FROM (etl.clock_out - etl.clock_in))/3600
+            ELSE 0
+          END
+        ) as avg_hours_per_day
+      FROM employee_time_logs etl
+      WHERE etl.employee_id = $1
+        AND DATE(etl.clock_in) >= $2
+        AND DATE(etl.clock_in) <= $3
+        AND etl.status = 'completed'
+    )
+    SELECT 
+      COALESCE(working_days, 0) as working_days,
+      COALESCE(total_hours, 0) as total_hours,
+      COALESCE(overtime_hours, 0) as overtime_hours,
+      COALESCE(avg_hours_per_day, 0) as avg_hours_per_day
+    FROM monthly_stats
+  `;
+  
+  const result = await DatabaseManager.query(query, [id, startDate, endDate]);
+  const stats = result.rows[0];
+  
+  res.json({
+    success: true,
+    data: {
+      ...stats,
+      month: targetMonth,
+      year: targetYear,
+      period: { start_date: startDate, end_date: endDate }
+    }
+  });
+}));
+
+// GET /api/employees/:id/current-status - Get current work status
+router.get('/:id/current-status', asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  const query = `
+    SELECT 
+      etl.id, etl.clock_in, etl.clock_out, etl.status,
+      CASE 
+        WHEN etl.clock_out IS NULL THEN EXTRACT(EPOCH FROM (NOW() - etl.clock_in))/3600
+        ELSE EXTRACT(EPOCH FROM (etl.clock_out - etl.clock_in))/3600
+      END as hours_worked,
+      CASE WHEN etl.clock_out IS NULL THEN true ELSE false END as is_currently_working
+    FROM employee_time_logs etl
+    WHERE etl.employee_id = $1
+      AND DATE(etl.clock_in) = CURRENT_DATE
+    ORDER BY etl.clock_in DESC
+    LIMIT 1
+  `;
+  
+  const result = await DatabaseManager.query(query, [id]);
+  
+  res.json({
+    success: true,
+    data: {
+      currentStatus: result.rows[0] || null,
+      date: new Date().toISOString().split('T')[0]
+    }
+  });
+}));
+
 export default router;

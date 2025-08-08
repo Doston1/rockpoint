@@ -400,16 +400,200 @@ router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
   } else {
     var transactionCountResult = await DatabaseManager.query(transactionCountQuery);
   }
+
+  // Today's sales
+  let todaySalesQuery = `
+    SELECT COALESCE(SUM(total_amount), 0) as today_sales 
+    FROM transactions 
+    WHERE status = 'completed' 
+    AND DATE(created_at) = CURRENT_DATE
+  `;
+  if (branch_id) {
+    todaySalesQuery += ` AND branch_id = $1`;
+    var todaySalesResult = await DatabaseManager.query(todaySalesQuery, [branch_id]);
+  } else {
+    var todaySalesResult = await DatabaseManager.query(todaySalesQuery);
+  }
+
+  // This month's sales
+  let monthSalesQuery = `
+    SELECT COALESCE(SUM(total_amount), 0) as month_sales 
+    FROM transactions 
+    WHERE status = 'completed' 
+    AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+  `;
+  if (branch_id) {
+    monthSalesQuery += ` AND branch_id = $1`;
+    var monthSalesResult = await DatabaseManager.query(monthSalesQuery, [branch_id]);
+  } else {
+    var monthSalesResult = await DatabaseManager.query(monthSalesQuery);
+  }
+
+  // Low stock items count
+  let lowStockQuery = `
+    SELECT COUNT(*) as low_stock_items 
+    FROM branch_inventory bi 
+    JOIN products p ON bi.product_id = p.id 
+    WHERE bi.quantity_in_stock <= bi.min_stock_level 
+    AND p.is_active = true
+  `;
+  if (branch_id) {
+    lowStockQuery += ` AND bi.branch_id = $1`;
+    var lowStockResult = await DatabaseManager.query(lowStockQuery, [branch_id]);
+  } else {
+    var lowStockResult = await DatabaseManager.query(lowStockQuery);
+  }
   
   res.json({
     success: true,
     data: {
-      total_branches: parseInt(branchCountResult.rows[0].total_branches),
-      total_products: parseInt(productCountResult.rows[0].total_products),
-      total_employees: parseInt(employeeCountResult.rows[0].total_employees),
-      today_transactions: parseInt(transactionCountResult.rows[0].today_transactions)
+      totalBranches: parseInt(branchCountResult.rows[0].total_branches),
+      totalProducts: parseInt(productCountResult.rows[0].total_products),
+      totalEmployees: parseInt(employeeCountResult.rows[0].total_employees),
+      todayTransactions: parseInt(transactionCountResult.rows[0].today_transactions),
+      todaySales: parseFloat(todaySalesResult.rows[0].today_sales || '0'),
+      monthSales: parseFloat(monthSalesResult.rows[0].month_sales || '0'),
+      lowStockItems: parseInt(lowStockResult.rows[0].low_stock_items || '0')
     }
   });
+}));
+
+// GET /api/dashboard/comprehensive - Get comprehensive dashboard statistics with more details
+router.get('/comprehensive', asyncHandler(async (req: Request, res: Response) => {
+  const { branch_id } = req.query;
+  
+  try {
+    // Run all queries in parallel for better performance
+    const queries: string[] = [];
+    const queryParams: any[][] = [];
+
+    // 1. Branch count
+    if (!branch_id) {
+      queries.push('SELECT COUNT(*) as total_branches FROM branches WHERE is_active = true');
+      queryParams.push([]);
+    }
+
+    // 2. Product count
+    queries.push('SELECT COUNT(*) as total_products FROM products WHERE is_active = true');
+    queryParams.push([]);
+
+    // 3. Employee count
+    let employeeQuery = 'SELECT COUNT(*) as total_employees FROM employees WHERE status = \'active\'';
+    if (branch_id) {
+      employeeQuery += ' AND branch_id = $1';
+      queries.push(employeeQuery);
+      queryParams.push([branch_id]);
+    } else {
+      queries.push(employeeQuery);
+      queryParams.push([]);
+    }
+
+    // 4. Today transactions count
+    let todayTxnCountQuery = 'SELECT COUNT(*) as today_transactions FROM transactions WHERE status = \'completed\' AND DATE(created_at) = CURRENT_DATE';
+    if (branch_id) {
+      todayTxnCountQuery += ' AND branch_id = $1';
+      queries.push(todayTxnCountQuery);
+      queryParams.push([branch_id]);
+    } else {
+      queries.push(todayTxnCountQuery);
+      queryParams.push([]);
+    }
+
+    // 5. Today sales amount
+    let todaySalesQuery = 'SELECT COALESCE(SUM(total_amount), 0) as today_sales FROM transactions WHERE status = \'completed\' AND DATE(created_at) = CURRENT_DATE';
+    if (branch_id) {
+      todaySalesQuery += ' AND branch_id = $1';
+      queries.push(todaySalesQuery);
+      queryParams.push([branch_id]);
+    } else {
+      queries.push(todaySalesQuery);
+      queryParams.push([]);
+    }
+
+    // 6. Month sales amount
+    let monthSalesQuery = 'SELECT COALESCE(SUM(total_amount), 0) as month_sales FROM transactions WHERE status = \'completed\' AND DATE_TRUNC(\'month\', created_at) = DATE_TRUNC(\'month\', CURRENT_DATE)';
+    if (branch_id) {
+      monthSalesQuery += ' AND branch_id = $1';
+      queries.push(monthSalesQuery);
+      queryParams.push([branch_id]);
+    } else {
+      queries.push(monthSalesQuery);
+      queryParams.push([]);
+    }
+
+    // 7. Low stock items
+    let lowStockQuery = 'SELECT COUNT(*) as low_stock_items FROM branch_inventory bi JOIN products p ON bi.product_id = p.id WHERE bi.quantity_in_stock <= bi.min_stock_level AND p.is_active = true';
+    if (branch_id) {
+      lowStockQuery += ' AND bi.branch_id = $1';
+      queries.push(lowStockQuery);
+      queryParams.push([branch_id]);
+    } else {
+      queries.push(lowStockQuery);
+      queryParams.push([]);
+    }
+
+    // 8. Recent transactions for activity feed
+    let recentTxnQuery = `
+      SELECT t.id, t.total_amount, t.payment_method, t.created_at,
+             e.name as employee_name, b.name as branch_name
+      FROM transactions t
+      LEFT JOIN employees e ON t.employee_id = e.id
+      LEFT JOIN branches b ON t.branch_id = b.id
+      WHERE t.status = 'completed'
+    `;
+    if (branch_id) {
+      recentTxnQuery += ' AND t.branch_id = $1';
+      queries.push(recentTxnQuery + ' ORDER BY t.created_at DESC LIMIT 10');
+      queryParams.push([branch_id]);
+    } else {
+      queries.push(recentTxnQuery + ' ORDER BY t.created_at DESC LIMIT 10');
+      queryParams.push([]);
+    }
+
+    // Execute all queries
+    const results = await Promise.all(
+      queries.map((query, index) => DatabaseManager.query(query, queryParams[index]))
+    );
+
+    let resultIndex = 0;
+    const data: any = {};
+
+    // Parse results
+    if (!branch_id) {
+      data.totalBranches = parseInt(results[resultIndex++].rows[0].total_branches);
+    } else {
+      data.totalBranches = 1;
+    }
+
+    data.totalProducts = parseInt(results[resultIndex++].rows[0].total_products);
+    data.totalEmployees = parseInt(results[resultIndex++].rows[0].total_employees);
+    data.todayTransactions = parseInt(results[resultIndex++].rows[0].today_transactions);
+    data.todaySales = parseFloat(results[resultIndex++].rows[0].today_sales || '0');
+    data.monthSales = parseFloat(results[resultIndex++].rows[0].month_sales || '0');
+    data.lowStockItems = parseInt(results[resultIndex++].rows[0].low_stock_items || '0');
+    
+    // Recent transactions
+    data.recentTransactions = results[resultIndex++].rows.map((transaction: any) => ({
+      id: transaction.id,
+      total_amount: parseFloat(transaction.total_amount),
+      payment_method: transaction.payment_method,
+      created_at: transaction.created_at,
+      employee_name: transaction.employee_name,
+      branch_name: transaction.branch_name
+    }));
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (error) {
+    console.error('Error fetching comprehensive dashboard stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch comprehensive dashboard statistics'
+    });
+  }
 }));
 
 export default router;
