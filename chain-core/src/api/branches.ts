@@ -12,19 +12,29 @@ const createBranchSchema = z.object({
   address: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email().optional(),
-  manager: z.string().optional(),
-  timezone: z.string().default('UTC'),
-  currency: z.string().default('USD'),
+  managerName: z.string().optional(),
+  manager: z.string().optional(), // For backward compatibility
+  timezone: z.string().default('Asia/Tashkent'),
+  currency: z.string().default('UZS'),
+  taxRate: z.number().min(0).max(100).default(12),
+  isActive: z.boolean().default(true),
+  apiKey: z.string().optional(),
 });
 
 const updateBranchSchema = createBranchSchema.partial();
+
+// Helper function to generate API key
+const generateApiKey = (): string => {
+  return 'br_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+};
 
 // GET /api/branches - Get all branches
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const query = `
     SELECT 
-      id, name, code, address, phone, email, manager_name as manager,
-      timezone, currency, is_active as status, created_at, updated_at
+      id, name, code, address, phone, email, manager_name,
+      timezone, currency, tax_rate, is_active, last_sync_at,
+      api_endpoint, api_key, created_at, updated_at
     FROM branches 
     ORDER BY name ASC
   `;
@@ -36,7 +46,10 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     data: {
       branches: result.rows.map((branch: any) => ({
         ...branch,
-        status: branch.status ? 'active' : 'inactive'
+        isActive: branch.is_active,
+        managerName: branch.manager_name,
+        taxRate: parseFloat(branch.tax_rate || '0'),
+        lastSyncAt: branch.last_sync_at
       }))
     }
   });
@@ -48,8 +61,9 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   
   const query = `
     SELECT 
-      id, name, code, address, phone, email, manager_name as manager,
-      timezone, currency, is_active as status, created_at, updated_at
+      id, name, code, address, phone, email, manager_name,
+      timezone, currency, tax_rate, is_active, last_sync_at,
+      api_endpoint, api_key, created_at, updated_at
     FROM branches 
     WHERE id = $1
   `;
@@ -64,11 +78,18 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   }
   
   const branch = result.rows[0];
-  branch.status = branch.status ? 'active' : 'inactive';
   
   res.json({
     success: true,
-    data: { branch }
+    data: { 
+      branch: {
+        ...branch,
+        isActive: branch.is_active,
+        managerName: branch.manager_name,
+        taxRate: parseFloat(branch.tax_rate || '0'),
+        lastSyncAt: branch.last_sync_at
+      }
+    }
   });
 }));
 
@@ -89,15 +110,21 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     });
   }
   
+  // Generate API key if not provided
+  const apiKey = validatedData.apiKey || generateApiKey();
+  const managerName = validatedData.managerName || validatedData.manager;
+  
   const insertQuery = `
     INSERT INTO branches (
       name, code, address, phone, email, manager_name,
-      timezone, currency, is_active, created_at, updated_at
+      timezone, currency, tax_rate, is_active, api_key,
+      created_at, updated_at
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, true, NOW(), NOW()
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()
     )
-    RETURNING id, name, code, address, phone, email, manager_name as manager,
-             timezone, currency, is_active as status, created_at, updated_at
+    RETURNING id, name, code, address, phone, email, manager_name,
+             timezone, currency, tax_rate, is_active, last_sync_at,
+             api_endpoint, api_key, created_at, updated_at
   `;
   
   const result = await DatabaseManager.query(insertQuery, [
@@ -106,17 +133,27 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     validatedData.address,
     validatedData.phone,
     validatedData.email,
-    validatedData.manager,
+    managerName,
     validatedData.timezone,
-    validatedData.currency
+    validatedData.currency,
+    validatedData.taxRate,
+    validatedData.isActive,
+    apiKey
   ]);
   
   const branch = result.rows[0];
-  branch.status = branch.status ? 'active' : 'inactive';
   
   res.status(201).json({
     success: true,
-    data: { branch }
+    data: { 
+      branch: {
+        ...branch,
+        isActive: branch.is_active,
+        managerName: branch.manager_name,
+        taxRate: parseFloat(branch.tax_rate || '0'),
+        lastSyncAt: branch.last_sync_at
+      }
+    }
   });
 }));
 
@@ -145,7 +182,13 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
   
   for (const [key, value] of Object.entries(validatedData)) {
     if (value !== undefined) {
-      const dbField = key === 'manager' ? 'manager_name' : key;
+      let dbField = key;
+      if (key === 'managerName') dbField = 'manager_name';
+      else if (key === 'manager') dbField = 'manager_name';
+      else if (key === 'isActive') dbField = 'is_active';
+      else if (key === 'taxRate') dbField = 'tax_rate';
+      else if (key === 'apiKey') dbField = 'api_key';
+      
       updateFields.push(`${dbField} = $${paramIndex}`);
       values.push(value);
       paramIndex++;
@@ -166,17 +209,25 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
     UPDATE branches 
     SET ${updateFields.join(', ')}
     WHERE id = $${paramIndex}
-    RETURNING id, name, code, address, phone, email, manager_name as manager,
-             timezone, currency, is_active as status, created_at, updated_at
+    RETURNING id, name, code, address, phone, email, manager_name,
+             timezone, currency, tax_rate, is_active, last_sync_at,
+             api_endpoint, api_key, created_at, updated_at
   `;
   
   const result = await DatabaseManager.query(updateQuery, values);
   const branch = result.rows[0];
-  branch.status = branch.status ? 'active' : 'inactive';
   
   res.json({
     success: true,
-    data: { branch }
+    data: { 
+      branch: {
+        ...branch,
+        isActive: branch.is_active,
+        managerName: branch.manager_name,
+        taxRate: parseFloat(branch.tax_rate || '0'),
+        lastSyncAt: branch.last_sync_at
+      }
+    }
   });
 }));
 
@@ -212,7 +263,7 @@ router.get('/:id/stats', asyncHandler(async (req: Request, res: Response) => {
     [id, 'active']
   );
   
-  // Get today's sales (placeholder)
+  // Get today's sales
   const todaySales = await DatabaseManager.query(`
     SELECT COALESCE(SUM(total_amount), 0) as total
     FROM transactions 
@@ -221,13 +272,145 @@ router.get('/:id/stats', asyncHandler(async (req: Request, res: Response) => {
     AND status = 'completed'
   `, [id]);
   
+  // Get this month's sales
+  const monthSales = await DatabaseManager.query(`
+    SELECT COALESCE(SUM(total_amount), 0) as total
+    FROM transactions 
+    WHERE branch_id = $1 
+    AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+    AND status = 'completed'
+  `, [id]);
+  
+  // Get total products count
+  const productCount = await DatabaseManager.query(`
+    SELECT COUNT(DISTINCT product_id) as count
+    FROM branch_inventory 
+    WHERE branch_id = $1
+  `, [id]);
+  
+  // Get low stock items count
+  const lowStockCount = await DatabaseManager.query(`
+    SELECT COUNT(*) as count
+    FROM branch_inventory 
+    WHERE branch_id = $1 
+    AND quantity_in_stock <= min_stock_level
+  `, [id]);
+  
+  // Get recent transactions count (last 24 hours)
+  const recentTransactions = await DatabaseManager.query(`
+    SELECT COUNT(*) as count
+    FROM transactions 
+    WHERE branch_id = $1 
+    AND created_at >= NOW() - INTERVAL '24 hours'
+  `, [id]);
+  
   res.json({
     success: true,
     data: {
       employeeCount: parseInt(employeeCount.rows[0].count),
       todaySales: parseFloat(todaySales.rows[0].total || '0'),
-      // Add more statistics as needed
+      monthSales: parseFloat(monthSales.rows[0].total || '0'),
+      productCount: parseInt(productCount.rows[0]?.count || '0'),
+      lowStockCount: parseInt(lowStockCount.rows[0]?.count || '0'),
+      recentTransactions: parseInt(recentTransactions.rows[0].count),
     }
+  });
+}));
+
+// GET /api/branches/:id/connection - Get branch connection status
+router.get('/:id/connection', asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  // Check if branch exists
+  const branch = await DatabaseManager.query(
+    'SELECT last_sync_at FROM branches WHERE id = $1',
+    [id]
+  );
+  
+  if (branch.rows.length === 0) {
+    return res.status(404).json({
+      success: false,
+      error: 'Branch not found'
+    });
+  }
+  
+  const lastSync = branch.rows[0].last_sync_at;
+  const now = new Date();
+  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+  
+  // Consider connected if synced within last 5 minutes
+  const isConnected = lastSync && new Date(lastSync) > fiveMinutesAgo;
+  
+  res.json({
+    success: true,
+    data: {
+      isConnected,
+      lastSync: lastSync,
+      status: isConnected ? 'connected' : 'disconnected'
+    }
+  });
+}));
+
+// POST /api/branches/:id/sync - Trigger manual sync for branch
+router.post('/:id/sync', asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  // Check if branch exists
+  const branch = await DatabaseManager.query(
+    'SELECT id FROM branches WHERE id = $1 AND is_active = true',
+    [id]
+  );
+  
+  if (branch.rows.length === 0) {
+    return res.status(404).json({
+      success: false,
+      error: 'Branch not found or inactive'
+    });
+  }
+  
+  // Update last sync timestamp
+  await DatabaseManager.query(
+    'UPDATE branches SET last_sync_at = NOW() WHERE id = $1',
+    [id]
+  );
+  
+  // In a real implementation, this would trigger actual sync operations
+  // For now, just return success
+  res.json({
+    success: true,
+    message: 'Sync initiated successfully'
+  });
+}));
+
+// GET /api/branches/connection-status - Get connection status for all branches
+router.get('/connection-status', asyncHandler(async (req: Request, res: Response) => {
+  const branches = await DatabaseManager.query(`
+    SELECT id, name, code, last_sync_at, is_active
+    FROM branches 
+    ORDER BY name ASC
+  `);
+  
+  const now = new Date();
+  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+  
+  const connectionStatus = branches.rows.map((branch: any) => {
+    const isConnected = branch.is_active && 
+                       branch.last_sync_at && 
+                       new Date(branch.last_sync_at) > fiveMinutesAgo;
+    
+    return {
+      id: branch.id,
+      name: branch.name,
+      code: branch.code,
+      isConnected,
+      lastSync: branch.last_sync_at,
+      status: isConnected ? 'connected' : 'disconnected'
+    };
+  });
+  
+  res.json({
+    success: true,
+    data: { branches: connectionStatus }
   });
 }));
 

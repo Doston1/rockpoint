@@ -324,6 +324,35 @@ class ApiService {
     }
   }
 
+  async getComprehensiveDashboardStats(): Promise<ApiResponse<{
+    totalBranches: number;
+    totalProducts: number;
+    totalEmployees: number;
+    todayTransactions: number;
+    todaySales: number;
+    monthSales: number;
+    lowStockItems: number;
+    recentTransactions?: Array<{
+      id: string;
+      total_amount: number;
+      payment_method: string;
+      created_at: string;
+      employee_name: string;
+      branch_name: string;
+    }>;
+  }>> {
+    try {
+      const response = await this.api.get('/dashboard/comprehensive');
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch comprehensive dashboard stats',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   // Branch APIs
   async getBranches(): Promise<ApiResponse<{ branches: Branch[] }>> {
     try {
@@ -398,6 +427,78 @@ class ApiService {
     }
   }
 
+  async getBranchStats(id: string): Promise<ApiResponse<{
+    employeeCount: number;
+    todaySales: number;
+    monthSales: number;
+    productCount: number;
+    lowStockCount: number;
+    recentTransactions: number;
+  }>> {
+    try {
+      const response = await this.api.get(`/branches/${id}/stats`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch branch stats',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getBranchConnection(id: string): Promise<ApiResponse<{
+    isConnected: boolean;
+    lastSync: string;
+    status: string;
+  }>> {
+    try {
+      const response = await this.api.get(`/branches/${id}/connection`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch branch connection status',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async syncBranch(id: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.post(`/branches/${id}/sync`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to sync branch',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getAllBranchesConnectionStatus(): Promise<ApiResponse<{ 
+    branches: Array<{
+      id: string;
+      name: string;
+      code: string;
+      isConnected: boolean;
+      lastSync: string;
+      status: string;
+    }> 
+  }>> {
+    try {
+      const response = await this.api.get('/branches/connection-status');
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch branches connection status',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   // Employee APIs
   async getEmployees(branchId?: string): Promise<ApiResponse<{ employees: Employee[] }>> {
     try {
@@ -424,6 +525,12 @@ class ApiService {
   async getEmployee(id: string): Promise<ApiResponse<Employee>> {
     try {
       const response = await this.api.get(`/employees/${id}`);
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: transformEmployee(response.data.data)
+        };
+      }
       return response.data;
     } catch (error: any) {
       return {
@@ -437,6 +544,12 @@ class ApiService {
   async createEmployee(employeeData: Partial<Employee>): Promise<ApiResponse<Employee>> {
     try {
       const response = await this.api.post('/employees', employeeData);
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: transformEmployee(response.data.data)
+        };
+      }
       return response.data;
     } catch (error: any) {
       return {
@@ -450,6 +563,12 @@ class ApiService {
   async updateEmployee(id: string, employeeData: Partial<Employee>): Promise<ApiResponse<Employee>> {
     try {
       const response = await this.api.put(`/employees/${id}`, employeeData);
+      if (response.data.success && response.data.data) {
+        return {
+          ...response.data,
+          data: transformEmployee(response.data.data)
+        };
+      }
       return response.data;
     } catch (error: any) {
       return {
@@ -468,6 +587,40 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to delete employee',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getEmployeeTimeLogs(employeeId: string, startDate?: string, endDate?: string): Promise<ApiResponse<{ timeLogs: any[] }>> {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+      
+      const response = await this.api.get(`/employees/${employeeId}/time-logs?${params.toString()}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch time logs',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getEmployeeStats(employeeId: string, month?: string, year?: string): Promise<ApiResponse<any>> {
+    try {
+      const params = new URLSearchParams();
+      if (month) params.append('month', month);
+      if (year) params.append('year', year);
+      
+      const response = await this.api.get(`/employees/${employeeId}/stats?${params.toString()}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch employee stats',
         timestamp: new Date().toISOString(),
       };
     }
