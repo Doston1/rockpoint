@@ -1,24 +1,24 @@
 import {
-  AccountCircle,
-  Business,
-  Dashboard,
-  Logout,
-  Menu as MenuIcon,
-  Settings,
-  SignalWifi4Bar,
-  SignalWifiOff,
+    AccountCircle,
+    Business,
+    Dashboard,
+    Logout,
+    Menu as MenuIcon,
+    Settings,
+    SignalWifi4Bar,
+    SignalWifiOff,
 } from '@mui/icons-material';
 import {
-  AppBar,
-  Badge,
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  Menu,
-  MenuItem,
-  Toolbar,
-  Typography,
+    AppBar,
+    Badge,
+    Box,
+    Button,
+    Chip,
+    IconButton,
+    Menu,
+    MenuItem,
+    Toolbar,
+    Typography,
 } from '@mui/material';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -84,7 +84,7 @@ export function NavigationBar({ onSidebarToggle }: NavigationBarProps) {
 
         <Business sx={{ mr: 2 }} />
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          RockPoint Chain Manager
+          {t('common.appName')}
         </Typography>
 
         {/* Connection Status */}

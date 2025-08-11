@@ -1,31 +1,31 @@
 import {
-    ContentCopy,
-    Refresh,
-    Visibility,
-    VisibilityOff,
+  ContentCopy,
+  Refresh,
+  Visibility,
+  VisibilityOff,
 } from '@mui/icons-material';
 import {
-    Alert,
-    Box,
-    Button,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Divider,
-    FormControl,
-    FormControlLabel,
-    IconButton,
-    InputAdornment,
-    InputLabel,
-    MenuItem,
-    Select,
-    Stack,
-    Switch,
-    Tab,
-    Tabs,
-    TextField,
-    Typography,
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  FormControl,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  Switch,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -251,7 +251,7 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
                 error={!!errors.code}
                 helperText={errors.code}
                 required
-                placeholder="e.g., BR001"
+                placeholder={t('branches.branchCodePlaceholder')}
               />
             </Stack>
             <TextField
@@ -283,7 +283,7 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
                 label={t('branches.phone')}
                 value={formData.phone || ''}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
-                placeholder="+998 90 123 45 67"
+                placeholder={t('branches.phonePlaceholder')}
               />
               <TextField
                 fullWidth
@@ -357,7 +357,7 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
               {t('branches.token')}
             </Typography>
             <Alert severity="info" sx={{ mb: 2 }}>
-              This token will be used by the branch to authenticate with the main office system.
+              {t('branches.tokenInfo')}
             </Alert>
             
             <TextField

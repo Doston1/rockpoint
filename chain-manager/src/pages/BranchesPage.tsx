@@ -1,47 +1,47 @@
 import {
-  Add,
-  AttachMoney,
-  BarChart,
-  Business,
-  Cancel,
-  CheckCircle,
-  Delete,
-  Edit,
-  Group,
-  LocationOn,
-  MoreVert,
-  Phone,
-  Refresh,
-  Search,
-  Store,
+    Add,
+    AttachMoney,
+    BarChart,
+    Business,
+    Cancel,
+    CheckCircle,
+    Delete,
+    Edit,
+    Group,
+    LocationOn,
+    MoreVert,
+    Phone,
+    Refresh,
+    Search,
+    Store,
 } from '@mui/icons-material';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  FormControl,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  LinearProgress,
-  Menu,
-  MenuItem,
-  MenuItem as MenuListItem,
-  Paper,
-  Select,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
+    FormControl,
+    IconButton,
+    InputAdornment,
+    InputLabel,
+    LinearProgress,
+    Menu,
+    MenuItem,
+    MenuItem as MenuListItem,
+    Paper,
+    Select,
+    Snackbar,
+    Stack,
+    TextField,
+    Typography,
 } from '@mui/material';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -397,7 +397,7 @@ const BranchesPage = () => {
               </Typography>
             </Box>
             <Typography variant="h4">
-              {isDashboardLoading ? '...' : stats.total}
+              {isDashboardLoading ? t('common.loading') : stats.total}
             </Typography>
           </CardContent>
         </Card>
@@ -411,7 +411,7 @@ const BranchesPage = () => {
               </Typography>
             </Box>
             <Typography variant="h4" color="success.main">
-              {isDashboardLoading ? '...' : stats.active}
+              {isDashboardLoading ? t('common.loading') : stats.active}
             </Typography>
           </CardContent>
         </Card>
@@ -425,7 +425,7 @@ const BranchesPage = () => {
               </Typography>
             </Box>
             <Typography variant="h4" color="info.main">
-              {isDashboardLoading ? '...' : stats.totalEmployees}
+              {isDashboardLoading ? t('common.loading') : stats.totalEmployees}
             </Typography>
           </CardContent>
         </Card>
@@ -439,7 +439,7 @@ const BranchesPage = () => {
               </Typography>
             </Box>
             <Typography variant="h4" color="warning.main">
-              {isDashboardLoading ? '...' : `$${stats.todaySales.toLocaleString()}`}
+              {isDashboardLoading ? t('common.loading') : `$${stats.todaySales.toLocaleString()}`}
             </Typography>
           </CardContent>
         </Card>
@@ -488,7 +488,7 @@ const BranchesPage = () => {
           <Typography variant="h6" color="text.secondary" gutterBottom>
             {searchTerm || statusFilter !== 'all' 
               ? t('branches.noBranches') 
-              : 'No branches found with current filters'
+              : t('branches.noMatchingFilters')
             }
           </Typography>
           {!searchTerm && statusFilter === 'all' && (

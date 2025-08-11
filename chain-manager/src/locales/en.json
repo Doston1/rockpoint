@@ -11,6 +11,7 @@
     "import": "Import",
     "refresh": "Refresh",
     "loading": "Loading...",
+    "saving": "Saving...",
     "error": "Error",
     "success": "Success",
     "warning": "Warning",
@@ -27,7 +28,14 @@
     "logout": "Logout",
     "login": "Login",
     "online": "Online",
-    "offline": "Offline"
+    "offline": "Offline",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "rowsPerPage": "Rows per page",
+    "actions": "Actions",
+    "cash": "Cash",
+    "appName": "RockPoint Chain Manager",
+    "chainManager": "Chain Manager"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -47,7 +55,28 @@
     "invalidCredentials": "Invalid credentials",
     "sessionExpired": "Session expired",
     "pleaseEnterCredentials": "Please enter your credentials",
-    "mainOfficeLogin": "Main Office Access"
+    "mainOfficeLogin": "Main Office Access",
+    "signInDescription": "Sign in to your chain management account",
+    "defaultCredentials": "Default Admin Credentials:",
+    "defaultEmail": "Email: admin@rockpoint.com",
+    "defaultPassword": "Password: admin123",
+    "useDefault": "Use Default"
+  },
+  "paymentMethods": {
+    "cash": "Cash",
+    "card": "Card",
+    "credit_card": "Credit Card",
+    "debit_card": "Debit Card",
+    "bank_transfer": "Bank Transfer",
+    "mobile_payment": "Mobile Payment"
+  },
+  "roles": {
+    "System Administrator": "System Administrator",
+    "Administrator": "Administrator",
+    "Manager": "Manager",
+    "Supervisor": "Supervisor",
+    "Cashier": "Cashier",
+    "Employee": "Employee"
   },
   "dashboard": {
     "title": "Chain Management Dashboard",
@@ -144,18 +173,48 @@
     "failedToLoadBranches": "Failed to load branches",
     "failedToLoadStats": "Failed to load branch statistics",
     "noBranches": "No branches found",
+    "noMatchingFilters": "No branches found with current filters",
     "branchCodeRequired": "Branch code is required",
     "branchNameRequired": "Branch name is required",
     "branchCodeExists": "Branch code already exists",
     "invalidEmail": "Please enter a valid email address",
     "invalidTaxRate": "Tax rate must be between 0 and 100",
+    "tokenInfo": "This token will be used by the branch to authenticate with the main office system.",
+    "branchCodePlaceholder": "e.g., BR001",
+    "phonePlaceholder": "+998 90 123 45 67",
     "createdAt": "Created",
     "updatedAt": "Last Updated",
     "never": "Never",
     "loading": "Loading...",
     "refresh": "Refresh",
     "export": "Export",
-    "import": "Import"
+    "import": "Import",
+    "stats": {
+      "overview": "Overview",
+      "salesPerformance": "Sales Performance",
+      "branchInformation": "Branch Information",
+      "activeEmployees": "Active Employees",
+      "todaysSales": "Today's Sales",
+      "totalProducts": "Total Products",
+      "lowStockItems": "Low Stock Items",
+      "recentActivity": "Recent Activity",
+      "transactionsLast24Hours": "Transactions in last 24 hours",
+      "salesSummary": "Sales Summary",
+      "thisMonth": "This Month",
+      "dailyAverage": "Daily Average",
+      "inventoryStatus": "Inventory Status",
+      "address": "Address",
+      "manager": "Manager",
+      "phone": "Phone",
+      "email": "Email",
+      "timezone": "Timezone",
+      "currency": "Currency",
+      "notSpecified": "Not specified",
+      "notAssigned": "Not assigned",
+      "close": "Close",
+      "failedToFetchStats": "Failed to fetch branch stats",
+      "failedToFetchData": "Failed to fetch branch data"
+    }
   },
   "employees": {
     "title": "Employees",
@@ -229,7 +288,9 @@
     "never": "Never",
     "loading": "Loading...",
     "error": "Error occurred",
+    "errorLoadingDetails": "Error loading employee details",
     "noEmployees": "No employees found",
+    "permanentDeleteWarning": "This will permanently delete the employee record.",
     "showingEmployees": "Showing {{count}} employees"
   },
   "inventory": {
@@ -317,12 +378,178 @@
     "percentage_discount": "Percentage",
     "fixed_amount": "Fixed Amount",
     "buy_x_get_y": "Buy X Get Y",
-    "bulk_discount": "Bulk Discount"
+    "bulk_discount": "Bulk Discount",
+    "unknownEmployee": "Unknown Employee",
+    "unknownBranch": "Unknown Branch",
+    "productActivatedSuccessfully": "Product activated successfully",
+    "productDeactivatedSuccessfully": "Product deactivated successfully",
+    "failedToActivateProduct": "Failed to activate product",
+    "failedToDeactivateProduct": "Failed to deactivate product",
+    "inventorySettingsUpdated": "Inventory settings updated successfully",
+    "failedToUpdateInventory": "Failed to update inventory settings",
+    "stockAdjustedSuccessfully": "Stock adjusted successfully. New quantity: {{quantity}}",
+    "failedToAdjustStock": "Failed to adjust stock",
+    "startingBulkSync": "Starting bulk synchronization...",
+    "bulkSyncCompleted": "Bulk sync completed: {{success}}/3 operations successful",
+    "bulkSyncFailed": "Bulk sync failed",
+    "syncInitiatedSuccessfully": "{{type}} sync initiated successfully",
+    "failedToSyncType": "Failed to sync {{type}}",
+    "edit": "Edit",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "editStock": "Edit Stock",
+    "adjustStock": "Adjust Stock",
+    "showingProducts": "{{count}} products",
+    "lowStockItemsCount": "{{count}} Low Stock Items",
+    "outOfStockItemsCount": "{{count}} Out of Stock",
+    "barcode": "Barcode",
+    "description": "Description",
+    "brand": "Brand",
+    "nameRussian": "Name (Russian)",
+    "nameUzbek": "Name (Uzbek)",
+    "unitOfMeasure": "Unit of Measure",
+    "taxRate": "Tax Rate (%)",
+    "imageUrl": "Image URL",
+    "branchSpecificEditingMode": "Branch-Specific Editing Mode",
+    "branchSpecificEditingDescription": "Price and cost changes will only affect this branch. Other product details update globally.",
+    "branchPriceHelper": "Price for this specific branch (see global reference below)",
+    "basePriceHelper": "Global base price for all branches",
+    "branchCostHelper": "Cost for this specific branch (see global reference below)",
+    "baseCostHelper": "Global cost for all branches",
+    "globalReference": "Global Reference (Read-only)",
+    "globalBasePrice": "Global Base Price",
+    "globalBaseCost": "Global Base Cost",
+    "globalBasePriceHelper": "Base price used across all branches",
+    "globalBaseCostHelper": "Base cost used across all branches"
   },
   "reports": {
-    "title": "Reports",
-    "analyticsPanel": "Reports & Analytics Panel",
-    "comingSoon": "Coming soon - Advanced reporting features"
+    "title": "Reports & Analytics",
+    "subtitle": "Comprehensive business insights and performance metrics",
+    "dashboard": "Dashboard Overview",
+    "filters": "Filters",
+    "dateRange": "Date Range",
+    "selectBranch": "Select Branch",
+    "allBranches": "All Branches",
+    "period": "Period",
+    "daily": "Daily",
+    "weekly": "Weekly", 
+    "monthly": "Monthly",
+    "refresh": "Refresh",
+    "export": "Export",
+    "loading": "Loading reports...",
+    "noData": "No data available for the selected period",
+    
+    "overview": {
+      "title": "Overview",
+      "totalRevenue": "Total Revenue",
+      "totalTransactions": "Total Transactions", 
+      "lowStockItems": "Low Stock Items",
+      "activeEmployees": "Active Employees",
+      "activeBranches": "Active Branches",
+      "averageSale": "Average Sale"
+    },
+    
+    "salesTrends": {
+      "title": "Sales Trends",
+      "revenue": "Revenue",
+      "transactions": "Transactions",
+      "trend": "Trend",
+      "growth": "Growth",
+      "decline": "Decline"
+    },
+    
+    "topProducts": {
+      "title": "Top Products",
+      "product": "Product",
+      "quantitySold": "Quantity Sold",
+      "revenue": "Revenue",
+      "orders": "Orders",
+      "viewAll": "View All"
+    },
+    
+    "categories": {
+      "title": "Category Performance",
+      "category": "Category", 
+      "quantitySold": "Quantity Sold",
+      "revenue": "Revenue",
+      "products": "Products",
+      "orders": "Orders"
+    },
+    
+    "employees": {
+      "title": "Employee Performance",
+      "employee": "Employee",
+      "role": "Role",
+      "sales": "Sales",
+      "transactions": "Transactions",
+      "averageSale": "Avg. Sale",
+      "branch": "Branch"
+    },
+    
+    "branches": {
+      "title": "Branch Comparison",
+      "branch": "Branch",
+      "code": "Code",
+      "sales": "Sales",
+      "transactions": "Transactions",
+      "averageSale": "Avg. Sale",
+      "employees": "Employees",
+      "performance": "Performance"
+    },
+    
+    "inventory": {
+      "title": "Inventory Overview",
+      "totalItems": "Total Items",
+      "totalValue": "Total Value",
+      "outOfStock": "Out of Stock",
+      "lowStock": "Low Stock",
+      "inStock": "In Stock",
+      "stockStatus": "Stock Status",
+      "product": "Product",
+      "sku": "SKU", 
+      "quantity": "Quantity",
+      "value": "Value",
+      "status": "Status"
+    },
+    
+    "financial": {
+      "title": "Financial Summary",
+      "totalRevenue": "Total Revenue",
+      "totalTax": "Total Tax",
+      "transactionCount": "Transaction Count",
+      "paymentMethods": "Payment Methods",
+      "hourlySales": "Hourly Sales Pattern",
+      "method": "Method",
+      "amount": "Amount",
+      "hour": "Hour"
+    },
+    
+    "sales": {
+      "title": "Sales Report",
+      "date": "Date",
+      "branch": "Branch",
+      "transactions": "Transactions", 
+      "sales": "Sales",
+      "tax": "Tax",
+      "averageSale": "Avg. Sale",
+      "dailySales": "Daily Sales",
+      "summary": "Summary",
+      "period": "Period"
+    },
+    
+    "errors": {
+      "failedToLoad": "Failed to load report data",
+      "noDataSelected": "Please select a date range",
+      "invalidDateRange": "Invalid date range selected"
+    },
+    
+    "actions": {
+      "applyFilters": "Apply Filters",
+      "resetFilters": "Reset Filters",
+      "exportPdf": "Export PDF",
+      "exportExcel": "Export Excel",
+      "printReport": "Print Report"
+    }
   },
   "settings": {
     "title": "Settings",

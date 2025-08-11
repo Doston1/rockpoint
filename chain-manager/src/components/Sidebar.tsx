@@ -71,10 +71,10 @@ export function Sidebar({ open }: SidebarProps) {
     <Box sx={{ width: DRAWER_WIDTH }}>
       <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
         <Typography variant="h6" fontWeight="bold">
-          Chain Manager
+          {t('common.chainManager')}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Main Office
+          {t('dashboard.mainOffice')}
         </Typography>
       </Box>
       

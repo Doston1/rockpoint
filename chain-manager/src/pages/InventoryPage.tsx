@@ -230,7 +230,7 @@ const InventoryPage = () => {
       const success = await deleteProduct(productId);
       setSnackbar({
         open: true,
-        message: success ? 'Product deleted successfully' : 'Failed to delete product',
+        message: success ? t('inventory.productDeletedSuccessfully') : t('inventory.failedToDeleteProduct'),
         severity: success ? 'success' : 'error',
       });
     }
@@ -264,7 +264,7 @@ const InventoryPage = () => {
       
       setSnackbar({
         open: true,
-        message: success ? 'Product saved successfully' : 'Failed to save product',
+        message: success ? t('inventory.productSavedSuccessfully') : t('inventory.failedToSaveProduct'),
         severity: success ? 'success' : 'error',
       });
       
@@ -277,7 +277,7 @@ const InventoryPage = () => {
     } catch (error) {
       setSnackbar({
         open: true,
-        message: 'Failed to save product',
+        message: t('inventory.failedToSaveProduct'),
         severity: 'error',
       });
     }
@@ -287,7 +287,7 @@ const InventoryPage = () => {
     if (!selectedBranchId) {
       setSnackbar({
         open: true,
-        message: 'Please select a branch first',
+        message: t('inventory.selectBranchFirst'),
         severity: 'warning',
       });
       return;
@@ -302,7 +302,7 @@ const InventoryPage = () => {
   };
 
   const handleDeletePromotion = async (promotionId: string) => {
-    if (window.confirm('Are you sure you want to delete this promotion?')) {
+    if (window.confirm(t('inventory.confirmDeleteProduct'))) {
       const success = await deletePromotion(promotionId);
       setSnackbar({
         open: true,
@@ -344,7 +344,7 @@ const InventoryPage = () => {
     if (!selectedBranchId) {
       setSnackbar({
         open: true,
-        message: 'Please select a branch first',
+        message: t('inventory.selectBranchFirst'),
         severity: 'warning',
       });
       return;
@@ -374,7 +374,7 @@ const InventoryPage = () => {
     if (!selectedBranchId) {
       setSnackbar({
         open: true,
-        message: 'Please select a branch first',
+        message: t('inventory.selectBranchFirst'),
         severity: 'warning',
       });
       return;
@@ -493,14 +493,14 @@ const InventoryPage = () => {
       } else {
         setSnackbar({
           open: true,
-          message: 'Failed to adjust stock',
+          message: t('inventory.failedToAdjustStock'),
           severity: 'error',
         });
       }
     } catch (error) {
       setSnackbar({
         open: true,
-        message: 'Failed to adjust stock',
+        message: t('inventory.failedToAdjustStock'),
         severity: 'error',
       });
     }
@@ -628,12 +628,12 @@ const InventoryPage = () => {
       getActions: (params) => [
         <GridActionsCellItem
           icon={<Edit />}
-          label="Edit Stock"
+          label={t('inventory.editStock')}
           onClick={() => handleEditInventory(params.row)}
         />,
         <GridActionsCellItem
           icon={<PowerSettingsNew />}
-          label="Adjust Stock"
+          label={t('inventory.adjustStock')}
           onClick={() => handleAdjustStock(params.row)}
         />,
       ],
@@ -828,7 +828,7 @@ const InventoryPage = () => {
                 />
                 {stats.lowStockItems > 0 && (
                   <Chip 
-                    label={`${stats.lowStockItems} Low Stock Items`}
+                    label={t('inventory.lowStockItemsCount', { count: stats.lowStockItems })}
                     color="warning"
                     icon={<Warning />}
                     variant="outlined"
@@ -836,7 +836,7 @@ const InventoryPage = () => {
                 )}
                 {stats.outOfStockItems > 0 && (
                   <Chip 
-                    label={`${stats.outOfStockItems} Out of Stock`}
+                    label={t('inventory.outOfStockItemsCount', { count: stats.outOfStockItems })}
                     color="error"
                     icon={<Warning />}
                     variant="outlined"
@@ -892,6 +892,9 @@ const InventoryPage = () => {
               }}
               disableRowSelectionOnClick
               sx={{ height: 600 }}
+              localeText={{
+                paginationRowsPerPage: t('common.rowsPerPage'),
+              }}
             />
           </CardContent>
         </Card>
@@ -919,6 +922,9 @@ const InventoryPage = () => {
               }}
               disableRowSelectionOnClick
               sx={{ height: 600 }}
+              localeText={{
+                paginationRowsPerPage: t('common.rowsPerPage'),
+              }}
             />
           </CardContent>
         </Card>

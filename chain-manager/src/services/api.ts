@@ -310,10 +310,18 @@ class ApiService {
   }
 
   // Dashboard APIs
-  async getDashboardStats(branchId?: string): Promise<ApiResponse<DashboardStats>> {
+  async getDashboardStats(filters?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+  }): Promise<ApiResponse<any>> {
     try {
-      const params = branchId ? { branch_id: branchId } : {};
-      const response = await this.api.get('/dashboard/overview', { params });
+      const params: any = {};
+      if (filters?.startDate) params.start_date = filters.startDate;
+      if (filters?.endDate) params.end_date = filters.endDate;
+      if (filters?.branchId) params.branch_id = filters.branchId;
+      
+      const response = await this.api.get('/reports/dashboard', { params });
       return response.data;
     } catch (error: any) {
       return {
@@ -943,7 +951,13 @@ class ApiService {
     employeeIds?: string[]; 
   }): Promise<ApiResponse<any>> {
     try {
-      const response = await this.api.get('/reports/sales', { params: filters });
+      const params: any = {};
+      if (filters.dateFrom) params.start_date = filters.dateFrom;
+      if (filters.dateTo) params.end_date = filters.dateTo;
+      if (filters.branchIds?.length === 1) params.branch_id = filters.branchIds[0];
+      if (filters.employeeIds?.length === 1) params.employee_id = filters.employeeIds[0];
+      
+      const response = await this.api.get('/reports/sales', { params });
       return response.data;
     } catch (error: any) {
       return {
@@ -963,6 +977,140 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch inventory report',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getSalesTrends(filters?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+    period?: 'daily' | 'weekly' | 'monthly';
+  }): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (filters?.startDate) params.start_date = filters.startDate;
+      if (filters?.endDate) params.end_date = filters.endDate;
+      if (filters?.branchId) params.branch_id = filters.branchId;
+      if (filters?.period) params.period = filters.period;
+      
+      const response = await this.api.get('/reports/trends', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch sales trends',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getTopProducts(filters?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+    limit?: number;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (filters?.startDate) params.start_date = filters.startDate;
+      if (filters?.endDate) params.end_date = filters.endDate;
+      if (filters?.branchId) params.branch_id = filters.branchId;
+      if (filters?.limit) params.limit = filters.limit.toString();
+      
+      const response = await this.api.get('/reports/top-products', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch top products',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getCategoryPerformance(filters?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (filters?.startDate) params.start_date = filters.startDate;
+      if (filters?.endDate) params.end_date = filters.endDate;
+      if (filters?.branchId) params.branch_id = filters.branchId;
+      
+      const response = await this.api.get('/reports/categories', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch category performance',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getEmployeePerformance(filters?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (filters?.startDate) params.start_date = filters.startDate;
+      if (filters?.endDate) params.end_date = filters.endDate;
+      if (filters?.branchId) params.branch_id = filters.branchId;
+      
+      const response = await this.api.get('/reports/employees', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch employee performance',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getBranchComparison(filters?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (filters?.startDate) params.start_date = filters.startDate;
+      if (filters?.endDate) params.end_date = filters.endDate;
+      
+      const response = await this.api.get('/reports/branches', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch branch comparison',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getFinancialSummary(filters?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const params: any = {};
+      if (filters?.startDate) params.start_date = filters.startDate;
+      if (filters?.endDate) params.end_date = filters.endDate;
+      if (filters?.branchId) params.branch_id = filters.branchId;
+      
+      const response = await this.api.get('/reports/financial', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch financial summary',
         timestamp: new Date().toISOString(),
       };
     }
