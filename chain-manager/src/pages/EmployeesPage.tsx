@@ -1,48 +1,48 @@
 import {
-  Add,
-  Business,
-  Delete,
-  Edit,
-  Group,
-  People,
-  PersonAdd,
-  Search,
-  SwapHoriz,
-  TrendingUp,
-  Visibility,
+    Add,
+    Business,
+    Delete,
+    Edit,
+    Group,
+    People,
+    PersonAdd,
+    Search,
+    SwapHoriz,
+    TrendingUp,
+    Visibility,
 } from '@mui/icons-material';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  IconButton,
-  InputLabel,
-  LinearProgress,
-  MenuItem,
-  Paper,
-  Select,
-  Snackbar,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  Tabs,
-  TextField,
-  Tooltip,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    FormControl,
+    IconButton,
+    InputLabel,
+    LinearProgress,
+    MenuItem,
+    Paper,
+    Select,
+    Snackbar,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TablePagination,
+    TableRow,
+    Tabs,
+    TextField,
+    Tooltip,
+    Typography,
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -267,7 +267,7 @@ const EmployeesPage = () => {
       console.error('Error fetching employee details:', error);
       setSnackbar({
         open: true,
-        message: 'Error loading employee details',
+        message: t('employees.errorLoadingDetails'),
         severity: 'error',
       });
     }
@@ -650,6 +650,7 @@ const EmployeesPage = () => {
             setRowsPerPage(parseInt(event.target.value, 10));
             setPage(0);
           }}
+          labelRowsPerPage={t('common.rowsPerPage')}
         />
       </TableContainer>
 
@@ -1143,7 +1144,7 @@ const EmployeesPage = () => {
             {employeeToDelete && t('employees.deleteEmployeeConfirm')}
           </Typography>
           <Alert severity="warning" sx={{ mt: 2 }}>
-            This will permanently delete the employee record.
+            {t('employees.permanentDeleteWarning')}
           </Alert>
         </DialogContent>
         <DialogActions>

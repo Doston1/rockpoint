@@ -115,7 +115,7 @@ const LoginPage = () => {
                 {t('auth.mainOfficeLogin')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Sign in to your chain management account
+                {t('auth.signInDescription')}
               </Typography>
             </Box>
 
@@ -124,11 +124,11 @@ const LoginPage = () => {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
                   <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>Default Admin Credentials:</strong>
+                    <strong>{t('auth.defaultCredentials')}</strong>
                   </Typography>
                   <Typography variant="body2" component="div">
-                    Email: admin@rockpoint.com<br />
-                    Password: admin123
+                    {t('auth.defaultEmail')}<br />
+                    {t('auth.defaultPassword')}
                   </Typography>
                 </Box>
                 <Button
@@ -140,7 +140,7 @@ const LoginPage = () => {
                   }}
                   disabled={isLoggingIn}
                 >
-                  Use Default
+                  {t('auth.useDefault')}
                 </Button>
               </Box>
             </Alert>

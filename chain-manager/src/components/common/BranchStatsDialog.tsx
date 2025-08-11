@@ -1,31 +1,32 @@
 import {
-  Business,
-  Close,
-  Inventory,
-  People,
-  Receipt,
-  Refresh,
-  TrendingUp,
-  Warning,
+    Business,
+    Close,
+    Inventory,
+    People,
+    Receipt,
+    Refresh,
+    TrendingUp,
+    Warning,
 } from '@mui/icons-material';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
-  Tab,
-  Tabs,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Divider,
+    IconButton,
+    Tab,
+    Tabs,
+    Typography,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiService, { Branch } from '../../services/api';
 
 interface TabPanelProps {
@@ -70,6 +71,7 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
   onClose,
   branch,
 }) => {
+  const { t } = useTranslation();
   const [currentTab, setCurrentTab] = useState(0);
   const [stats, setStats] = useState<BranchStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,10 +89,10 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
       if (statsResponse.success && statsResponse.data) {
         setStats(statsResponse.data);
       } else {
-        setError(statsResponse.error || 'Failed to fetch branch stats');
+        setError(statsResponse.error || t('branches.stats.failedToFetchStats'));
       }
     } catch (err) {
-      setError('Failed to fetch branch data');
+      setError(t('branches.stats.failedToFetchData'));
     } finally {
       setIsLoading(false);
     }
@@ -149,9 +151,9 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
 
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
           <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
-            <Tab label="Overview" />
-            <Tab label="Sales Performance" />
-            <Tab label="Branch Information" />
+            <Tab label={t('branches.stats.overview')} />
+            <Tab label={t('branches.stats.salesPerformance')} />
+            <Tab label={t('branches.stats.branchInformation')} />
           </Tabs>
         </Box>
 
@@ -169,7 +171,7 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <People color="primary" />
                       <Typography color="textSecondary" gutterBottom>
-                        Active Employees
+                        {t('branches.stats.activeEmployees')}
                       </Typography>
                     </Box>
                     <Typography variant="h4">
@@ -183,7 +185,7 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TrendingUp color="success" />
                       <Typography color="textSecondary" gutterBottom>
-                        Today's Sales
+                        {t('branches.stats.todaysSales')}
                       </Typography>
                     </Box>
                     <Typography variant="h4" color="success.main">
@@ -197,7 +199,7 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Inventory color="info" />
                       <Typography color="textSecondary" gutterBottom>
-                        Total Products
+                        {t('branches.stats.totalProducts')}
                       </Typography>
                     </Box>
                     <Typography variant="h4" color="info.main">
@@ -211,7 +213,7 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Warning color="warning" />
                       <Typography color="textSecondary" gutterBottom>
-                        Low Stock Items
+                        {t('branches.stats.lowStockItems')}
                       </Typography>
                     </Box>
                     <Typography variant="h4" color="warning.main">
@@ -226,14 +228,14 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                     <Receipt color="primary" />
                     <Typography variant="h6">
-                      Recent Activity
+                      {t('branches.stats.recentActivity')}
                     </Typography>
                   </Box>
                   <Typography variant="h4" color="primary">
                     {stats?.recentTransactions || 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Transactions in last 24 hours
+                    {t('branches.stats.transactionsLast24Hours')}
                   </Typography>
                 </CardContent>
               </Card>
@@ -245,24 +247,24 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      Sales Summary
+                      {t('branches.stats.salesSummary')}
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body1">Today's Sales:</Typography>
+                        <Typography variant="body1">{t('branches.stats.todaysSales')}:</Typography>
                         <Typography variant="h6" color="primary">
                           {stats ? formatCurrency(stats.todaySales) : '$0'}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body1">This Month:</Typography>
+                        <Typography variant="body1">{t('branches.stats.thisMonth')}:</Typography>
                         <Typography variant="h6" color="success.main">
                           {stats ? formatCurrency(stats.monthSales) : '$0'}
                         </Typography>
                       </Box>
                       <Divider />
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body1">Daily Average:</Typography>
+                        <Typography variant="body1">{t('branches.stats.dailyAverage')}:</Typography>
                         <Typography variant="h6">
                           {stats ? formatCurrency(stats.monthSales / new Date().getDate()) : '$0'}
                         </Typography>
@@ -274,18 +276,18 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      Inventory Status
+                      {t('branches.stats.inventoryStatus')}
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body1">Total Products:</Typography>
+                        <Typography variant="body1">{t('branches.stats.totalProducts')}:</Typography>
                         <Typography variant="h6">
                           {stats?.productCount || 0}
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body1" color="warning.main">
-                          Low Stock Items:
+                          {t('branches.stats.lowStockItems')}:
                         </Typography>
                         <Typography variant="h6" color="warning.main">
                           {stats?.lowStockCount || 0}
@@ -302,45 +304,45 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    Branch Information
+                    {t('branches.stats.branchInformation')}
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
                   <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Address
+                        {t('branches.stats.address')}
                       </Typography>
                       <Typography variant="body1">
-                        {branch.address || 'Not specified'}
+                        {branch.address || t('branches.stats.notSpecified')}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Manager
+                        {t('branches.stats.manager')}
                       </Typography>
                       <Typography variant="body1">
-                        {branch.managerName || 'Not assigned'}
+                        {branch.managerName || t('branches.stats.notAssigned')}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Phone
+                        {t('branches.stats.phone')}
                       </Typography>
                       <Typography variant="body1">
-                        {branch.phone || 'Not specified'}
+                        {branch.phone || t('branches.stats.notSpecified')}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Email
+                        {t('branches.stats.email')}
                       </Typography>
                       <Typography variant="body1">
-                        {branch.email || 'Not specified'}
+                        {branch.email || t('branches.stats.notSpecified')}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Timezone
+                        {t('branches.stats.timezone')}
                       </Typography>
                       <Typography variant="body1">
                         {branch.timezone}
@@ -348,7 +350,7 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
                     </Box>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Currency
+                        {t('branches.stats.currency')}
                       </Typography>
                       <Typography variant="body1">
                         {branch.currency}
@@ -364,7 +366,7 @@ const BranchStatsDialog: React.FC<BranchStatsDialogProps> = ({
 
       <DialogActions>
         <Button onClick={onClose}>
-          Close
+          {t('branches.stats.close')}
         </Button>
       </DialogActions>
     </Dialog>

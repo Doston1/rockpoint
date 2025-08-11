@@ -36,6 +36,23 @@ const DashboardPage = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Function to translate payment method
+  const translatePaymentMethod = (method: string | undefined) => {
+    if (!method) return t('common.cash');
+    const methodKey = `paymentMethods.${method.toLowerCase()}`;
+    const translated = t(methodKey);
+    return translated === methodKey ? method : translated;
+  };
+
+  // Function to translate user role
+  const translateRole = (role: string | undefined) => {
+    if (!role) return '';
+    // Try to get translation for the role, fallback to original if not found
+    const roleKey = `roles.${role}`;
+    const translated = t(roleKey);
+    return translated === roleKey ? role : translated;
+  };
+
   // Function to format currency
   const formatCurrency = (amount: number | undefined | null) => {
     if (!amount && amount !== 0) return '$0';
@@ -122,7 +139,7 @@ const DashboardPage = () => {
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Typography variant="h6" sx={{ color: 'white' }}>
-              {t('dashboard.role')}: {user?.role}
+              {t('dashboard.role')}: {translateRole(user?.role)}
             </Typography>
             <Typography variant="body1" sx={{ color: 'white', opacity: 0.9 }}>
               {t('dashboard.mainOffice')}
@@ -276,10 +293,10 @@ const DashboardPage = () => {
                   <Box key={transaction.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: index < 4 ? 1 : 0, borderBottom: index < 4 ? '1px solid' : 'none', borderColor: 'divider' }}>
                     <Box>
                       <Typography variant="body1" fontWeight="medium">
-                        {transaction.employee_name || 'Unknown Employee'}
+                        {transaction.employee_name || t('inventory.unknownEmployee')}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {transaction.branch_name || 'Unknown Branch'} • {new Date(transaction.created_at).toLocaleString()}
+                        {transaction.branch_name || t('inventory.unknownBranch')} • {new Date(transaction.created_at).toLocaleString()}
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'right' }}>
@@ -287,7 +304,7 @@ const DashboardPage = () => {
                         {formatCurrency(transaction.total_amount)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {transaction.payment_method || 'Cash'}
+                        {translatePaymentMethod(transaction.payment_method)}
                       </Typography>
                     </Box>
                   </Box>
@@ -303,10 +320,10 @@ const DashboardPage = () => {
                   <Box key={transaction.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: index < 4 ? 1 : 0, borderBottom: index < 4 ? '1px solid' : 'none', borderColor: 'divider' }}>
                     <Box>
                       <Typography variant="body1" fontWeight="medium">
-                        {transaction.employee_name || 'Unknown Employee'}
+                        {transaction.employee_name || t('inventory.unknownEmployee')}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {transaction.branch_name || 'Unknown Branch'} • {new Date(transaction.created_at).toLocaleString()}
+                        {transaction.branch_name || t('inventory.unknownBranch')} • {new Date(transaction.created_at).toLocaleString()}
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'right' }}>
@@ -314,7 +331,7 @@ const DashboardPage = () => {
                         {formatCurrency(transaction.total_amount)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {transaction.payment_method || 'Cash'}
+                        {translatePaymentMethod(transaction.payment_method)}
                       </Typography>
                     </Box>
                   </Box>

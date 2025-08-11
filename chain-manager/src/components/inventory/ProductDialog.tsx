@@ -1,21 +1,22 @@
 import {
-    Box,
-    Button,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    FormControl,
-    FormControlLabel,
-    InputLabel,
-    MenuItem,
-    Select,
-    Stack,
-    Switch,
-    TextField,
-    Typography,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  Switch,
+  TextField,
+  Typography,
 } from '@mui/material';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Category, Product } from '../../services/api';
 
 interface ProductDialogProps {
@@ -37,6 +38,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
   isLoading = false,
   selectedBranchId,
 }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = React.useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>({
     sku: '',
     barcode: '',
@@ -128,7 +130,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        {product ? 'Edit Product' : 'Add New Product'}
+        {product ? t('inventory.editProduct') : t('inventory.addProduct')}
       </DialogTitle>
       <DialogContent>
         {selectedBranchId && (
@@ -150,9 +152,9 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               borderRadius: '50%' 
             }} />
             <Box>
-              <strong>Branch-Specific Editing Mode</strong>
+              <strong>{t('inventory.branchSpecificEditingMode')}</strong>
               <br />
-              <small>Price and cost changes will only affect this branch. Other product details update globally.</small>
+              <small>{t('inventory.branchSpecificEditingDescription')}</small>
             </Box>
           </Box>
         )}
@@ -160,14 +162,14 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
-              label="SKU"
+              label={t('inventory.sku')}
               value={formData.sku}
               onChange={handleChange('sku')}
               required
             />
             <TextField
               fullWidth
-              label="Barcode"
+              label={t('inventory.barcode')}
               value={formData.barcode}
               onChange={handleChange('barcode')}
             />
@@ -175,7 +177,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
           
           <TextField
             fullWidth
-            label="Product Name"
+            label={t('inventory.productName')}
             value={formData.name}
             onChange={handleChange('name')}
             required
@@ -184,13 +186,13 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
-              label="Name (Russian)"
+              label={t('inventory.nameRussian')}
               value={formData.nameRu}
               onChange={handleChange('nameRu')}
             />
             <TextField
               fullWidth
-              label="Name (Uzbek)"
+              label={t('inventory.nameUzbek')}
               value={formData.nameUz}
               onChange={handleChange('nameUz')}
             />
@@ -198,7 +200,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
           
           <TextField
             fullWidth
-            label="Description"
+            label={t('inventory.description')}
             value={formData.description}
             onChange={handleChange('description')}
             multiline
@@ -207,11 +209,11 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
           
           <Box sx={{ display: 'flex', gap: 2 }}>
             <FormControl fullWidth>
-              <InputLabel>Category</InputLabel>
+              <InputLabel>{t('inventory.category')}</InputLabel>
               <Select
                 value={formData.categoryId}
                 onChange={handleChange('categoryId')}
-                label="Category"
+                label={t('inventory.category')}
               >
                 {categories.map(category => (
                   <MenuItem key={category.id} value={category.id}>
@@ -222,7 +224,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
             </FormControl>
             <TextField
               fullWidth
-              label="Brand"
+              label={t('inventory.brand')}
               value={formData.brand}
               onChange={handleChange('brand')}
             />
@@ -231,22 +233,22 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
-              label="Unit of Measure"
+              label={t('inventory.unitOfMeasure')}
               value={formData.unitOfMeasure}
               onChange={handleChange('unitOfMeasure')}
               required
             />
             <TextField
               fullWidth
-              label={selectedBranchId ? "Branch Price" : "Base Price"}
+              label={selectedBranchId ? t('inventory.branchPrice') : t('inventory.basePrice')}
               type="number"
               value={formData.basePrice}
               onChange={handleChange('basePrice')}
               required
               helperText={
                 selectedBranchId 
-                  ? "Price for this specific branch (see global reference below)" 
-                  : "Global base price for all branches"
+                  ? t('inventory.branchPriceHelper') 
+                  : t('inventory.basePriceHelper')
               }
             />
           </Box>
@@ -254,19 +256,19 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
-              label={selectedBranchId ? "Branch Cost" : "Base Cost"}
+              label={selectedBranchId ? t('inventory.branchCost') : t('inventory.baseCost')}
               type="number"
               value={formData.cost}
               onChange={handleChange('cost')}
               helperText={
                 selectedBranchId 
-                  ? "Cost for this specific branch (see global reference below)" 
-                  : "Global cost for all branches"
+                  ? t('inventory.branchCostHelper') 
+                  : t('inventory.baseCostHelper')
               }
             />
             <TextField
               fullWidth
-              label="Tax Rate (%)"
+              label={t('inventory.taxRate')}
               type="number"
               value={formData.taxRate}
               onChange={handleChange('taxRate')}
@@ -284,12 +286,12 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               borderRadius: 1 
             }}>
               <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                Global Reference (Read-only)
+                {t('inventory.globalReference')}
               </Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <TextField
                   fullWidth
-                  label="Global Base Price"
+                  label={t('inventory.globalBasePrice')}
                   type="number"
                   value={Number(product.basePrice).toFixed(2)}
                   InputProps={{
@@ -297,11 +299,11 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
                   }}
                   variant="filled"
                   size="small"
-                  helperText="Base price used across all branches"
+                  helperText={t('inventory.globalBasePriceHelper')}
                 />
                 <TextField
                   fullWidth
-                  label="Global Base Cost"
+                  label={t('inventory.globalBaseCost')}
                   type="number"
                   value={product.cost ? Number(product.cost).toFixed(2) : '0.00'}
                   InputProps={{
@@ -309,7 +311,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
                   }}
                   variant="filled"
                   size="small"
-                  helperText="Base cost used across all branches"
+                  helperText={t('inventory.globalBaseCostHelper')}
                 />
               </Box>
             </Box>
@@ -317,7 +319,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
           
           <TextField
             fullWidth
-            label="Image URL"
+            label={t('inventory.imageUrl')}
             value={formData.imageUrl}
             onChange={handleChange('imageUrl')}
           />
@@ -329,18 +331,18 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
                 onChange={handleChange('isActive')}
               />
             }
-            label="Active"
+            label={t('inventory.active')}
           />
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t('common.cancel')}</Button>
         <Button 
           onClick={handleSave} 
           variant="contained" 
           disabled={isLoading || !formData.sku || !formData.name}
         >
-          {isLoading ? 'Saving...' : 'Save'}
+          {isLoading ? t('common.saving') : t('common.save')}
         </Button>
       </DialogActions>
     </Dialog>
