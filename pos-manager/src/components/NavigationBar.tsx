@@ -1,24 +1,27 @@
 import {
-  AccountCircle,
-  Dashboard,
-  Logout,
-  PointOfSale,
-  Settings,
-  SignalWifi4Bar,
-  SignalWifiOff,
-  Store,
+    AccountCircle,
+    Computer,
+    Dashboard,
+    Key,
+    Logout,
+    NetworkCheck,
+    PointOfSale,
+    Settings,
+    SignalWifi4Bar,
+    SignalWifiOff,
+    Store,
 } from '@mui/icons-material';
 import {
-  AppBar,
-  Badge,
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  Menu,
-  MenuItem,
-  Toolbar,
-  Typography,
+    AppBar,
+    Badge,
+    Box,
+    Button,
+    Chip,
+    IconButton,
+    Menu,
+    MenuItem,
+    Toolbar,
+    Typography,
 } from '@mui/material';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -66,6 +69,8 @@ export function NavigationBar() {
   };
 
   const canAccessDashboard = user?.role === 'admin' || user?.role === 'manager';
+  const canAccessApiKeys = user?.role === 'admin';
+  const canAccessNetworkSettings = user?.role === 'admin' || user?.role === 'manager';
 
   return (
     <AppBar position="static" elevation={1}>
@@ -110,13 +115,46 @@ export function NavigationBar() {
           >
             {t('navigation.checkout')}
           </Button>
+
+          {canAccessNetworkSettings && (
+            <Button
+              color="inherit"
+              startIcon={<NetworkCheck />}
+              onClick={() => handleNavigate('/network-settings')}
+              variant={location.pathname === '/network-settings' ? 'outlined' : 'text'}
+            >
+              {t('navigation.network')}
+            </Button>
+          )}
+
+          {canAccessNetworkSettings && (
+            <Button
+              color="inherit"
+              startIcon={<Computer />}
+              onClick={() => handleNavigate('/terminals')}
+              variant={location.pathname === '/terminals' ? 'outlined' : 'text'}
+            >
+              {t('navigation.terminals')}
+            </Button>
+          )}
+
+          {canAccessApiKeys && (
+            <Button
+              color="inherit"
+              startIcon={<Key />}
+              onClick={() => handleNavigate('/api-keys')}
+              variant={location.pathname === '/api-keys' ? 'outlined' : 'text'}
+            >
+              {t('navigation.apiKeys')}
+            </Button>
+          )}
         </Box>
 
         {/* Language Selector */}
         <LanguageSelector />
 
         {/* User Info and Menu */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, ml: 2 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <Typography variant="body2" sx={{ lineHeight: 1.2 }}>
               {user?.name}

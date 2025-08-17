@@ -14,6 +14,7 @@ import DashboardPage from './pages/DashboardPage';
 import EmployeesPage from './pages/EmployeesPage';
 import InventoryPage from './pages/InventoryPage';
 import LoginPage from './pages/LoginPage';
+import NetworkManagementPage from './pages/NetworkManagementPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 
@@ -115,6 +116,14 @@ function App() {
               element={
                 <ProtectedRoute permissions={['reports.read']}>
                   <ReportsPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/network" 
+              element={
+                <ProtectedRoute permissions={['admin']}>
+                  <NetworkManagementPage />
                 </ProtectedRoute>
               } 
             />

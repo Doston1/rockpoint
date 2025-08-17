@@ -1,22 +1,23 @@
 import {
-  Assessment,
-  Inventory,
-  People,
-  PointOfSale,
+    Assessment,
+    Inventory,
+    People,
+    PointOfSale,
 } from '@mui/icons-material';
 import {
-  Box,
-  Card,
-  CardContent,
-  Chip,
-  Container,
-  Paper,
-  Typography,
+    Box,
+    Card,
+    CardContent,
+    Chip,
+    Container,
+    Paper,
+    Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { NavigationBar } from '../components/NavigationBar';
+import NetworkStatusComponent from '../components/common/NetworkStatusComponent';
 import { useAuth } from '../hooks/useAuth';
 import { useWebSocket } from '../hooks/useWebSocket';
 
@@ -169,39 +170,44 @@ const DashboardPage = () => {
         </Box>
 
         {/* System Status */}
-        <Paper sx={{ mt: 4, p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            {t('dashboard.systemStatus')}
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'space-between' }}>
-            <Box>
-              <Typography variant="body2" color="text.secondary">
-                {t('dashboard.connectionStatus')}
-              </Typography>
-              <Chip 
-                label={isConnected ? t('common.online') : t('common.offline')}
-                color={isConnected ? 'success' : 'error'}
-                size="small"
-              />
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mt: 4 }}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              {t('dashboard.systemStatus')}
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'space-between' }}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {t('dashboard.connectionStatus')}
+                </Typography>
+                <Chip 
+                  label={isConnected ? t('common.online') : t('common.offline')}
+                  color={isConnected ? 'success' : 'error'}
+                  size="small"
+                />
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {t('dashboard.terminalId')}
+                </Typography>
+                <Typography variant="body1">
+                  {terminalId || t('dashboard.notAssigned')}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {t('dashboard.version')}
+                </Typography>
+                <Typography variant="body1">
+                  v1.0.0
+                </Typography>
+              </Box>
             </Box>
-            <Box>
-              <Typography variant="body2" color="text.secondary">
-                {t('dashboard.terminalId')}
-              </Typography>
-              <Typography variant="body1">
-                {terminalId || t('dashboard.notAssigned')}
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="body2" color="text.secondary">
-                {t('dashboard.version')}
-              </Typography>
-              <Typography variant="body1">
-                v1.0.0
-              </Typography>
-            </Box>
-          </Box>
-        </Paper>
+          </Paper>
+          
+          {/* Network Information */}
+          <NetworkStatusComponent />
+        </Box>
       </Container>
     </>
   );

@@ -1,24 +1,25 @@
 import {
-    AccountCircle,
-    Business,
-    Dashboard,
-    Logout,
-    Menu as MenuIcon,
-    Settings,
-    SignalWifi4Bar,
-    SignalWifiOff,
+  AccountCircle,
+  Business,
+  Dashboard,
+  Logout,
+  Menu as MenuIcon,
+  Settings,
+  SettingsEthernet,
+  SignalWifi4Bar,
+  SignalWifiOff,
 } from '@mui/icons-material';
 import {
-    AppBar,
-    Badge,
-    Box,
-    Button,
-    Chip,
-    IconButton,
-    Menu,
-    MenuItem,
-    Toolbar,
-    Typography,
+  AppBar,
+  Badge,
+  Box,
+  Button,
+  Chip,
+  IconButton,
+  Menu,
+  MenuItem,
+  Toolbar,
+  Typography,
 } from '@mui/material';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -109,6 +110,14 @@ export function NavigationBar({ onSidebarToggle }: NavigationBarProps) {
             variant={location.pathname === '/dashboard' ? 'outlined' : 'text'}
           >
             {t('navigation.dashboard')}
+          </Button>
+          <Button
+            color="inherit"
+            startIcon={<SettingsEthernet />}
+            onClick={() => handleNavigate('/network')}
+            variant={location.pathname === '/network' ? 'outlined' : 'text'}
+          >
+            Network
           </Button>
         </Box>
 
