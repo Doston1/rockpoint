@@ -1,157 +1,157 @@
-# Chain-Core API for 1C Integration
+# Chain-Core 1C Integration API Documentation
 
-This API allows 1C ERP system to interact with the RockPoint chain-core system. All endpoints use JSON for request/response bodies.
+## Overview
 
-## Base URL
+This API provides comprehensive integration between the 1C Enterprise Resource Planning system and the RockPoint chain management system. It handles product management, inventory synchronization, employee data, and transaction reporting across all retail branches.
 
-```
-http://your-chain-core-server:3001/api/1c-integration
-```
+**Base URL:** `http://chain-core-server/api/1c`
+
+**Authentication:** API Key required for all endpoints
+
+**Content-Type:** `application/json`
 
 ## Authentication
 
-Add authentication headers as needed (JWT, API key, etc.)
-
-## 📦 Product Management
-
-### Get All Products
+All requests must include a valid API key in the Authorization header using one of these formats:
 
 ```http
-GET /products?page=1&limit=100&category=electronics&active_only=true
+Authorization: Bearer rp_your_api_key_here
 ```
 
-**Response:**
+or
+
+```http
+Authorization: ApiKey rp_your_api_key_here
+```
+
+or
+
+```http
+Authorization: rp_your_api_key_here
+```
+
+**Example Request:**
+
+```bash
+curl -X POST http://chain-core-server/api/1c/products \
+  -H "Authorization: Bearer rp_1C_DEFAULT_KEY_REPLACE_IN_PRODUCTION" \
+  -H "Content-Type: application/json" \
+  -d '[{"oneC_id": "PROD_001", "sku": "COCA_500ML", ...}]'
+```
+
+## Key Features
+
+- **Barcode-First Product Identification**: All product operations prioritize barcode as primary identifier
+- **Multi-Branch Synchronization**: Automatic distribution of changes to all branch servers
+- **Background Processing**: Async operations for large data synchronization
+- **Comprehensive Logging**: Detailed sync logs and error tracking
+- **Real-time Monitoring**: Health checks and system status endpoints
+
+---
+
+## Product Management
+
+### 1. Create/Update Products (Bulk)
+
+```http
+POST /api/1c/products
+```
+
+**Description:** Creates or updates products in bulk from 1C system. Automatically synchronizes to all active branches.
+
+**Request Body:**
 
 ```json
-{
-  "success": true,
-  "data": {
-    "products": [
-      {
-        "id": "uuid",
-        "sku": "PHONE-001",
-        "name": "iPhone 15 Pro",
-        "name_ru": "Айфон 15 Про",
-        "base_price": 999.99,
-        "cost": 800.0,
-        "oneC_id": "1C_PRODUCT_123",
-        "category_name": "Electronics"
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "limit": 100,
-      "total": 150,
-      "pages": 2
-    }
-  }
-}
-```
-
-### Create New Product
-
-```http
-POST /products
-Content-Type: application/json
-
-{
-  "sku": "PHONE-001",
-  "barcode": "1234567890",
-  "name": "iPhone 15 Pro",
-  "name_ru": "Айфон 15 Про",
-  "name_uz": "iPhone 15 Pro",
-  "description": "Latest iPhone model",
-  "category_key": "electronics",
-  "brand": "Apple",
-  "unit_of_measure": "pcs",
-  "base_price": 999.99,
-  "cost": 800.00,
-  "tax_rate": 0.1,
-  "is_active": true,
-  "oneC_id": "1C_PRODUCT_123"
-}
-```
-
-### Update Product Prices
-
-```http
-PUT /products/prices
-Content-Type: application/json
-
 [
   {
-    "sku": "PHONE-001",
-    "base_price": 1099.99,
-    "cost": 850.00
-  },
-  {
-    "oneC_id": "1C_PRODUCT_456",
-    "base_price": 599.99
+    "oneC_id": "PROD_001",
+    "sku": "COCA_500ML",
+    "barcode": "1234567890123",
+    "name": "Coca-Cola 500ml",
+    "name_ru": "Кока-Кола 500мл",
+    "name_uz": "Koka-Kola 500ml",
+    "description": "Carbonated soft drink",
+    "description_ru": "Газированный напиток",
+    "description_uz": "Gazlangan ichimlik",
+    "category_key": "beverages",
+    "brand": "Coca-Cola",
+    "unit_of_measure": "bottle",
+    "base_price": 10.0,
+    "cost": 7.5,
+    "tax_rate": 0.12,
+    "image_url": "https://example.com/coca-cola.jpg",
+    "images": ["https://example.com/coca-cola-1.jpg"],
+    "attributes": {
+      "volume": "500ml",
+      "flavor": "original"
+    },
+    "is_active": true
   }
 ]
 ```
 
-## 📋 Inventory Management
-
-### Get Inventory Levels
-
-```http
-GET /inventory?branch_code=BRANCH_001&sku=PHONE-001&low_stock_only=false
-```
-
 **Response:**
 
 ```json
 {
   "success": true,
   "data": {
-    "inventory": [
+    "sync_id": "sync_12345",
+    "results": [
       {
-        "id": "uuid",
-        "branch_code": "BRANCH_001",
-        "branch_name": "Main Store",
-        "sku": "PHONE-001",
-        "name": "iPhone 15 Pro",
-        "quantity_in_stock": 25,
-        "min_stock_level": 5,
-        "max_stock_level": 100,
-        "product_oneC_id": "1C_PRODUCT_123"
+        "success": true,
+        "product_id": 123,
+        "sku": "COCA_500ML",
+        "barcode": "1234567890123",
+        "name": "Coca-Cola 500ml",
+        "action": "created/updated"
       }
     ],
-    "total_items": 1
+    "processed": 1,
+    "failed": 0
   }
 }
 ```
 
-### Update Inventory Levels
+**Error Response:**
 
-```http
-PUT /inventory
-Content-Type: application/json
-
+```json
 {
-  "branch_code": "BRANCH_001",
-  "updates": [
+  "success": false,
+  "error": "Validation error",
+  "details": [
     {
-      "sku": "PHONE-001",
-      "quantity_in_stock": 30,
-      "min_stock_level": 5,
-      "max_stock_level": 100
-    },
-    {
-      "oneC_id": "1C_PRODUCT_456",
-      "quantity_in_stock": 15
+      "field": "barcode",
+      "message": "Barcode is required"
     }
   ]
 }
 ```
 
-## 👥 Employee Management
-
-### Get Employees
+### 2. Update Product Prices (Multi-Branch)
 
 ```http
-GET /employees?branch_code=BRANCH_001&status=active
+PUT /api/1c/products/prices
+```
+
+**Description:** Updates product prices across specified branches or all branches. Uses barcode as primary identifier.
+
+**Request Body:**
+
+```json
+{
+  "updates": [
+    {
+      "barcode": "1234567890123",
+      "oneC_id": "PROD_001",
+      "sku": "COCA_500ML",
+      "base_price": 12.0,
+      "cost": 8.5,
+      "branch_codes": ["BR001", "BR002"],
+      "effective_date": "2025-08-18T00:00:00Z"
+    }
+  ]
+}
 ```
 
 **Response:**
@@ -160,51 +160,50 @@ GET /employees?branch_code=BRANCH_001&status=active
 {
   "success": true,
   "data": {
-    "employees": [
+    "sync_id": "sync_12346",
+    "results": [
       {
-        "id": "uuid",
-        "employee_id": "EMP_001",
-        "branch_code": "BRANCH_001",
-        "name": "John Doe",
-        "role": "cashier",
-        "status": "active",
-        "hire_date": "2024-01-15",
-        "salary": 3000.0,
-        "oneC_id": "1C_EMP_123"
+        "success": true,
+        "sku": "COCA_500ML",
+        "barcode": "1234567890123",
+        "new_price": 12.0,
+        "branches_updated": 2
       }
     ],
-    "total_employees": 1
+    "updated": 1,
+    "failed": 0
   }
 }
 ```
 
-### Create Employee
+---
+
+## Inventory Management
+
+### 3. Update Inventory Levels
 
 ```http
-POST /employees
-Content-Type: application/json
-
-{
-  "employee_id": "EMP_002",
-  "branch_code": "BRANCH_001",
-  "name": "Jane Smith",
-  "role": "manager",
-  "phone": "+1234567890",
-  "email": "jane@example.com",
-  "hire_date": "2024-08-01",
-  "salary": 4500.00,
-  "status": "active",
-  "oneC_id": "1C_EMP_456"
-}
+PUT /api/1c/inventory
 ```
 
-## ⏰ Time Tracking
+**Description:** Updates inventory levels for specific products and branches. Synchronizes with branch-core systems.
 
-### Get Working Hours
+**Request Body:**
 
-```http
-GET /time-logs?branch_code=BRANCH_001&period=day&employee_id=EMP_001
-GET /time-logs?start_date=2024-08-01&end_date=2024-08-31
+```json
+{
+  "updates": [
+    {
+      "barcode": "1234567890123",
+      "oneC_id": "PROD_001",
+      "sku": "COCA_500ML",
+      "branch_code": "BR001",
+      "quantity_in_stock": 150,
+      "min_stock_level": 20,
+      "max_stock_level": 200
+    }
+  ]
+}
 ```
 
 **Response:**
@@ -213,35 +212,203 @@ GET /time-logs?start_date=2024-08-01&end_date=2024-08-31
 {
   "success": true,
   "data": {
-    "time_logs": [
+    "sync_id": "sync_12347",
+    "results": [
       {
-        "id": "uuid",
-        "employee_name": "John Doe",
-        "employee_id": "EMP_001",
-        "branch_code": "BRANCH_001",
-        "clock_in": "2024-08-02T09:00:00Z",
-        "clock_out": "2024-08-02T17:30:00Z",
-        "total_hours": 8.5,
-        "overtime_hours": 0.5,
-        "status": "completed"
+        "success": true,
+        "barcode": "1234567890123",
+        "sku": "COCA_500ML",
+        "branch_code": "BR001",
+        "old_quantity": 100,
+        "new_quantity": 150
       }
     ],
-    "summary": {
-      "total_hours": 8.5,
-      "overtime_hours": 0.5,
-      "total_logs": 1
+    "updated": 1,
+    "failed": 0
+  }
+}
+```
+
+---
+
+## Employee Management
+
+### 4. Create/Update Employees
+
+```http
+POST /api/1c/employees
+```
+
+**Description:** Creates or updates employee records from 1C system. Synchronizes with respective branch servers.
+
+**Request Body:**
+
+```json
+[
+  {
+    "oneC_id": "EMP_001",
+    "employee_id": "E12345",
+    "branch_code": "BR001",
+    "name": "John Smith",
+    "role": "cashier",
+    "phone": "+1234567890",
+    "email": "john.smith@rockpoint.com",
+    "hire_date": "2025-08-01",
+    "salary": 3000.0,
+    "status": "active"
+  }
+]
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sync_id": "sync_12348",
+    "results": [
+      {
+        "success": true,
+        "employee_id": "E12345",
+        "name": "John Smith",
+        "branch_code": "BR001",
+        "action": "created/updated"
+      }
+    ],
+    "processed": 1,
+    "failed": 0
+  }
+}
+```
+
+---
+
+## Synchronization & Status
+
+### 5. Get Integration Status
+
+```http
+GET /api/1c/status
+```
+
+**Description:** Returns comprehensive status of 1C integration, sync history, and system health.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "integration_status": "connected",
+    "last_sync_history": [
+      {
+        "sync_type": "products",
+        "direction": "import",
+        "status": "completed",
+        "records_processed": 150,
+        "error_message": null,
+        "started_at": "2025-08-17T10:00:00Z",
+        "completed_at": "2025-08-17T10:05:00Z"
+      }
+    ],
+    "sync_configuration": {
+      "auto_sync_enabled": true,
+      "sync_interval_minutes": 30,
+      "supported_entities": [
+        "products",
+        "transactions",
+        "inventory",
+        "employees"
+      ]
     },
-    "period": "day"
+    "active_branches": 5,
+    "timestamp": "2025-08-17T12:00:00Z"
   }
 }
 ```
 
-## 💰 Transaction Reports
-
-### Get Transactions
+### 6. Trigger Manual Sync
 
 ```http
-GET /transactions?branch_code=BRANCH_001&start_date=2024-08-01&end_date=2024-08-02&include_items=true
+POST /api/1c/sync
+```
+
+**Description:** Initiates manual synchronization process to specific branches or all branches.
+
+**Request Body:**
+
+```json
+{
+  "entity_type": "products",
+  "branch_codes": ["BR001", "BR002"],
+  "force_sync": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sync_id": "sync_12349",
+    "message": "Sync process started for products",
+    "estimated_duration": "5-10 minutes",
+    "target_branches": ["BR001", "BR002"]
+  }
+}
+```
+
+### 7. Get Sync Status
+
+```http
+GET /api/1c/sync/{syncId}/status
+```
+
+**Description:** Returns status of a specific sync operation.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sync_id": "sync_12349",
+    "entity_type": "products",
+    "direction": "to_branches",
+    "status": "completed",
+    "records_processed": 150,
+    "started_at": "2025-08-17T11:00:00Z",
+    "completed_at": "2025-08-17T11:05:00Z",
+    "error_message": null
+  }
+}
+```
+
+---
+
+## Data Export (For 1C)
+
+### 8. Export Transaction Data
+
+```http
+GET /api/1c/export/transactions
+```
+
+**Description:** Exports transaction data from all branches for 1C system consumption.
+
+**Query Parameters:**
+
+- `branch_codes[]` (optional): Specific branch codes to export
+- `start_date` (optional): Start date for transaction range
+- `end_date` (optional): End date for transaction range
+- `include_items` (optional): Include transaction line items (default: true)
+
+**Example Request:**
+
+```http
+GET /api/1c/export/transactions?start_date=2025-08-01&end_date=2025-08-17&include_items=true
 ```
 
 **Response:**
@@ -252,42 +419,58 @@ GET /transactions?branch_code=BRANCH_001&start_date=2024-08-01&end_date=2024-08-
   "data": {
     "transactions": [
       {
-        "id": "uuid",
-        "transaction_number": "TXN_001",
-        "branch_code": "BRANCH_001",
-        "employee_name": "John Doe",
-        "subtotal": 999.99,
-        "tax_amount": 99.99,
-        "total_amount": 1099.98,
+        "id": 12345,
+        "transaction_number": "TXN-BR001-001",
+        "branch_code": "BR001",
+        "branch_name": "Main Store",
+        "employee_id": "E12345",
+        "employee_name": "John Smith",
+        "subtotal": 50.0,
+        "tax_amount": 6.0,
+        "discount_amount": 0.0,
+        "total_amount": 56.0,
+        "payment_method": "card",
         "status": "completed",
-        "completed_at": "2024-08-02T14:30:00Z",
+        "completed_at": "2025-08-17T14:30:00Z",
+        "onec_id": null,
         "items": [
           {
-            "product_name": "iPhone 15 Pro",
-            "sku": "PHONE-001",
-            "quantity": 1,
-            "unit_price": 999.99,
-            "total_amount": 999.99
+            "transaction_id": 12345,
+            "sku": "COCA_500ML",
+            "barcode": "1234567890123",
+            "product_name": "Coca-Cola 500ml",
+            "product_onec_id": "PROD_001",
+            "quantity": 2,
+            "unit_price": 12.0,
+            "original_price": 12.0,
+            "discount_amount": 0.0,
+            "total_amount": 24.0
           }
         ]
       }
     ],
-    "summary": {
-      "total_amount": 1099.98,
-      "total_transactions": 1,
-      "average_transaction": 1099.98
+    "export_timestamp": "2025-08-17T15:00:00Z",
+    "include_items": true,
+    "filter": {
+      "branch_codes": "all",
+      "start_date": "2025-08-01",
+      "end_date": "2025-08-17"
     }
   }
 }
 ```
 
-## 📊 System Status
-
-### Get System Status
+### 9. Export Inventory Data
 
 ```http
-GET /status
+GET /api/1c/export/inventory
 ```
+
+**Description:** Exports current inventory levels from all branches for 1C system.
+
+**Query Parameters:**
+
+- `branch_codes[]` (optional): Specific branch codes to export
 
 **Response:**
 
@@ -295,74 +478,116 @@ GET /status
 {
   "success": true,
   "data": {
-    "system_status": "healthy",
-    "timestamp": "2024-08-02T15:30:00Z",
-    "statistics": {
-      "active_branches": 5,
-      "active_products": 1250,
-      "active_employees": 45,
-      "daily_transactions": 128,
-      "daily_revenue": 15750.25
+    "inventory": [
+      {
+        "branch_code": "BR001",
+        "branch_name": "Main Store",
+        "sku": "COCA_500ML",
+        "barcode": "1234567890123",
+        "product_name": "Coca-Cola 500ml",
+        "product_onec_id": "PROD_001",
+        "quantity_in_stock": 150,
+        "reserved_quantity": 10,
+        "min_stock_level": 20,
+        "max_stock_level": 200,
+        "reorder_point": 30,
+        "last_counted_at": "2025-08-15T10:00:00Z",
+        "updated_at": "2025-08-17T12:00:00Z"
+      }
+    ],
+    "export_timestamp": "2025-08-17T15:00:00Z",
+    "filter": {
+      "branch_codes": "all"
     }
   }
 }
 ```
 
-## Error Responses
+---
 
-All endpoints return consistent error responses:
+## Error Handling
+
+### Common Error Codes
+
+| Status Code | Error Type            | Description                                      |
+| ----------- | --------------------- | ------------------------------------------------ |
+| 400         | Bad Request           | Invalid request data or missing required fields  |
+| 401         | Unauthorized          | Invalid or missing authentication token          |
+| 404         | Not Found             | Resource not found (product, branch, etc.)       |
+| 409         | Conflict              | Duplicate resource (SKU, barcode already exists) |
+| 422         | Validation Error      | Request validation failed                        |
+| 500         | Internal Server Error | Server-side error                                |
+| 503         | Service Unavailable   | 1C system or branch server unavailable           |
+
+### Error Response Format
 
 ```json
 {
   "success": false,
-  "error": "Error type",
-  "message": "Detailed error message",
-  "timestamp": "2024-08-02T15:30:00Z"
+  "error": "Error message",
+  "code": "ERROR_CODE",
+  "details": {
+    "field": "specific_field",
+    "message": "Detailed error description"
+  },
+  "timestamp": "2025-08-17T15:00:00Z"
 }
 ```
 
-**Common HTTP Status Codes:**
+---
 
-- `200` - Success
-- `201` - Created
-- `400` - Bad Request (validation error)
-- `404` - Not Found
-- `409` - Conflict (duplicate data)
-- `500` - Internal Server Error
+## Rate Limiting
 
-## Query Parameters
+- **Products API**: 100 requests per minute
+- **Inventory API**: 200 requests per minute
+- **Sync Operations**: 10 requests per minute
+- **Export Operations**: 20 requests per minute
 
-### Common Parameters:
+---
 
-- `page` - Page number (default: 1)
-- `limit` - Items per page (default: 100)
-- `branch_code` - Filter by specific branch
-- `start_date` - Start date filter (ISO format)
-- `end_date` - End date filter (ISO format)
-- `status` - Filter by status
-- `active_only` - Show only active records (default: true)
+## Data Types & Validation
 
-## Data Formats
+### Product Schema
 
-### Dates
+- `oneC_id`: Required string, unique identifier from 1C
+- `sku`: Required string, stock keeping unit
+- `barcode`: Optional string, product barcode (primary identifier)
+- `name`: Required string, product name
+- `base_price`: Required positive number
+- `cost`: Required positive number
+- `tax_rate`: Number between 0 and 1 (default: 0)
+- `is_active`: Boolean (default: true)
 
-All dates should be in ISO 8601 format: `2024-08-02T15:30:00Z`
+### Employee Roles
 
-### Numbers
+- `admin`: Full system access
+- `manager`: Branch management access
+- `supervisor`: Shift supervision access
+- `cashier`: POS operation access
 
-- Prices and monetary values: decimal with 2 decimal places
-- Quantities: decimal with 3 decimal places
-- Tax rates: decimal between 0 and 1 (0.1 = 10%)
+### Sync Entity Types
 
-### Product Identification
+- `products`: Product data synchronization
+- `inventory`: Inventory level synchronization
+- `employees`: Employee data synchronization
+- `transactions`: Transaction data export
+- `all`: Complete system synchronization
 
-Products can be identified by either:
+---
 
-- `sku` - Internal SKU code
-- `oneC_id` - 1C system product ID
+## Integration Notes
 
-### Branch Identification
+1. **Barcode Priority**: All product operations prioritize barcode identification with fallback to oneC_id and SKU
+2. **Async Operations**: Large sync operations run in background with job tracking
+3. **Branch Distribution**: Changes automatically propagate to all active branches
+4. **Transaction Support**: All bulk operations support database transactions for consistency
+5. **Monitoring**: Comprehensive logging for all sync operations and errors
 
-Branches are identified by:
+---
 
-- `branch_code` - Unique branch code (e.g., "BRANCH_001")
+## Support
+
+For technical support or integration assistance, contact the RockPoint development team.
+
+**API Version:** 1.0  
+**Last Updated:** August 17, 2025

@@ -19,16 +19,18 @@ import { requestLogger } from './middleware/logger';
 
 // Import API routes
 import oneCRoutes from './api/1c';
-import oneCIntegrationRoutes from './api/1c-integration';
+import adminRoutes from './api/admin';
 import authRoutes from './api/auth';
 import branchPricingRoutes from './api/branch-pricing';
 import branchesRoutes from './api/branches';
 import dashboardRoutes from './api/dashboard';
 import employeesRoutes from './api/employees';
 import inventoryRoutes from './api/inventory';
+import networkRoutes from './api/network';
 import productsRoutes from './api/products';
 import promotionsRoutes from './api/promotions';
 import reportsRoutes from './api/reports';
+import syncRoutes from './api/sync';
 
 // Load environment variables
 dotenv.config();
@@ -98,8 +100,26 @@ class ChainServer {
   }
 
   private setupRoutes(): void {
+    // API health check endpoint
+    this.app.get('/api/health', (req: Request, res: Response) => {
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        version: process.env.npm_package_version || '1.0.0',
+        environment: NODE_ENV,
+        service: 'chain-core',
+        services: {
+          database: 'connected',
+          redis: 'connected',
+          websocket: 'running',
+          oneC: this.oneCIntegration.getStatus()
+        }
+      });
+    });
+
     // API routes
     this.app.use('/api/auth', authRoutes);
+    this.app.use('/api/admin', adminRoutes);
     this.app.use('/api/branches', branchesRoutes);
     this.app.use('/api/branch-pricing', branchPricingRoutes);
     this.app.use('/api/employees', employeesRoutes);
@@ -108,8 +128,9 @@ class ChainServer {
     this.app.use('/api/promotions', promotionsRoutes);
     this.app.use('/api/reports', reportsRoutes);
     this.app.use('/api/1c', oneCRoutes);
-    this.app.use('/api/1c-integration', oneCIntegrationRoutes); // New comprehensive 1C API
     this.app.use('/api/dashboard', dashboardRoutes);
+    this.app.use('/api/network', networkRoutes);
+    this.app.use('/api/sync', syncRoutes);
 
     // Serve static files (uploads, exports, etc.)
     this.app.use('/static', express.static('uploads'));

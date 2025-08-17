@@ -1,31 +1,31 @@
 import {
-  ContentCopy,
-  Refresh,
-  Visibility,
-  VisibilityOff,
+    ContentCopy,
+    Refresh,
+    Visibility,
+    VisibilityOff,
 } from '@mui/icons-material';
 import {
-  Alert,
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  FormControl,
-  FormControlLabel,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  Switch,
-  Tab,
-  Tabs,
-  TextField,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Divider,
+    FormControl,
+    FormControlLabel,
+    IconButton,
+    InputAdornment,
+    InputLabel,
+    MenuItem,
+    Select,
+    Stack,
+    Switch,
+    Tab,
+    Tabs,
+    TextField,
+    Typography,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -85,7 +85,12 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
 }) => {
   const { t } = useTranslation();
   const [currentTab, setCurrentTab] = useState(0);
-  const [formData, setFormData] = useState<Partial<Branch>>({
+  const [formData, setFormData] = useState<Partial<Branch & {
+    server_ip?: string;
+    server_port?: number;
+    vpn_ip?: string;
+    network_status?: string;
+  }>>({
     name: '',
     code: '',
     address: '',
@@ -97,6 +102,10 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
     taxRate: 12,
     isActive: true,
     apiKey: '',
+    server_ip: '',
+    server_port: 3000,
+    vpn_ip: '',
+    network_status: 'unknown',
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -115,6 +124,10 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
         taxRate: branch.taxRate || 12,
         isActive: branch.isActive ?? true,
         apiKey: branch.apiKey || '',
+        server_ip: (branch as any).server_ip || '',
+        server_port: (branch as any).server_port || 3000,
+        vpn_ip: (branch as any).vpn_ip || '',
+        network_status: (branch as any).network_status || 'unknown',
       });
     } else {
       // Reset form for new branch
@@ -130,6 +143,10 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
         taxRate: 12,
         isActive: true,
         apiKey: generateApiKey(),
+        server_ip: '',
+        server_port: 3000,
+        vpn_ip: '',
+        network_status: 'unknown',
       });
     }
     setErrors({});
@@ -163,7 +180,7 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInputChange = (field: keyof Branch, value: any) => {
+  const handleInputChange = (field: keyof Branch | 'server_ip' | 'server_port' | 'vpn_ip' | 'network_status', value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
@@ -227,6 +244,7 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
             <Tab label={t('branches.basicInformation')} />
             <Tab label={t('branches.contactInformation')} />
             <Tab label={t('branches.operationalSettings')} />
+            <Tab label="Network Configuration" />
           </Tabs>
         </Box>
 
@@ -393,6 +411,79 @@ const BranchDialog: React.FC<BranchDialogProps> = ({
                 ),
               }}
             />
+          </Stack>
+        </TabPanel>
+
+        {/* Network Configuration Tab */}
+        <TabPanel value={currentTab} index={3}>
+          <Stack spacing={3}>
+            <Typography variant="h6" gutterBottom>
+              Branch Server Configuration
+            </Typography>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Configure the network settings for this branch's server to enable communication with the chain core.
+            </Alert>
+            
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField
+                fullWidth
+                label="Server IP Address"
+                value={formData.server_ip || ''}
+                onChange={(e) => handleInputChange('server_ip', e.target.value)}
+                placeholder="192.168.1.100"
+                helperText="LAN IP address of the branch server"
+              />
+              <TextField
+                label="Server Port"
+                type="number"
+                value={formData.server_port || 3000}
+                onChange={(e) => handleInputChange('server_port', parseInt(e.target.value) || 3000)}
+                inputProps={{ min: 1000, max: 65535 }}
+                sx={{ minWidth: 150 }}
+              />
+            </Stack>
+
+            <TextField
+              fullWidth
+              label="VPN IP Address (Optional)"
+              value={formData.vpn_ip || ''}
+              onChange={(e) => handleInputChange('vpn_ip', e.target.value)}
+              placeholder="10.0.1.100"
+              helperText="VPN IP address for secure communication between branches"
+            />
+
+            <Divider />
+
+            <Typography variant="h6" gutterBottom>
+              Connection Status
+            </Typography>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Network Status:
+              </Typography>
+              <Box
+                sx={{
+                  px: 2,
+                  py: 0.5,
+                  borderRadius: 1,
+                  bgcolor: formData.network_status === 'online' ? 'success.light' : 
+                          formData.network_status === 'offline' ? 'error.light' : 'grey.200',
+                  color: formData.network_status === 'online' ? 'success.dark' : 
+                         formData.network_status === 'offline' ? 'error.dark' : 'text.secondary',
+                  fontWeight: 'medium',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {formData.network_status || 'Unknown'}
+              </Box>
+            </Box>
+
+            <Alert severity="warning">
+              <Typography variant="body2">
+                <strong>Note:</strong> Network configuration changes will require the branch server to be restarted to take effect.
+              </Typography>
+            </Alert>
           </Stack>
         </TabPanel>
       </DialogContent>

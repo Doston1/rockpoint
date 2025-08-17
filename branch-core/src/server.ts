@@ -14,13 +14,18 @@ import { RedisManager } from './services/redis';
 import { WebSocketManager } from './services/websocket';
 
 // Import API routes
+import adminRoutes from './api/admin';
 import authRoutes from './api/auth';
 import chainCoreRoutes from './api/chain-core';
 import employeesRoutes from './api/employees';
+import networkRoutes from './api/network';
 import productsRoutes from './api/products';
 import reportsRoutes from './api/reports';
 import syncRoutes from './api/sync';
 import transactionsRoutes from './api/transactions';
+
+// Import authentication middleware
+import { authenticateApiKey } from './middleware/auth';
 
 // Load environment variables
 dotenv.config();
@@ -81,14 +86,30 @@ class BranchServer {
   }
 
   private setupRoutes(): void {
+    // API health check endpoint (protected - requires API key authentication)
+    this.app.get('/api/health', authenticateApiKey, (req: Request, res: Response) => {
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        version: process.env.npm_package_version || '1.0.0',
+        branchId: process.env.BRANCH_ID,
+        environment: NODE_ENV,
+        service: 'branch-core',
+        authenticated: true,
+        api_key_name: req.apiKey?.name
+      });
+    });
+
     // API routes
     this.app.use('/api/auth', authRoutes);
+    this.app.use('/api/admin', adminRoutes);
     this.app.use('/api/chain-core', chainCoreRoutes);
     this.app.use('/api/products', productsRoutes);
     this.app.use('/api/transactions', transactionsRoutes);
     this.app.use('/api/employees', employeesRoutes);
     this.app.use('/api/reports', reportsRoutes);
     this.app.use('/api/sync', syncRoutes);
+    this.app.use('/api/network', networkRoutes);
 
     // Serve static files (receipts, images, etc.)
     this.app.use('/static', express.static('uploads'));

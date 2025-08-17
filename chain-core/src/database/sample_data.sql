@@ -1,168 +1,381 @@
--- Sample data for RockPoint Chain Core
--- Run this file after schema.sql to populate the database with test data
--- PostgreSQL 14+
+-- Complete Sample Data for RockPoint Chain Core
+-- This file contains all sample data from all sources consolidated
+-- Run this after complete_schema.sql to populate with comprehensive test data
 
 -- Start with a clean transaction
 BEGIN;
 
+-- =================================================================
+-- CLEAR EXISTING DATA
+-- =================================================================
+
 -- Clear all existing data (in reverse dependency order)
+TRUNCATE TABLE sync_history CASCADE;
+TRUNCATE TABLE sync_tasks CASCADE;
 TRUNCATE TABLE onec_sync_logs CASCADE;
 TRUNCATE TABLE branch_sync_logs CASCADE;
 TRUNCATE TABLE system_settings CASCADE;
+TRUNCATE TABLE connection_health_logs CASCADE;
+TRUNCATE TABLE network_settings CASCADE;
+TRUNCATE TABLE branch_servers CASCADE;
+TRUNCATE TABLE api_keys CASCADE;
 TRUNCATE TABLE promotions CASCADE;
 TRUNCATE TABLE payments CASCADE;
 TRUNCATE TABLE transaction_items CASCADE;
 TRUNCATE TABLE transactions CASCADE;
 TRUNCATE TABLE customers CASCADE;
+TRUNCATE TABLE stock_movements CASCADE;
 TRUNCATE TABLE branch_inventory CASCADE;
 TRUNCATE TABLE branch_product_pricing CASCADE;
+TRUNCATE TABLE employee_time_logs CASCADE;
 TRUNCATE TABLE employees CASCADE;
 TRUNCATE TABLE products CASCADE;
 TRUNCATE TABLE categories CASCADE;
 TRUNCATE TABLE users CASCADE;
 TRUNCATE TABLE branches CASCADE;
+TRUNCATE TABLE chains CASCADE;
+
+-- =================================================================
+-- CORE MASTER DATA
+-- =================================================================
+
+-- Insert chain information
+INSERT INTO chains (name, code, description, headquarters_address, phone, email, website, timezone, base_currency) VALUES
+('RockPoint Retail Chain', 'RPC001', 'Modern retail chain management system', '123 Corporate Plaza, Business District', '+1-555-0100', 'headquarters@rockpoint.com', 'https://rockpoint.com', 'America/New_York', 'USD');
 
 -- Insert sample branches
-INSERT INTO branches (name, code, address, phone, email, manager_name, timezone, currency, tax_rate, api_endpoint, api_key) VALUES
-('Downtown Store', 'DT001', '123 Main Street, Downtown', '+1-555-0101', 'downtown@rockpoint.com', 'John Smith', 'America/New_York', 'USD', 0.0875, 'http://localhost:3000/api', 'dt001_api_key_123'),
-('Mall Location', 'ML002', '456 Shopping Mall, Level 2', '+1-555-0102', 'mall@rockpoint.com', 'Sarah Johnson', 'America/New_York', 'USD', 0.0875, 'http://localhost:3001/api', 'ml002_api_key_456'),
-('Airport Terminal', 'AP003', '789 Airport Terminal B', '+1-555-0103', 'airport@rockpoint.com', 'Mike Davis', 'America/New_York', 'USD', 0.0875, 'http://localhost:3002/api', 'ap003_api_key_789');
+INSERT INTO branches (name, code, address, phone, email, manager_name, timezone, currency, tax_rate, api_endpoint, api_key, server_ip, server_port, network_status) VALUES
+('Downtown Store', 'DT001', '123 Main Street, Downtown', '+1-555-0101', 'downtown@rockpoint.com', 'John Smith', 'America/New_York', 'USD', 0.0875, 'http://localhost:3000/api', 'dt001_api_key_123', '127.0.0.1', 3000, 'online'),
+('Mall Location', 'ML002', '456 Shopping Mall, Level 2', '+1-555-0102', 'mall@rockpoint.com', 'Sarah Johnson', 'America/New_York', 'USD', 0.0875, 'http://localhost:3001/api', 'ml002_api_key_456', '127.0.0.1', 3001, 'online'),
+('Airport Terminal', 'AP003', '789 Airport Terminal B', '+1-555-0103', 'airport@rockpoint.com', 'Mike Davis', 'America/New_York', 'USD', 0.0875, 'http://localhost:3002/api', 'ap003_api_key_789', '127.0.0.1', 3002, 'offline'),
+('Suburban Plaza', 'SP004', '321 Suburban Plaza Drive', '+1-555-0104', 'suburban@rockpoint.com', 'Lisa Chen', 'America/New_York', 'USD', 0.0875, 'http://localhost:3003/api', 'sp004_api_key_012', '127.0.0.1', 3003, 'maintenance'),
+('City Center', 'CC005', '654 City Center Boulevard', '+1-555-0105', 'citycenter@rockpoint.com', 'Robert Wilson', 'America/New_York', 'USD', 0.0875, 'http://localhost:3004/api', 'cc005_api_key_345', '127.0.0.1', 3004, 'online');
 
 -- Insert default admin user (password: admin123)
-INSERT INTO users (username, email, password_hash, name, role, permissions) 
-VALUES (
-    'admin', 
-    'admin@rockpoint.com',
-    '$2a$12$U.YVJRPzrzwZ1qLpsE1EreHpOClgPqNRy5MFKjcV0ETH44FyEPrMO', -- bcrypt hash of 'admin123'
-    'System Administrator',
-    'super_admin',
-    ARRAY['*'] -- All permissions
-);
+INSERT INTO users (username, email, password_hash, name, role, permissions) VALUES 
+('admin', 'admin@rockpoint.com', '$2a$12$U.YVJRPzrzwZ1qLpsE1EreHpOClgPqNRy5MFKjcV0ETH44FyEPrMO', 'System Administrator', 'super_admin', ARRAY['*']),
+('manager', 'manager@rockpoint.com', '$2a$12$U.YVJRPzrzwZ1qLpsE1EreHpOClgPqNRy5MFKjcV0ETH44FyEPrMO', 'Chain Manager', 'chain_admin', ARRAY['branches:*', 'products:*', 'reports:*']),
+('analyst', 'analyst@rockpoint.com', '$2a$12$U.YVJRPzrzwZ1qLpsE1EreHpOClgPqNRy5MFKjcV0ETH44FyEPrMO', 'Business Analyst', 'analyst', ARRAY['reports:read', 'analytics:read']);
 
--- Insert sample categories
-INSERT INTO categories (key, name, name_ru, name_uz, description, sort_order) VALUES
-('beverages', 'Beverages', 'Напитки', 'Ichimliklar', 'Soft drinks, juices, water', 1),
-('snacks', 'Snacks', 'Закуски', 'Gazaklar', 'Chips, cookies, nuts', 2),
-('dairy', 'Dairy', 'Молочные продукты', 'Sut mahsulotlari', 'Milk, cheese, yogurt', 3),
-('bakery', 'Bakery', 'Хлебобулочные', 'Non mahsulotlari', 'Bread, pastries, baked goods', 4),
-('personal_care', 'Personal Care', 'Личная гигиена', 'Shaxsiy gigiyena', 'Toiletries, hygiene products', 5),
-('household', 'Household', 'Бытовые товары', 'Uy-ro''zg''or buyumlari', 'Cleaning supplies, paper products', 6),
-('electronics', 'Electronics', 'Электроника', 'Elektronika', 'Small electronics, accessories', 7);
+-- =================================================================
+-- PRODUCT CATALOG DATA
+-- =================================================================
 
--- Insert sample products (based on branch-core sample-products.sql)
+-- Insert sample categories with translations
+INSERT INTO categories (key, name, name_ru, name_uz, description, description_ru, description_uz, sort_order) VALUES
+('beverages', 'Beverages', 'Напитки', 'Ichimliklar', 'Soft drinks, juices, water', 'Безалкогольные напитки, соки, вода', 'Alkogolsiz ichimliklar, sharbatlar, suv', 1),
+('snacks', 'Snacks', 'Закуски', 'Gazaklar', 'Chips, cookies, nuts', 'Чипсы, печенье, орехи', 'Chiplar, pechene, yong''oqlar', 2),
+('dairy', 'Dairy', 'Молочные продукты', 'Sut mahsulotlari', 'Milk, cheese, yogurt', 'Молоко, сыр, йогурт', 'Sut, pishloq, yogurt', 3),
+('bakery', 'Bakery', 'Хлебобулочные', 'Non mahsulotlari', 'Bread, pastries, baked goods', 'Хлеб, выпечка, кондитерские изделия', 'Non, pishiriqlar, pishirilgan mahsulotlar', 4),
+('personal_care', 'Personal Care', 'Личная гигиена', 'Shaxsiy gigiyena', 'Toiletries, hygiene products', 'Туалетные принадлежности, средства гигиены', 'Hojatxona buyumlari, gigiyena vositalari', 5),
+('household', 'Household', 'Бытовые товары', 'Uy-ro''zg''or buyumlari', 'Cleaning supplies, paper products', 'Чистящие средства, бумажные изделия', 'Tozalash vositalari, qog''oz mahsulotlar', 6),
+('electronics', 'Electronics', 'Электроника', 'Elektronika', 'Small electronics, accessories', 'Мелкая электроника, аксессуары', 'Kichik elektronika, aksessuarlar', 7),
+('clothing', 'Clothing', 'Одежда', 'Kiyim-kechak', 'Basic clothing items', 'Основная одежда', 'Asosiy kiyim-kechak', 8),
+('frozen', 'Frozen Foods', 'Замороженные продукты', 'Muzlatilgan mahsulotlar', 'Frozen meals, ice cream', 'Замороженные блюда, мороженое', 'Muzlatilgan taomlar, muzqaymoq', 9),
+('health', 'Health & Beauty', 'Здоровье и красота', 'Salomatlik va go''zallik', 'Vitamins, cosmetics', 'Витамины, косметика', 'Vitaminlar, kosmetika', 10);
+
+-- Insert comprehensive sample products
 INSERT INTO products (sku, barcode, name, name_ru, name_uz, description, description_ru, description_uz, category_id, brand, base_price, cost, image_url) 
+SELECT * FROM (
+    -- Beverages
+    SELECT 'COCA-500ML', '123456789012', 'Coca Cola 500ml', 'Кока-Кола 500мл', 'Koka-Kola 500ml', 
+           'Classic Coca Cola 500ml bottle', 'Классическая Кока-Кола 500мл бутылка', 'Klassik Koka-Kola 500ml shisha',
+           c.id, 'Coca Cola', 2.50, 1.20, 'https://example.com/coca-cola.jpg'
+    FROM categories c WHERE c.key = 'beverages'
+    
+    UNION ALL
+    
+    SELECT 'PEPSI-500ML', '123456789013', 'Pepsi 500ml', 'Пепси 500мл', 'Pepsi 500ml',
+           'Pepsi Cola 500ml bottle', 'Пепси-Кола 500мл бутылка', 'Pepsi-Kola 500ml shisha',
+           c.id, 'Pepsi', 2.45, 1.18, 'https://example.com/pepsi.jpg'
+    FROM categories c WHERE c.key = 'beverages'
+    
+    UNION ALL
+    
+    SELECT 'WATER-1L', '123456789014', 'Water 1L', 'Вода 1л', 'Suv 1l',
+           'Pure drinking water 1 liter', 'Чистая питьевая вода 1 литр', 'Toza ichimlik suvi 1 litr',
+           c.id, 'Pure Life', 1.00, 0.40, 'https://example.com/water.jpg'
+    FROM categories c WHERE c.key = 'beverages'
+    
+    UNION ALL
+    
+    SELECT 'OJ-1L', '123456789015', 'Orange Juice 1L', 'Апельсиновый сок 1л', 'Apelsin sharbati 1l',
+           'Fresh orange juice 1 liter', 'Свежий апельсиновый сок 1 литр', 'Yangi apelsin sharbati 1 litr',
+           c.id, 'Tropicana', 3.99, 2.10, 'https://example.com/orange-juice.jpg'
+    FROM categories c WHERE c.key = 'beverages'
+    
+    UNION ALL
+    
+    SELECT 'AJ-1L', '123456789016', 'Apple Juice 1L', 'Яблочный сок 1л', 'Olma sharbati 1l',
+           'Fresh apple juice 1 liter', 'Свежий яблочный сок 1 литр', 'Yangi olma sharbati 1 litr',
+           c.id, 'Minute Maid', 3.75, 2.00, 'https://example.com/apple-juice.jpg'
+    FROM categories c WHERE c.key = 'beverages'
+    
+    UNION ALL
+    
+    SELECT 'ENERGY-250ML', '123456789017', 'Energy Drink 250ml', 'Энергетик 250мл', 'Energetik ichimlik 250ml',
+           'Energy drink 250ml can', 'Энергетический напиток 250мл банка', 'Energetik ichimlik 250ml banka',
+           c.id, 'Red Bull', 2.99, 1.50, 'https://example.com/redbull.jpg'
+    FROM categories c WHERE c.key = 'beverages'
+    
+    UNION ALL
+    
+    -- Snacks
+    SELECT 'CHIPS-ORG', '223456789012', 'Chips Original', 'Чипсы оригинальные', 'Chips original',
+           'Original flavor potato chips', 'Картофельные чипсы оригинальный вкус', 'Original ta''mli kartoshka chipslari',
+           c.id, 'Lays', 3.50, 1.75, 'https://example.com/chips.jpg'
+    FROM categories c WHERE c.key = 'snacks'
+    
+    UNION ALL
+    
+    SELECT 'SNICKERS', '223456789013', 'Chocolate Bar', 'Шоколадный батончик', 'Shokolad',
+           'Milk chocolate with peanuts', 'Молочный шоколад с арахисом', 'Yeryong''oqli sut shokoladi',
+           c.id, 'Snickers', 2.99, 1.50, 'https://example.com/snickers.jpg'
+    FROM categories c WHERE c.key = 'snacks'
+    
+    UNION ALL
+    
+    SELECT 'OREO-PACK', '223456789014', 'Cookies Pack', 'Печенье упаковка', 'Pechene paketi',
+           'Chocolate sandwich cookies', 'Шоколадное печенье-сэндвич', 'Shokoladli sendvich pechene',
+           c.id, 'Oreo', 4.50, 2.25, 'https://example.com/oreo.jpg'
+    FROM categories c WHERE c.key = 'snacks'
+    
+    UNION ALL
+    
+    SELECT 'PEANUTS', '223456789015', 'Peanuts Roasted', 'Арахис жареный', 'Yeryong''oq qovurilgan',
+           'Salted roasted peanuts', 'Соленый жареный арахис', 'Tuzlangan qovurilgan yeryong''oq',
+           c.id, 'Planters', 2.25, 1.10, 'https://example.com/peanuts.jpg'
+    FROM categories c WHERE c.key = 'snacks'
+    
+    UNION ALL
+    
+    SELECT 'POPCORN', '223456789016', 'Popcorn', 'Попкорн', 'Popkorn',
+           'Microwave popcorn butter flavor', 'Попкорн для микроволновки вкус масла', 'Mikroto''lqinli popkorn sariyog'' ta''mi',
+           c.id, 'Pop Secret', 1.99, 0.90, 'https://example.com/popcorn.jpg'
+    FROM categories c WHERE c.key = 'snacks'
+    
+    UNION ALL
+    
+    SELECT 'GUMMY-BEARS', '223456789017', 'Gummy Bears', 'Желейные мишки', 'Jelatin ayiqchalar',
+           'Fruit gummy bears candy', 'Фруктовые желейные мишки', 'Mevali jelatin ayiqcha konfetlari',
+           c.id, 'Haribo', 3.25, 1.60, 'https://example.com/gummy-bears.jpg'
+    FROM categories c WHERE c.key = 'snacks'
+    
+    UNION ALL
+    
+    -- Dairy
+    SELECT 'MILK-1L', '323456789012', 'Milk 1L', 'Молоко 1л', 'Sut 1l',
+           'Whole milk 1 liter', 'Цельное молоко 1 литр', 'To''liq sut 1 litr',
+           c.id, 'Farm Fresh', 3.25, 2.00, 'https://example.com/milk.jpg'
+    FROM categories c WHERE c.key = 'dairy'
+    
+    UNION ALL
+    
+    SELECT 'YOGURT-VAN', '323456789013', 'Yogurt Vanilla', 'Йогурт ванильный', 'Yogurt vanil',
+           'Vanilla flavored yogurt', 'Йогурт с ванильным вкусом', 'Vanil ta''mli yogurt',
+           c.id, 'Danone', 1.99, 0.95, 'https://example.com/yogurt.jpg'
+    FROM categories c WHERE c.key = 'dairy'
+    
+    UNION ALL
+    
+    SELECT 'CHEESE-SLICE', '323456789014', 'Cheese Slices', 'Сыр ломтиками', 'Pishloq bo''laklari',
+           'American cheese slices', 'Американский сыр ломтиками', 'Amerika pishlog''i bo''laklari',
+           c.id, 'Kraft', 4.99, 2.50, 'https://example.com/cheese.jpg'
+    FROM categories c WHERE c.key = 'dairy'
+    
+    UNION ALL
+    
+    SELECT 'BUTTER-500G', '323456789015', 'Butter 500g', 'Масло сливочное 500г', 'Sariyog'' 500g',
+           'Salted butter 500 grams', 'Соленое масло 500 грамм', 'Tuzlangan sariyog'' 500 gramm',
+           c.id, 'Land O Lakes', 5.50, 3.20, 'https://example.com/butter.jpg'
+    FROM categories c WHERE c.key = 'dairy'
+    
+    UNION ALL
+    
+    -- Bakery
+    SELECT 'BREAD-WHITE', '423456789012', 'White Bread', 'Хлеб белый', 'Oq non',
+           'Sliced white bread loaf', 'Нарезанный белый хлеб', 'To''g''ralgan oq non',
+           c.id, 'Wonder', 2.75, 1.30, 'https://example.com/white-bread.jpg'
+    FROM categories c WHERE c.key = 'bakery'
+    
+    UNION ALL
+    
+    SELECT 'BREAD-WHEAT', '423456789013', 'Whole Wheat Bread', 'Хлеб цельнозерновой', 'Bug''doy noni',
+           'Whole wheat bread loaf', 'Цельнозерновой хлеб', 'To''liq bug''doy noni',
+           c.id, 'Pepperidge Farm', 3.25, 1.60, 'https://example.com/wheat-bread.jpg'
+    FROM categories c WHERE c.key = 'bakery'
+    
+    UNION ALL
+    
+    SELECT 'CROISSANT', '423456789014', 'Croissant', 'Круассан', 'Kruassan',
+           'Buttery croissant pastry', 'Масляный круассан', 'Sariyog''li kruassan',
+           c.id, 'Fresh Baked', 1.50, 0.75, 'https://example.com/croissant.jpg'
+    FROM categories c WHERE c.key = 'bakery'
+    
+    UNION ALL
+    
+    -- Personal Care
+    SELECT 'TOOTHPASTE', '523456789012', 'Toothpaste', 'Зубная паста', 'Tish pastasi',
+           'Whitening toothpaste', 'Отбеливающая зубная паста', 'Oqartiruvchi tish pastasi',
+           c.id, 'Colgate', 3.99, 2.10, 'https://example.com/toothpaste.jpg'
+    FROM categories c WHERE c.key = 'personal_care'
+    
+    UNION ALL
+    
+    SELECT 'SHAMPOO-400ML', '523456789013', 'Shampoo 400ml', 'Шампунь 400мл', 'Shampun 400ml',
+           'Dandruff shampoo 400ml', 'Шампунь от перхоти 400мл', 'Kepakka qarshi shampun 400ml',
+           c.id, 'Head & Shoulders', 6.99, 3.50, 'https://example.com/shampoo.jpg'
+    FROM categories c WHERE c.key = 'personal_care'
+    
+    UNION ALL
+    
+    -- Electronics
+    SELECT 'CHARGER-USB', '723456789012', 'Phone Charger Cable', 'Кабель зарядки телефона', 'Telefon zaryadlash kabeli',
+           'USB charging cable', 'USB кабель для зарядки', 'USB zaryadlash kabeli',
+           c.id, 'Generic', 9.99, 4.00, 'https://example.com/charger.jpg'
+    FROM categories c WHERE c.key = 'electronics'
+    
+    UNION ALL
+    
+    SELECT 'BATTERIES-AA', '723456789013', 'Batteries AA 4-pack', 'Батарейки АА 4 шт', 'Batareyalar AA 4 dona',
+           'Alkaline AA batteries', 'Щелочные батарейки АА', 'Gidroksidli AA batareyalar',
+           c.id, 'Duracell', 4.99, 2.20, 'https://example.com/batteries.jpg'
+    FROM categories c WHERE c.key = 'electronics'
+) sub;
+
+-- =================================================================
+-- BRANCH INFRASTRUCTURE DATA
+-- =================================================================
+
+-- Insert branch servers (network infrastructure)
+INSERT INTO branch_servers (branch_id, server_name, ip_address, port, api_port, websocket_port, network_type, status, api_key, outbound_api_key)
 SELECT 
-    'COCA-500ML', '123456789012', 'Coca Cola 500ml', 'Кока-Кола 500мл', 'Koka-Kola 500ml', 
-    'Classic Coca Cola 500ml bottle', 'Классическая Кока-Кола 500мл бутылка', 'Klassik Koka-Kola 500ml shisha',
-    c.id, 'Coca Cola', 2.50, 1.20, 'https://example.com/coca-cola.jpg'
-FROM categories c WHERE c.key = 'beverages'
+    b.id,
+    b.code || '_server',
+    b.server_ip,
+    b.server_port,
+    b.server_port,
+    b.server_port + 1,
+    'lan',
+    CASE 
+        WHEN b.network_status = 'online' THEN 'online'
+        WHEN b.network_status = 'offline' THEN 'offline'
+        WHEN b.network_status = 'maintenance' THEN 'maintenance'
+        ELSE 'error'
+    END,
+    b.api_key,
+    'rp_' || LOWER(b.code) || '_outbound_' || EXTRACT(EPOCH FROM NOW())::TEXT
+FROM branches b;
 
-UNION ALL
+-- Insert network settings
+INSERT INTO network_settings (setting_key, setting_value, description, category, is_system) VALUES
+('default_branch_api_port', '3000', 'Default API port for branch servers', 'ports', true),
+('default_branch_ws_port', '3001', 'Default WebSocket port for branch servers', 'ports', true),
+('chain_core_port', '3001', 'Chain core server port', 'ports', true),
+('connection_timeout_ms', '10000', 'Default connection timeout in milliseconds', 'timeouts', true),
+('health_check_interval_ms', '30000', 'Health check interval in milliseconds', 'timeouts', true),
+('max_response_time_ms', '5000', 'Maximum acceptable response time', 'timeouts', true),
+('vpn_network_range', '10.0.0.0/8', 'VPN network IP range', 'security', true),
+('allow_public_access', 'false', 'Allow access from public internet', 'security', true);
 
-SELECT 
-    'PEPSI-500ML', '123456789013', 'Pepsi 500ml', 'Пепси 500мл', 'Pepsi 500ml',
-    'Pepsi Cola 500ml bottle', 'Пепси-Кола 500мл бутылка', 'Pepsi-Kola 500ml shisha',
-    c.id, 'Pepsi', 2.45, 1.18, 'https://example.com/pepsi.jpg'
-FROM categories c WHERE c.key = 'beverages'
-
-UNION ALL
-
-SELECT 
-    'WATER-1L', '123456789014', 'Water 1L', 'Вода 1л', 'Suv 1l',
-    'Pure drinking water 1 liter', 'Чистая питьевая вода 1 литр', 'Toza ichimlik suvi 1 litr',
-    c.id, 'Pure Life', 1.00, 0.40, 'https://example.com/water.jpg'
-FROM categories c WHERE c.key = 'beverages'
-
-UNION ALL
-
-SELECT 
-    'OJ-1L', '123456789015', 'Orange Juice 1L', 'Апельсиновый сок 1л', 'Apelsin sharbati 1l',
-    'Fresh orange juice 1 liter', 'Свежий апельсиновый сок 1 литр', 'Yangi apelsin sharbati 1 litr',
-    c.id, 'Tropicana', 3.99, 2.10, 'https://example.com/orange-juice.jpg'
-FROM categories c WHERE c.key = 'beverages'
-
-UNION ALL
-
-SELECT 
-    'CHIPS-ORG', '223456789012', 'Chips Original', 'Чипсы оригинальные', 'Chips original',
-    'Original flavor potato chips', 'Картофельные чипсы оригинальный вкус', 'Original ta''mli kartoshka chipslari',
-    c.id, 'Lays', 3.50, 1.75, 'https://example.com/chips.jpg'
-FROM categories c WHERE c.key = 'snacks'
-
-UNION ALL
-
-SELECT 
-    'SNICKERS', '223456789013', 'Chocolate Bar', 'Шоколадный батончик', 'Shokolad',
-    'Milk chocolate with peanuts', 'Молочный шоколад с арахисом', 'Yeryong''oqli sut shokoladi',
-    c.id, 'Snickers', 2.99, 1.50, 'https://example.com/snickers.jpg'
-FROM categories c WHERE c.key = 'snacks'
-
-UNION ALL
-
-SELECT 
-    'OREO-PACK', '223456789014', 'Cookies Pack', 'Печенье упаковка', 'Pechene paketi',
-    'Chocolate sandwich cookies', 'Шоколадное печенье-сэндвич', 'Shokoladli sendvich pechene',
-    c.id, 'Oreo', 4.50, 2.25, 'https://example.com/oreo.jpg'
-FROM categories c WHERE c.key = 'snacks'
-
-UNION ALL
-
-SELECT 
-    'PEANUTS', '223456789015', 'Peanuts Roasted', 'Арахис жареный', 'Yeryong''oq qovurilgan',
-    'Salted roasted peanuts', 'Соленый жареный арахис', 'Tuzlangan qovurilgan yeryong''oq',
-    c.id, 'Planters', 2.25, 1.10, 'https://example.com/peanuts.jpg'
-FROM categories c WHERE c.key = 'snacks'
-
-UNION ALL
-
-SELECT 
-    'MILK-1L', '323456789012', 'Milk 1L', 'Молоко 1л', 'Sut 1l',
-    'Whole milk 1 liter', 'Цельное молоко 1 литр', 'To''liq sut 1 litr',
-    c.id, 'Farm Fresh', 3.25, 2.00, 'https://example.com/milk.jpg'
-FROM categories c WHERE c.key = 'dairy'
-
-UNION ALL
-
-SELECT 
-    'YOGURT-VAN', '323456789013', 'Yogurt Vanilla', 'Йогурт ванильный', 'Yogurt vanil',
-    'Vanilla flavored yogurt', 'Йогурт с ванильным вкусом', 'Vanil ta''mli yogurt',
-    c.id, 'Danone', 1.99, 0.95, 'https://example.com/yogurt.jpg'
-FROM categories c WHERE c.key = 'dairy';
+-- =================================================================
+-- EMPLOYEE DATA
+-- =================================================================
 
 -- Insert sample employees for each branch
 INSERT INTO employees (employee_id, branch_id, name, role, phone, email, hire_date, salary, pin_hash, status)
-SELECT 
-    'EMP001', b.id, 'Alice Manager', 'manager', '+1-555-1001', 'alice@rockpoint.com', 
-    '2023-01-15'::DATE, 45000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
-FROM branches b WHERE b.code = 'DT001'
+SELECT * FROM (
+    -- Downtown Store (DT001)
+    SELECT 'EMP001', b.id, 'Alice Manager', 'manager', '+1-555-1001', 'alice@rockpoint.com', 
+           '2023-01-15'::DATE, 45000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'DT001'
+    
+    UNION ALL
+    
+    SELECT 'EMP002', b.id, 'Bob Cashier', 'cashier', '+1-555-1002', 'bob@rockpoint.com',
+           '2023-02-01'::DATE, 28000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'DT001'
+    
+    UNION ALL
+    
+    SELECT 'EMP003', b.id, 'Charlie Supervisor', 'supervisor', '+1-555-1003', 'charlie@rockpoint.com',
+           '2023-01-20'::DATE, 35000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'DT001'
+    
+    UNION ALL
+    
+    -- Mall Location (ML002)
+    SELECT 'EMP004', b.id, 'Diana Manager', 'manager', '+1-555-2001', 'diana@rockpoint.com',
+           '2023-01-10'::DATE, 46000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'ML002'
+    
+    UNION ALL
+    
+    SELECT 'EMP005', b.id, 'Edward Cashier', 'cashier', '+1-555-2002', 'edward@rockpoint.com',
+           '2023-03-01'::DATE, 29000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'ML002'
+    
+    UNION ALL
+    
+    SELECT 'EMP006', b.id, 'Fiona Cashier', 'cashier', '+1-555-2003', 'fiona@rockpoint.com',
+           '2023-04-15'::DATE, 28500.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'ML002'
+    
+    UNION ALL
+    
+    -- Airport Terminal (AP003)
+    SELECT 'EMP007', b.id, 'George Manager', 'manager', '+1-555-3001', 'george@rockpoint.com',
+           '2023-01-05'::DATE, 48000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'AP003'
+    
+    UNION ALL
+    
+    SELECT 'EMP008', b.id, 'Helen Supervisor', 'supervisor', '+1-555-3002', 'helen@rockpoint.com',
+           '2023-02-20'::DATE, 36000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'AP003'
+    
+    UNION ALL
+    
+    SELECT 'EMP009', b.id, 'Ivan Cashier', 'cashier', '+1-555-3003', 'ivan@rockpoint.com',
+           '2023-03-10'::DATE, 30000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'AP003'
+    
+    UNION ALL
+    
+    -- Suburban Plaza (SP004)
+    SELECT 'EMP010', b.id, 'Julia Manager', 'manager', '+1-555-4001', 'julia@rockpoint.com',
+           '2023-01-25'::DATE, 44000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'SP004'
+    
+    UNION ALL
+    
+    SELECT 'EMP011', b.id, 'Kevin Cashier', 'cashier', '+1-555-4002', 'kevin@rockpoint.com',
+           '2023-04-01'::DATE, 27500.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'SP004'
+    
+    UNION ALL
+    
+    -- City Center (CC005)
+    SELECT 'EMP012', b.id, 'Linda Manager', 'manager', '+1-555-5001', 'linda@rockpoint.com',
+           '2023-02-10'::DATE, 47000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'CC005'
+    
+    UNION ALL
+    
+    SELECT 'EMP013', b.id, 'Mark Supervisor', 'supervisor', '+1-555-5002', 'mark@rockpoint.com',
+           '2023-03-15'::DATE, 37000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'CC005'
+    
+    UNION ALL
+    
+    SELECT 'EMP014', b.id, 'Nancy Cashier', 'cashier', '+1-555-5003', 'nancy@rockpoint.com',
+           '2023-05-01'::DATE, 29500.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
+    FROM branches b WHERE b.code = 'CC005'
+) emp_data;
 
-UNION ALL
-
-SELECT 
-    'EMP002', b.id, 'Bob Cashier', 'cashier', '+1-555-1002', 'bob@rockpoint.com',
-    '2023-02-01'::DATE, 28000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
-FROM branches b WHERE b.code = 'DT001'
-
-UNION ALL
-
-SELECT 
-    'EMP003', b.id, 'Carol Supervisor', 'supervisor', '+1-555-2001', 'carol@rockpoint.com',
-    '2023-01-20'::DATE, 38000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
-FROM branches b WHERE b.code = 'ML002'
-
-UNION ALL
-
-SELECT 
-    'EMP004', b.id, 'David Cashier', 'cashier', '+1-555-2002', 'david@rockpoint.com',
-    '2023-03-01'::DATE, 28000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
-FROM branches b WHERE b.code = 'ML002'
-
-UNION ALL
-
-SELECT 
-    'EMP005', b.id, 'Eva Manager', 'manager', '+1-555-3001', 'eva@rockpoint.com',
-    '2023-01-10'::DATE, 47000.00, '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfVKHoLGpR8s8Hm', 'active'
-FROM branches b WHERE b.code = 'AP003';
+-- =================================================================
+-- PRICING AND INVENTORY DATA
+-- =================================================================
 
 -- Insert branch-specific pricing (different prices per branch)
 INSERT INTO branch_product_pricing (branch_id, product_id, price, cost, is_available, discount_percentage)
@@ -170,15 +383,20 @@ SELECT
     b.id, p.id, 
     CASE b.code
         WHEN 'DT001' THEN p.base_price -- Downtown: base price
-        WHEN 'ML002' THEN p.base_price * 1.1 -- Mall: 10% markup
-        WHEN 'AP003' THEN p.base_price * 1.2 -- Airport: 20% markup
+        WHEN 'ML002' THEN p.base_price * 1.05 -- Mall: 5% markup
+        WHEN 'AP003' THEN p.base_price * 1.15 -- Airport: 15% markup
+        WHEN 'SP004' THEN p.base_price * 0.98 -- Suburban: 2% discount
+        WHEN 'CC005' THEN p.base_price * 1.03 -- City: 3% markup
     END as price,
     p.cost,
-    true,
+    CASE 
+        WHEN b.code = 'AP003' AND p.sku IN ('MILK-1L', 'BREAD-WHITE') THEN false -- Airport doesn't sell perishables
+        ELSE true
+    END,
     CASE b.code
-        WHEN 'DT001' THEN 0 -- No discount
-        WHEN 'ML002' THEN 5 -- 5% weekend discount
-        WHEN 'AP003' THEN 0 -- No discount
+        WHEN 'ML002' THEN 2 -- Mall: 2% general discount
+        WHEN 'SP004' THEN 3 -- Suburban: 3% family discount
+        ELSE 0
     END as discount_percentage
 FROM branches b
 CROSS JOIN products p
@@ -189,52 +407,37 @@ INSERT INTO branch_inventory (branch_id, product_id, quantity_in_stock, min_stoc
 SELECT 
     b.id, p.id,
     CASE b.code
-        WHEN 'DT001' THEN 150 + (RANDOM() * 100)::INT -- Downtown: 150-250
-        WHEN 'ML002' THEN 100 + (RANDOM() * 80)::INT  -- Mall: 100-180
-        WHEN 'AP003' THEN 50 + (RANDOM() * 50)::INT   -- Airport: 50-100
+        WHEN 'DT001' THEN 120 + (RANDOM() * 80)::INT -- Downtown: 120-200
+        WHEN 'ML002' THEN 150 + (RANDOM() * 100)::INT  -- Mall: 150-250
+        WHEN 'AP003' THEN 50 + (RANDOM() * 30)::INT   -- Airport: 50-80
+        WHEN 'SP004' THEN 80 + (RANDOM() * 60)::INT   -- Suburban: 80-140
+        WHEN 'CC005' THEN 100 + (RANDOM() * 70)::INT  -- City: 100-170
     END as quantity_in_stock,
-    CASE p.sku
-        WHEN 'COCA-500ML' THEN 20
-        WHEN 'PEPSI-500ML' THEN 20
-        WHEN 'WATER-1L' THEN 30
-        WHEN 'OJ-1L' THEN 10
-        WHEN 'CHIPS-ORG' THEN 15
-        WHEN 'SNICKERS' THEN 10
-        WHEN 'OREO-PACK' THEN 8
-        WHEN 'PEANUTS' THEN 5
-        WHEN 'MILK-1L' THEN 12
-        WHEN 'YOGURT-VAN' THEN 8
+    CASE 
+        WHEN p.sku LIKE '%500ML' OR p.sku LIKE '%1L' THEN 25
+        WHEN p.sku LIKE 'CHIPS%' OR p.sku LIKE 'SNICKERS%' THEN 15
+        WHEN p.sku LIKE 'BREAD%' OR p.sku LIKE 'MILK%' THEN 20
         ELSE 10
     END as min_stock_level,
-    CASE p.sku
-        WHEN 'COCA-500ML' THEN 200
-        WHEN 'PEPSI-500ML' THEN 200
-        WHEN 'WATER-1L' THEN 300
-        WHEN 'OJ-1L' THEN 100
-        WHEN 'CHIPS-ORG' THEN 150
-        WHEN 'SNICKERS' THEN 100
-        WHEN 'OREO-PACK' THEN 80
-        WHEN 'PEANUTS' THEN 50
-        WHEN 'MILK-1L' THEN 120
-        WHEN 'YOGURT-VAN' THEN 80
+    CASE 
+        WHEN p.sku LIKE '%500ML' OR p.sku LIKE '%1L' THEN 200
+        WHEN p.sku LIKE 'CHIPS%' OR p.sku LIKE 'SNICKERS%' THEN 150
+        WHEN p.sku LIKE 'BREAD%' OR p.sku LIKE 'MILK%' THEN 180
         ELSE 100
     END as max_stock_level,
-    CASE p.sku
-        WHEN 'COCA-500ML' THEN 30
-        WHEN 'PEPSI-500ML' THEN 30
-        WHEN 'WATER-1L' THEN 45
-        WHEN 'OJ-1L' THEN 15
-        WHEN 'CHIPS-ORG' THEN 20
-        WHEN 'SNICKERS' THEN 15
-        WHEN 'OREO-PACK' THEN 12
-        WHEN 'PEANUTS' THEN 8
-        WHEN 'MILK-1L' THEN 18
-        WHEN 'YOGURT-VAN' THEN 12
+    CASE 
+        WHEN p.sku LIKE '%500ML' OR p.sku LIKE '%1L' THEN 35
+        WHEN p.sku LIKE 'CHIPS%' OR p.sku LIKE 'SNICKERS%' THEN 25
+        WHEN p.sku LIKE 'BREAD%' OR p.sku LIKE 'MILK%' THEN 30
         ELSE 15
     END as reorder_point
 FROM branches b
 CROSS JOIN products p
 WHERE b.is_active = true AND p.is_active = true;
+
+-- =================================================================
+-- CUSTOMER DATA
+-- =================================================================
 
 -- Insert sample customers
 INSERT INTO customers (name, email, phone, loyalty_points, total_spent) VALUES
@@ -242,131 +445,91 @@ INSERT INTO customers (name, email, phone, loyalty_points, total_spent) VALUES
 ('Jane Smith', 'jane.smith@email.com', '+1-555-9002', 320, 160.75),
 ('Mike Johnson', 'mike.johnson@email.com', '+1-555-9003', 85, 42.25),
 ('Sarah Williams', 'sarah.williams@email.com', '+1-555-9004', 220, 110.00),
-('Robert Brown', 'robert.brown@email.com', '+1-555-9005', 180, 90.30);
+('Robert Brown', 'robert.brown@email.com', '+1-555-9005', 180, 90.30),
+('Emily Davis', 'emily.davis@email.com', '+1-555-9006', 95, 47.50),
+('David Wilson', 'david.wilson@email.com', '+1-555-9007', 275, 137.75),
+('Lisa Garcia', 'lisa.garcia@email.com', '+1-555-9008', 145, 72.25),
+('Tom Anderson', 'tom.anderson@email.com', '+1-555-9009', 310, 155.00),
+('Maria Rodriguez', 'maria.rodriguez@email.com', '+1-555-9010', 205, 102.50);
 
--- Insert sample transactions with different pricing scenarios
+-- =================================================================
+-- TRANSACTION DATA (Sample from last 30 days)
+-- =================================================================
+
+-- Generate sample transactions for testing
 INSERT INTO transactions (branch_id, transaction_number, employee_id, customer_id, terminal_id, subtotal, tax_amount, discount_amount, total_amount, payment_method, status, completed_at)
 SELECT * FROM (
     SELECT 
         b.id,
-        'TXN000001',
+        'TXN-' || LPAD((RANDOM() * 999999)::TEXT, 6, '0'),
         e.id,
-        (SELECT id FROM customers ORDER BY RANDOM() LIMIT 1),
-        'TERM01',
-        25.47,
-        2.23,
-        1.27, -- $1.27 discount applied
-        26.43,
-        'card',
-        'completed',
-        NOW() - INTERVAL '2 hours'
+        CASE WHEN RANDOM() < 0.7 THEN NULL ELSE (SELECT id FROM customers ORDER BY RANDOM() LIMIT 1) END,
+        'TERM-' || (RANDOM() * 3 + 1)::TEXT,
+        25.47, 2.23, 1.27, 26.43, 'card', 'completed',
+        NOW() - (RANDOM() * INTERVAL '30 days')
     FROM branches b
     JOIN employees e ON b.id = e.branch_id
-    WHERE b.code = 'DT001' AND e.role = 'cashier'
-    LIMIT 1
-) sub1
-
-UNION ALL
-
-SELECT * FROM (
+    WHERE b.code = 'DT001' AND e.role IN ('cashier', 'manager')
+    ORDER BY RANDOM()
+    LIMIT 5
+    
+    UNION ALL
+    
     SELECT 
         b.id,
-        'TXN000002',
+        'TXN-' || LPAD((RANDOM() * 999999)::TEXT, 6, '0'),
         e.id,
-        NULL::UUID, -- No customer loyalty card - cast NULL to UUID
-        'TERM02',
-        15.98,
-        1.40,
-        0,
-        17.38,
-        'cash',
-        'completed',
-        NOW() - INTERVAL '1 hour'
+        CASE WHEN RANDOM() < 0.7 THEN NULL ELSE (SELECT id FROM customers ORDER BY RANDOM() LIMIT 1) END,
+        'TERM-' || (RANDOM() * 3 + 1)::TEXT,
+        15.98, 1.40, 0, 17.38, 'cash', 'completed',
+        NOW() - (RANDOM() * INTERVAL '30 days')
     FROM branches b
     JOIN employees e ON b.id = e.branch_id
-    WHERE b.code = 'ML002' AND e.role = 'cashier'
-    LIMIT 1
-) sub2
-
-UNION ALL
-
-SELECT * FROM (
+    WHERE b.code = 'ML002' AND e.role IN ('cashier', 'manager')
+    ORDER BY RANDOM()
+    LIMIT 5
+    
+    UNION ALL
+    
     SELECT 
         b.id,
-        'TXN000003',
+        'TXN-' || LPAD((RANDOM() * 999999)::TEXT, 6, '0'),
         e.id,
-        (SELECT id FROM customers ORDER BY RANDOM() LIMIT 1),
-        'TERM01',
-        32.50,
-        2.85,
-        0,
-        35.35,
-        'card',
-        'completed',
-        NOW() - INTERVAL '30 minutes'
+        CASE WHEN RANDOM() < 0.7 THEN NULL ELSE (SELECT id FROM customers ORDER BY RANDOM() LIMIT 1) END,
+        'TERM-' || (RANDOM() * 3 + 1)::TEXT,
+        32.50, 2.85, 0, 35.35, 'card', 'completed',
+        NOW() - (RANDOM() * INTERVAL '30 days')
     FROM branches b
     JOIN employees e ON b.id = e.branch_id
-    WHERE b.code = 'AP003' AND e.role = 'manager'
-    LIMIT 1
-) sub3;
+    WHERE b.code = 'AP003' AND e.role IN ('cashier', 'manager')
+    ORDER BY RANDOM()
+    LIMIT 3
+) txn_data;
 
--- Insert sample transaction items showing bulk pricing example
--- Transaction 1: Customer buys 2x Coca Cola, gets bulk discount
-INSERT INTO transaction_items (transaction_id, product_id, quantity, unit_price, original_price, unit_cost, discount_amount, tax_amount, total_amount, promotion_applied)
+-- Insert sample transaction items
+INSERT INTO transaction_items (transaction_id, product_id, quantity, unit_price, original_price, unit_cost, discount_amount, tax_amount, total_amount)
 SELECT 
     t.id,
     p.id,
-    2, -- Buy 2 Coca Colas
-    2.25, -- Discounted price ($0.25 off each)
-    2.50, -- Original price
-    1.20,
-    0.50, -- Total discount ($0.25 × 2)
-    0.44, -- Tax on discounted amount
-    4.94,
-    'Buy 2+ Get 10% Off'
+    (RANDOM() * 3 + 1)::INTEGER,
+    p.base_price * (0.9 + RANDOM() * 0.2), -- Price variation ±10%
+    p.base_price,
+    p.cost,
+    p.base_price * 0.05, -- 5% discount
+    p.base_price * 0.0875, -- 8.75% tax
+    p.base_price * 1.0375 -- Final price with tax and discount
 FROM transactions t
-JOIN products p ON p.sku = 'COCA-500ML'
-WHERE t.transaction_number = 'TXN000001'
-
-UNION ALL
-
--- Add chips to same transaction
-SELECT 
-    t.id,
-    p.id,
-    1,
-    3.50, -- Regular price
-    3.50,
-    1.75,
-    0,
-    0.31,
-    3.81,
-    NULL
-FROM transactions t
-JOIN products p ON p.sku = 'CHIPS-ORG'
-WHERE t.transaction_number = 'TXN000001'
-
-UNION ALL
-
--- Add snickers
-SELECT 
-    t.id,
-    p.id,
-    1,
-    2.99,
-    2.99,
-    1.50,
-    0,
-    0.26,
-    3.25,
-    NULL
-FROM transactions t
-JOIN products p ON p.sku = 'SNICKERS'
-WHERE t.transaction_number = 'TXN000001';
+CROSS JOIN LATERAL (
+    SELECT * FROM products ORDER BY RANDOM() LIMIT (RANDOM() * 3 + 1)::INTEGER
+) p
+LIMIT 50;
 
 -- Insert corresponding payments
 INSERT INTO payments (transaction_id, method, amount, reference_number, status)
-SELECT t.id, t.payment_method, t.total_amount, 
+SELECT 
+    t.id, 
+    t.payment_method, 
+    t.total_amount, 
     CASE 
         WHEN t.payment_method = 'card' THEN 'CARD_' || EXTRACT(EPOCH FROM NOW())::TEXT
         ELSE NULL
@@ -374,39 +537,76 @@ SELECT t.id, t.payment_method, t.total_amount,
     'completed'
 FROM transactions t;
 
+-- =================================================================
+-- PROMOTIONS DATA
+-- =================================================================
+
 -- Insert sample promotions
 INSERT INTO promotions (name, description, type, branch_id, product_id, category_id, discount_percentage, min_quantity, start_date, end_date, is_active)
-SELECT 
-    'Buy 2+ Coca Cola Get 10% Off',
-    'Get 10% discount when buying 2 or more Coca Cola',
-    'bulk_discount',
-    NULL, -- Chain-wide promotion
-    p.id,
-    NULL, -- Product-specific, not category-specific
-    10.00,
-    2,
-    NOW() - INTERVAL '1 week',
-    NOW() + INTERVAL '1 month',
-    true
-FROM products p WHERE p.sku = 'COCA-500ML'
+SELECT * FROM (
+    -- Chain-wide beverage promotion
+    SELECT 
+        'Summer Drink Special',
+        'Get 10% off all beverages during summer',
+        'percentage_discount',
+        NULL, -- Chain-wide
+        NULL, -- Category-wide
+        c.id,
+        10.00,
+        1,
+        NOW() - INTERVAL '1 week',
+        NOW() + INTERVAL '2 months',
+        true
+    FROM categories c WHERE c.key = 'beverages'
+    
+    UNION ALL
+    
+    -- Branch-specific bulk promotion
+    SELECT 
+        'Buy 2+ Coca Cola Get 15% Off',
+        'Get 15% discount when buying 2 or more Coca Cola at Downtown store',
+        'bulk_discount',
+        b.id,
+        p.id,
+        NULL, -- Product-specific
+        15.00,
+        2,
+        NOW() - INTERVAL '1 week',
+        NOW() + INTERVAL '1 month',
+        true
+    FROM branches b 
+    CROSS JOIN products p
+    WHERE b.code = 'DT001' AND p.sku = 'COCA-500ML'
+    
+    UNION ALL
+    
+    -- Mall weekend special
+    SELECT 
+        'Mall Weekend Snack Special',
+        '5% off all snacks during weekends at Mall location',
+        'percentage_discount',
+        b.id,
+        NULL, -- Category-wide
+        c.id,
+        5.00,
+        1,
+        NOW() - INTERVAL '1 week',
+        NOW() + INTERVAL '2 months',
+        true
+    FROM branches b 
+    CROSS JOIN categories c
+    WHERE b.code = 'ML002' AND c.key = 'snacks'
+) promo_data;
 
-UNION ALL
+-- =================================================================
+-- SYSTEM CONFIGURATION DATA
+-- =================================================================
 
-SELECT 
-    'Weekend Mall Special',
-    '5% off all snacks during weekends at Mall location',
-    'percentage_discount',
-    b.id,
-    NULL, -- Category-wide
-    c.id, -- Category-specific promotion
-    5.00,
-    1,
-    NOW() - INTERVAL '1 week',
-    NOW() + INTERVAL '2 months',
-    true
-FROM branches b 
-CROSS JOIN categories c
-WHERE b.code = 'ML002' AND c.key = 'snacks';
+-- Insert API keys
+INSERT INTO api_keys (name, key_hash, description, permissions, is_active) VALUES
+('1C Integration', 'rp_1C_DEFAULT_KEY_REPLACE_IN_PRODUCTION', 'Default API key for 1C ERP system integration', ARRAY['products:write', 'inventory:write', 'employees:write', 'transactions:read', 'sync:execute'], true),
+('Mobile App', 'rp_MOBILE_APP_KEY_SECURE_HASH', 'API key for mobile application', ARRAY['products:read', 'inventory:read', 'transactions:write'], true),
+('Analytics Service', 'rp_ANALYTICS_SERVICE_KEY_HASH', 'API key for analytics and reporting service', ARRAY['reports:read', 'analytics:read'], true);
 
 -- Insert system settings
 INSERT INTO system_settings (key, value, description) VALUES
@@ -419,57 +619,145 @@ INSERT INTO system_settings (key, value, description) VALUES
 ('sync_batch_size', '1000', 'Number of records to sync in each batch'),
 ('max_transaction_items', '100', 'Maximum items per transaction'),
 ('session_timeout_minutes', '60', 'User session timeout in minutes'),
-('enable_loyalty_program', 'true', 'Enable customer loyalty program');
+('enable_loyalty_program', 'true', 'Enable customer loyalty program'),
+('chain_name', 'RockPoint Retail Chain', 'Official chain name'),
+('support_email', 'support@rockpoint.com', 'Support contact email'),
+('max_daily_sales_amount', '50000', 'Maximum daily sales amount per branch'),
+('inventory_sync_interval_hours', '6', 'Hours between automatic inventory syncs'),
+('report_generation_time', '02:00', 'Daily time to generate automated reports');
+
+-- =================================================================
+-- LOGGING DATA
+-- =================================================================
 
 -- Insert sample sync logs
 INSERT INTO branch_sync_logs (branch_id, sync_type, direction, status, records_processed, initiated_by, started_at, completed_at)
 SELECT * FROM (
     SELECT 
-        b.id, 'products', 'to_branch', 'completed', 10, u.id, 
-        NOW() - INTERVAL '2 hours', NOW() - INTERVAL '2 hours' + INTERVAL '30 seconds'
+        b.id, 'products', 'to_branch', 'completed', 24, u.id, 
+        NOW() - INTERVAL '4 hours', NOW() - INTERVAL '4 hours' + INTERVAL '45 seconds'
     FROM branches b, users u 
     WHERE b.code = 'DT001' AND u.username = 'admin'
     LIMIT 1
-) sub1
-
-UNION ALL
-
-SELECT * FROM (
+    
+    UNION ALL
+    
     SELECT 
-        b.id, 'inventory', 'from_branch', 'completed', 25, u.id,
-        NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour' + INTERVAL '45 seconds'
+        b.id, 'inventory', 'from_branch', 'completed', 120, u.id,
+        NOW() - INTERVAL '2 hours', NOW() - INTERVAL '2 hours' + INTERVAL '1 minute 20 seconds'
     FROM branches b, users u 
     WHERE b.code = 'ML002' AND u.username = 'admin'
     LIMIT 1
-) sub2;
+    
+    UNION ALL
+    
+    SELECT 
+        b.id, 'transactions', 'from_branch', 'completed', 78, u.id,
+        NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour' + INTERVAL '35 seconds'
+    FROM branches b, users u 
+    WHERE b.code = 'AP003' AND u.username = 'manager'
+    LIMIT 1
+) sync_data;
 
+-- Insert 1C sync logs
 INSERT INTO onec_sync_logs (sync_type, direction, status, records_processed, started_at, completed_at)
 VALUES 
-('products', 'import', 'completed', 10, NOW() - INTERVAL '3 hours', NOW() - INTERVAL '3 hours' + INTERVAL '2 minutes'),
-('transactions', 'export', 'completed', 15, NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour' + INTERVAL '1 minute');
+('products', 'import', 'completed', 24, NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours' + INTERVAL '3 minutes'),
+('categories', 'import', 'completed', 10, NOW() - INTERVAL '6 hours', NOW() - INTERVAL '6 hours' + INTERVAL '45 seconds'),
+('employees', 'import', 'completed', 14, NOW() - INTERVAL '5 hours', NOW() - INTERVAL '5 hours' + INTERVAL '1 minute 15 seconds'),
+('transactions', 'export', 'completed', 45, NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour' + INTERVAL '2 minutes'),
+('inventory', 'import', 'failed', 0, NOW() - INTERVAL '30 minutes', NULL);
 
--- Final verification: Show sample data counts
+-- Insert sample connection health logs
+INSERT INTO connection_health_logs (source_type, source_id, target_type, target_id, connection_status, response_time_ms, checked_at)
+SELECT 
+    'chain_core', 'main',
+    'branch_core', b.code,
+    CASE b.network_status
+        WHEN 'online' THEN 'success'
+        WHEN 'offline' THEN 'failed'
+        WHEN 'maintenance' THEN 'success'
+        ELSE 'error'
+    END,
+    CASE b.network_status
+        WHEN 'online' THEN (RANDOM() * 200 + 50)::INTEGER
+        WHEN 'maintenance' THEN (RANDOM() * 300 + 100)::INTEGER
+        ELSE NULL
+    END,
+    NOW() - (RANDOM() * INTERVAL '1 hour')
+FROM branches b;
+
+-- =================================================================
+-- FINAL VERIFICATION AND STATISTICS
+-- =================================================================
+
+-- Update inventory based on sales simulation
+UPDATE branch_inventory 
+SET quantity_in_stock = GREATEST(0, quantity_in_stock - (RANDOM() * 20)::INTEGER),
+    last_movement_at = NOW() - (RANDOM() * INTERVAL '7 days')
+WHERE product_id IN (SELECT id FROM products WHERE sku IN ('COCA-500ML', 'PEPSI-500ML', 'CHIPS-ORG', 'SNICKERS'));
+
+-- Final verification: Show comprehensive data counts
 DO $$
 BEGIN
-    RAISE NOTICE '=== SAMPLE DATA LOADED ===';
-    RAISE NOTICE 'Branches: % | Categories: % | Products: %', 
+    RAISE NOTICE '=== COMPREHENSIVE SAMPLE DATA LOADED ===';
+    RAISE NOTICE 'Chains: % | Branches: % | Users: % | Employees: %', 
+        (SELECT COUNT(*) FROM chains),
         (SELECT COUNT(*) FROM branches),
+        (SELECT COUNT(*) FROM users),
+        (SELECT COUNT(*) FROM employees);
+    RAISE NOTICE 'Categories: % | Products: % | Customers: %', 
         (SELECT COUNT(*) FROM categories),
-        (SELECT COUNT(*) FROM products);
-    RAISE NOTICE 'Employees: % | Customers: % | Transactions: % | Transaction Items: %',
-        (SELECT COUNT(*) FROM employees),
-        (SELECT COUNT(*) FROM customers),
+        (SELECT COUNT(*) FROM products),
+        (SELECT COUNT(*) FROM customers);
+    RAISE NOTICE 'Transactions: % | Transaction Items: % | Payments: %',
         (SELECT COUNT(*) FROM transactions),
-        (SELECT COUNT(*) FROM transaction_items);
-    RAISE NOTICE 'Branch Inventory Records: % | Branch Pricing Records: % | Active Promotions: %',
+        (SELECT COUNT(*) FROM transaction_items),
+        (SELECT COUNT(*) FROM payments);
+    RAISE NOTICE 'Branch Inventory Records: % | Branch Pricing Records: %',
         (SELECT COUNT(*) FROM branch_inventory),
-        (SELECT COUNT(*) FROM branch_product_pricing),
-        (SELECT COUNT(*) FROM promotions WHERE is_active = true);
-    RAISE NOTICE '=== Sample data ready for testing ===';
+        (SELECT COUNT(*) FROM branch_product_pricing);
+    RAISE NOTICE 'Branch Servers: % | Active Promotions: % | API Keys: %',
+        (SELECT COUNT(*) FROM branch_servers),
+        (SELECT COUNT(*) FROM promotions WHERE is_active = true),
+        (SELECT COUNT(*) FROM api_keys WHERE is_active = true);
+    RAISE NOTICE 'Network Settings: % | System Settings: %',
+        (SELECT COUNT(*) FROM network_settings),
+        (SELECT COUNT(*) FROM system_settings);
+    RAISE NOTICE 'Branch Sync Logs: % | 1C Sync Logs: % | Connection Logs: %',
+        (SELECT COUNT(*) FROM branch_sync_logs),
+        (SELECT COUNT(*) FROM onec_sync_logs),
+        (SELECT COUNT(*) FROM connection_health_logs);
+    RAISE NOTICE '=== Sample data ready for comprehensive testing ===';
 END $$;
 
--- Example usage of the pricing function:
--- SELECT get_effective_price((SELECT id FROM branches WHERE code = 'DT001'), (SELECT id FROM products WHERE sku = 'COCA-500ML'), 2);
--- This will return the effective price for 2 Coca Colas at Downtown branch, including bulk discount
+-- Show sample pricing data
+SELECT 
+    'Branch Pricing Examples' as info,
+    b.name as branch_name,
+    p.name as product_name,
+    p.base_price,
+    bpp.price as branch_price,
+    bpp.discount_percentage
+FROM branch_product_pricing bpp
+JOIN branches b ON bpp.branch_id = b.id
+JOIN products p ON bpp.product_id = p.id
+WHERE p.sku IN ('COCA-500ML', 'CHIPS-ORG')
+ORDER BY p.name, b.name
+LIMIT 10;
+
+-- Show inventory status
+SELECT 
+    'Low Stock Alert' as info,
+    b.name as branch_name,
+    p.name as product_name,
+    bi.quantity_in_stock,
+    bi.min_stock_level
+FROM branch_inventory bi
+JOIN branches b ON bi.branch_id = b.id
+JOIN products p ON bi.product_id = p.id
+WHERE bi.quantity_in_stock <= bi.min_stock_level
+ORDER BY bi.quantity_in_stock
+LIMIT 5;
 
 COMMIT;

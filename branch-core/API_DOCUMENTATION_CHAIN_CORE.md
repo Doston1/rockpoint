@@ -1,24 +1,146 @@
-# Branch-Core API for Chain-Core Integration
+# Branch-Core Chain-Core Integration API Documentation
 
-This API enables chain-core to communicate with individual branch-core systems for inventory management, data synchronization, and operational control.
+## Overview
 
-## Base URL
+This API provides integration between individual branch servers (branch-core) and the central chain management system (chain-core). It handles product synchronization, inventory updates, price changes, employee management, and transaction reporting at the branch level.
 
-```
-http://branch-server:3000/api/chain-core
-```
+**Base URL:** `http://branch-server/api/chain-core`
 
-## Authentication
+**Authentication:** Bearer token required for all endpoints
 
-Include appropriate authentication headers (JWT, API key, etc.)
+**Content-Type:** `application/json`
 
-## 📋 Inventory Management
+## Key Features
 
-### Get Current Inventory Levels
+- **Barcode-First Product Identification**: All product operations prioritize barcode as primary identifier
+- **Real-time Synchronization**: Immediate processing of updates from chain-core
+- **Local Data Management**: Maintains local branch database for POS operations
+- **Transaction Reporting**: Reports sales data back to chain-core
+- **Inventory Tracking**: Real-time inventory level management
+
+---
+
+## Product Management
+
+### 1. Sync Products from Chain-Core
 
 ```http
-GET /inventory?sku=PHONE-001&category=electronics&low_stock_only=true&page=1&limit=100
+POST /api/chain-core/products/sync
 ```
+
+**Description:** Receives product data from chain-core and updates local branch database.
+
+**Request Body:**
+
+```json
+{
+  "products": [
+    {
+      "sku": "COCA_500ML",
+      "barcode": "1234567890123",
+      "name": "Coca-Cola 500ml",
+      "name_ru": "Кока-Кола 500мл",
+      "name_uz": "Koka-Kola 500ml",
+      "description": "Carbonated soft drink",
+      "category_key": "beverages",
+      "brand": "Coca-Cola",
+      "unit_of_measure": "bottle",
+      "base_price": 10.0,
+      "cost": 7.5,
+      "tax_rate": 0.12,
+      "image_url": "https://example.com/coca-cola.jpg",
+      "is_active": true
+    }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "success": true,
+        "barcode": "1234567890123",
+        "sku": "COCA_500ML",
+        "action": "synced",
+        "product_id": 123
+      }
+    ],
+    "processed": 1,
+    "failed": 0
+  }
+}
+```
+
+### 2. Update Product Prices
+
+```http
+PUT /api/chain-core/products/prices
+```
+
+**Description:** Updates product prices from chain-core instructions. Uses barcode as primary identifier.
+
+**Request Body:**
+
+```json
+{
+  "updates": [
+    {
+      "barcode": "1234567890123",
+      "sku": "COCA_500ML",
+      "price": 12.0,
+      "cost": 8.0,
+      "effective_date": "2025-08-18T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "success": true,
+        "product_id": 123,
+        "barcode": "1234567890123",
+        "sku": "COCA_500ML",
+        "old_price": 10.0,
+        "new_price": 12.0,
+        "old_cost": 7.5,
+        "new_cost": 8.0
+      }
+    ],
+    "updated": 1,
+    "failed": 0
+  }
+}
+```
+
+---
+
+## Inventory Management
+
+### 3. Get Current Inventory
+
+```http
+GET /api/chain-core/inventory
+```
+
+**Description:** Returns current inventory levels for all products in the branch.
+
+**Query Parameters:**
+
+- `barcode` (optional): Filter by specific product barcode
+- `sku` (optional): Filter by specific product SKU
+- `low_stock_only` (optional): Return only low stock items (default: false)
 
 **Response:**
 
@@ -28,91 +150,56 @@ GET /inventory?sku=PHONE-001&category=electronics&low_stock_only=true&page=1&lim
   "data": {
     "inventory": [
       {
-        "id": "uuid",
-        "product_id": "uuid",
-        "sku": "PHONE-001",
-        "name": "iPhone 15 Pro",
-        "name_ru": "Айфон 15 Про",
-        "quantity_in_stock": 25,
-        "min_stock_level": 5,
-        "max_stock_level": 100,
-        "last_updated": "2024-08-02T14:30:00Z",
-        "current_price": 999.99,
-        "cost": 800.0,
-        "category_name": "Electronics",
-        "is_low_stock": false
+        "product_id": 123,
+        "sku": "COCA_500ML",
+        "barcode": "1234567890123",
+        "product_name": "Coca-Cola 500ml",
+        "quantity_in_stock": 150,
+        "reserved_quantity": 10,
+        "available_quantity": 140,
+        "min_stock_level": 20,
+        "max_stock_level": 200,
+        "reorder_point": 30,
+        "last_counted_at": "2025-08-15T10:00:00Z",
+        "updated_at": "2025-08-17T12:00:00Z"
       }
     ],
-    "pagination": {
-      "page": 1,
-      "limit": 100,
-      "total": 150,
-      "pages": 2
-    }
+    "total_items": 1,
+    "low_stock_items": 0
   }
 }
 ```
 
-### Update Inventory Levels
+### 4. Update Inventory Levels
 
 ```http
-PUT /inventory
-Content-Type: application/json
-
-{
-  "updates": [
-    {
-      "sku": "PHONE-001",
-      "quantity_adjustment": 10,
-      "adjustment_type": "add",
-      "reason": "Stock replenishment",
-      "reference_id": "PO-2024-001"
-    },
-    {
-      "product_id": "uuid-456",
-      "quantity_adjustment": 50,
-      "adjustment_type": "set",
-      "reason": "Inventory correction"
-    }
-  ]
-}
+PUT /api/chain-core/inventory
 ```
 
-**Response:**
+**Description:** Updates inventory levels based on chain-core instructions or local adjustments.
+
+**Request Body:**
 
 ```json
 {
-  "success": true,
-  "data": {
-    "results": [
-      {
-        "success": true,
-        "product_id": "uuid",
-        "sku": "PHONE-001",
-        "old_quantity": 25,
-        "new_quantity": 35,
-        "adjustment": 10
-      }
-    ],
-    "updated": 1,
-    "failed": 0
-  }
+  "updates": [
+    {
+      "barcode": "1234567890123",
+      "sku": "COCA_500ML",
+      "quantity_adjustment": 50,
+      "adjustment_type": "add",
+      "reason": "Stock delivery",
+      "reference_number": "DEL-001"
+    }
+  ]
 }
 ```
 
 **Adjustment Types:**
 
-- `add` - Add to current quantity
-- `subtract` - Subtract from current quantity
-- `set` - Set exact quantity
-
-## 📦 Product Management
-
-### Get Products with Stock Information
-
-```http
-GET /products?category=electronics&active_only=true&page=1&limit=100
-```
+- `add`: Add to current stock
+- `subtract`: Remove from current stock
+- `set`: Set absolute quantity
 
 **Response:**
 
@@ -120,54 +207,48 @@ GET /products?category=electronics&active_only=true&page=1&limit=100
 {
   "success": true,
   "data": {
-    "products": [
+    "results": [
       {
-        "id": "uuid",
-        "sku": "PHONE-001",
-        "name": "iPhone 15 Pro",
-        "name_ru": "Айфон 15 Про",
-        "name_uz": "iPhone 15 Pro",
-        "description": "Latest iPhone model",
-        "price": 999.99,
-        "cost": 800.0,
-        "barcode": "1234567890",
-        "unit_of_measure": "pcs",
-        "tax_rate": 0.1,
-        "is_active": true,
-        "category_name": "Electronics",
-        "category_key": "electronics",
-        "quantity_in_stock": 25,
-        "min_stock_level": 5,
-        "max_stock_level": 100,
-        "inventory_updated": "2024-08-02T14:30:00Z"
+        "success": true,
+        "product_id": 123,
+        "barcode": "1234567890123",
+        "sku": "COCA_500ML",
+        "old_quantity": 150,
+        "new_quantity": 200,
+        "adjustment": 50
       }
     ],
-    "pagination": {
-      "page": 1,
-      "limit": 100,
-      "total": 150
-    }
+    "updated": 1,
+    "failed": 0
   }
 }
 ```
 
-### Update Product Prices
+---
+
+## Employee Management
+
+### 5. Sync Employees from Chain-Core
 
 ```http
-PUT /products/prices
-Content-Type: application/json
+POST /api/chain-core/employees
+```
 
+**Description:** Receives employee data from chain-core and updates local branch database.
+
+**Request Body:**
+
+```json
 {
-  "updates": [
+  "employees": [
     {
-      "sku": "PHONE-001",
-      "price": 1099.99,
-      "cost": 850.00,
-      "effective_date": "2024-08-03T00:00:00Z"
-    },
-    {
-      "product_id": "uuid-456",
-      "price": 599.99
+      "employee_id": "E12345",
+      "name": "John Smith",
+      "role": "cashier",
+      "phone": "+1234567890",
+      "email": "john.smith@rockpoint.com",
+      "hire_date": "2025-08-01",
+      "status": "active"
     }
   ]
 }
@@ -182,54 +263,29 @@ Content-Type: application/json
     "results": [
       {
         "success": true,
-        "product_id": "uuid",
-        "sku": "PHONE-001",
-        "old_price": 999.99,
-        "new_price": 1099.99,
-        "old_cost": 800.0,
-        "new_cost": 850.0
+        "employee_id": "E12345",
+        "name": "John Smith",
+        "action": "synced"
       }
     ],
-    "updated": 1,
+    "processed": 1,
     "failed": 0
   }
 }
 ```
 
-### Sync Products from Chain-Core
+### 6. Get Branch Employees
 
 ```http
-POST /products/sync
-Content-Type: application/json
-
-{
-  "products": [
-    {
-      "sku": "PHONE-002",
-      "name": "Samsung Galaxy S24",
-      "name_ru": "Самсунг Галакси С24",
-      "name_uz": "Samsung Galaxy S24",
-      "description": "Latest Samsung flagship",
-      "category_id": "electronics-cat-id",
-      "brand": "Samsung",
-      "price": 899.99,
-      "cost": 720.00,
-      "barcode": "9876543210",
-      "unit_of_measure": "pcs",
-      "tax_rate": 0.1,
-      "is_active": true
-    }
-  ]
-}
+GET /api/chain-core/employees
 ```
 
-## 👥 Employee Data
+**Description:** Returns all employees assigned to this branch.
 
-### Get Employees Information
+**Query Parameters:**
 
-```http
-GET /employees?status=active&role=cashier&page=1&limit=50
-```
+- `status` (optional): Filter by employee status (active, inactive, terminated)
+- `role` (optional): Filter by employee role
 
 **Response:**
 
@@ -239,35 +295,96 @@ GET /employees?status=active&role=cashier&page=1&limit=50
   "data": {
     "employees": [
       {
-        "id": "uuid",
-        "employee_id": "EMP_001",
-        "name": "John Doe",
+        "id": 1,
+        "employee_id": "E12345",
+        "name": "John Smith",
         "role": "cashier",
         "phone": "+1234567890",
-        "email": "john@branch.com",
-        "hire_date": "2024-01-15",
-        "salary": 3000.0,
+        "email": "john.smith@rockpoint.com",
+        "hire_date": "2025-08-01T00:00:00Z",
         "status": "active",
-        "created_at": "2024-01-15T09:00:00Z",
-        "updated_at": "2024-08-01T12:00:00Z"
+        "created_at": "2025-08-01T09:00:00Z",
+        "updated_at": "2025-08-01T09:00:00Z"
       }
     ],
-    "pagination": {
-      "page": 1,
-      "limit": 50,
-      "total": 12
-    }
+    "total_employees": 1
   }
 }
 ```
 
-## 💰 Transaction Data
+---
 
-### Get Transaction Information
+## Transaction Reporting
+
+### 7. Report Transaction to Chain-Core
 
 ```http
-GET /transactions?start_date=2024-08-01&end_date=2024-08-02&status=completed&include_items=true&page=1&limit=100
+POST /api/chain-core/transactions
 ```
+
+**Description:** Reports completed transactions from POS to chain-core system.
+
+**Request Body:**
+
+```json
+{
+  "transaction": {
+    "transaction_number": "TXN-BR001-001",
+    "employee_id": "E12345",
+    "customer_id": null,
+    "subtotal": 24.0,
+    "tax_amount": 2.88,
+    "discount_amount": 0.0,
+    "total_amount": 26.88,
+    "payment_method": "card",
+    "status": "completed",
+    "completed_at": "2025-08-17T14:30:00Z",
+    "items": [
+      {
+        "sku": "COCA_500ML",
+        "barcode": "1234567890123",
+        "quantity": 2,
+        "unit_price": 12.0,
+        "original_price": 12.0,
+        "discount_amount": 0.0,
+        "total_amount": 24.0
+      }
+    ]
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "transaction_id": 12345,
+    "transaction_number": "TXN-BR001-001",
+    "status": "reported",
+    "chain_core_id": "CC_TXN_67890",
+    "reported_at": "2025-08-17T14:31:00Z"
+  }
+}
+```
+
+### 8. Get Transaction History
+
+```http
+GET /api/chain-core/transactions
+```
+
+**Description:** Returns transaction history for this branch.
+
+**Query Parameters:**
+
+- `start_date` (optional): Start date for transaction range
+- `end_date` (optional): End date for transaction range
+- `status` (optional): Filter by transaction status
+- `employee_id` (optional): Filter by specific employee
+- `limit` (optional): Number of transactions to return (default: 100)
+- `offset` (optional): Number of transactions to skip (default: 0)
 
 **Response:**
 
@@ -277,51 +394,37 @@ GET /transactions?start_date=2024-08-01&end_date=2024-08-02&status=completed&inc
   "data": {
     "transactions": [
       {
-        "id": "uuid",
-        "transaction_number": "TXN_001",
-        "employee_id": "uuid",
-        "employee_name": "John Doe",
-        "subtotal": 999.99,
-        "tax_amount": 99.99,
-        "total_amount": 1099.98,
+        "id": 1,
+        "transaction_number": "TXN-BR001-001",
+        "employee_id": "E12345",
+        "employee_name": "John Smith",
+        "subtotal": 24.0,
+        "tax_amount": 2.88,
+        "discount_amount": 0.0,
+        "total_amount": 26.88,
         "payment_method": "card",
         "status": "completed",
-        "created_at": "2024-08-02T14:30:00Z",
-        "completed_at": "2024-08-02T14:35:00Z",
-        "items": [
-          {
-            "transaction_id": "uuid",
-            "product_id": "uuid",
-            "sku": "PHONE-001",
-            "product_name": "iPhone 15 Pro",
-            "quantity": 1,
-            "unit_price": 999.99,
-            "total_amount": 999.99
-          }
-        ]
+        "completed_at": "2025-08-17T14:30:00Z",
+        "chain_core_id": "CC_TXN_67890"
       }
     ],
-    "pagination": {
-      "page": 1,
-      "limit": 100,
-      "total": 45
-    },
-    "summary": {
-      "total_transactions": 45,
-      "total_amount": 25750.5,
-      "average_transaction": 572.23
-    }
+    "total_transactions": 1,
+    "total_amount": 26.88
   }
 }
 ```
 
-## 📊 Branch Status
+---
 
-### Get Branch System Status
+## Health & Status
+
+### 9. Get Branch Status
 
 ```http
-GET /status
+GET /api/chain-core/status
 ```
+
+**Description:** Returns current branch status and connection to chain-core.
 
 **Response:**
 
@@ -329,113 +432,243 @@ GET /status
 {
   "success": true,
   "data": {
-    "system_status": "healthy",
-    "branch_id": "BRANCH_001",
-    "timestamp": "2024-08-02T15:30:00Z",
+    "branch_status": "online",
+    "chain_core_connection": "connected",
+    "last_sync": {
+      "products": "2025-08-17T12:00:00Z",
+      "inventory": "2025-08-17T13:30:00Z",
+      "employees": "2025-08-17T09:00:00Z"
+    },
     "statistics": {
-      "active_products": 1250,
-      "active_employees": 12,
-      "daily_transactions": 45,
-      "daily_revenue": 25750.5,
-      "low_stock_items": 8,
-      "total_inventory_items": 5240.5
+      "total_products": 150,
+      "total_employees": 5,
+      "daily_transactions": 25,
+      "daily_revenue": 650.0,
+      "inventory_items": 148
+    },
+    "pos_systems": {
+      "online": 3,
+      "offline": 0,
+      "total": 3
+    },
+    "timestamp": "2025-08-17T15:00:00Z"
+  }
+}
+```
+
+### 10. Health Check
+
+```http
+GET /api/chain-core/health
+```
+
+**Description:** Simple health check endpoint for monitoring.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "healthy",
+    "database": "connected",
+    "chain_core": "connected",
+    "uptime": "72:15:30",
+    "timestamp": "2025-08-17T15:00:00Z"
+  }
+}
+```
+
+---
+
+## Synchronization Endpoints
+
+### 11. Force Sync with Chain-Core
+
+```http
+POST /api/chain-core/sync
+```
+
+**Description:** Manually triggers synchronization with chain-core system.
+
+**Request Body:**
+
+```json
+{
+  "sync_type": "all",
+  "force": false
+}
+```
+
+**Sync Types:**
+
+- `products`: Sync product data only
+- `inventory`: Sync inventory levels only
+- `employees`: Sync employee data only
+- `all`: Sync all data types
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sync_id": "sync_branch_001",
+    "sync_type": "all",
+    "status": "started",
+    "estimated_duration": "2-5 minutes",
+    "started_at": "2025-08-17T15:00:00Z"
+  }
+}
+```
+
+### 12. Get Sync Status
+
+```http
+GET /api/chain-core/sync/{syncId}/status
+```
+
+**Description:** Returns status of a specific sync operation.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "sync_id": "sync_branch_001",
+    "sync_type": "all",
+    "status": "completed",
+    "started_at": "2025-08-17T15:00:00Z",
+    "completed_at": "2025-08-17T15:03:00Z",
+    "results": {
+      "products": {
+        "processed": 150,
+        "updated": 145,
+        "failed": 0
+      },
+      "inventory": {
+        "processed": 148,
+        "updated": 12,
+        "failed": 0
+      },
+      "employees": {
+        "processed": 5,
+        "updated": 0,
+        "failed": 0
+      }
     }
   }
 }
 ```
 
-## Error Responses
+---
 
-All endpoints return consistent error responses:
+## Error Handling
+
+### Common Error Codes
+
+| Status Code | Error Type            | Description                                         |
+| ----------- | --------------------- | --------------------------------------------------- |
+| 400         | Bad Request           | Invalid request data or missing required fields     |
+| 401         | Unauthorized          | Invalid or missing authentication token             |
+| 404         | Not Found             | Resource not found (product, employee, transaction) |
+| 409         | Conflict              | Duplicate resource or constraint violation          |
+| 422         | Validation Error      | Request validation failed                           |
+| 500         | Internal Server Error | Server-side error                                   |
+| 503         | Service Unavailable   | Chain-core system unavailable                       |
+
+### Error Response Format
 
 ```json
 {
   "success": false,
-  "error": "Error type",
-  "message": "Detailed error message",
-  "timestamp": "2024-08-02T15:30:00Z"
+  "error": "Error message",
+  "code": "ERROR_CODE",
+  "details": {
+    "field": "specific_field",
+    "message": "Detailed error description"
+  },
+  "timestamp": "2025-08-17T15:00:00Z"
 }
 ```
 
-**Common HTTP Status Codes:**
+---
 
-- `200` - Success
-- `201` - Created
-- `400` - Bad Request (validation error)
-- `404` - Not Found
-- `409` - Conflict (duplicate data)
-- `500` - Internal Server Error
+## Rate Limiting
 
-## Query Parameters
+- **Product Sync**: 50 requests per minute
+- **Inventory Updates**: 100 requests per minute
+- **Transaction Reporting**: 200 requests per minute
+- **Employee Sync**: 30 requests per minute
+- **Status/Health**: Unlimited
 
-### Common Parameters:
+---
 
-- `page` - Page number (default: 1)
-- `limit` - Items per page (default: 100)
-- `start_date` - Start date filter (ISO format)
-- `end_date` - End date filter (ISO format)
-- `status` - Filter by status
-- `active_only` - Show only active records (default: true)
+## Data Types & Validation
 
-### Inventory Specific:
+### Product Schema
 
-- `sku` - Filter by product SKU
-- `category` - Filter by category key
-- `low_stock_only` - Show only low stock items
+- `barcode`: Primary identifier, string
+- `sku`: Required string, stock keeping unit
+- `name`: Required string, product name
+- `base_price`: Required positive number
+- `cost`: Optional positive number
+- `is_active`: Boolean (default: true)
 
-### Transaction Specific:
+### Transaction Schema
 
-- `employee_id` - Filter by employee
-- `include_items` - Include transaction items (default: false)
+- `transaction_number`: Required unique string
+- `employee_id`: Required string
+- `total_amount`: Required positive number
+- `payment_method`: Enum (cash, card, mobile, other)
+- `status`: Enum (pending, completed, cancelled, refunded)
 
-## Data Formats
+### Employee Roles
 
-### Dates
+- `admin`: Full branch access
+- `manager`: Branch management access
+- `supervisor`: Shift supervision access
+- `cashier`: POS operation access
 
-All dates should be in ISO 8601 format: `2024-08-02T15:30:00Z`
+### Adjustment Types
 
-### Numbers
+- `add`: Add quantity to current stock
+- `subtract`: Remove quantity from current stock
+- `set`: Set absolute quantity level
 
-- Prices and monetary values: decimal with 2 decimal places
-- Quantities: decimal with 3 decimal places
-- Tax rates: decimal between 0 and 1 (0.1 = 10%)
+---
 
-### Product Identification
+## Integration Notes
 
-Products can be identified by either:
+1. **Barcode Priority**: All product operations prioritize barcode identification with fallback to SKU
+2. **Real-time Updates**: Inventory changes are immediately reflected in local database
+3. **Offline Support**: System can operate offline and sync when connection is restored
+4. **Transaction Integrity**: All operations support database transactions for consistency
+5. **Audit Trail**: All changes are logged with timestamps and reference information
 
-- `sku` - Product SKU code
-- `product_id` - Internal product UUID
+---
 
-## Inventory Adjustments
+## Webhooks (Optional)
 
-### Adjustment Types:
+### Chain-Core Notifications
 
-- `add` - Adds quantity to current stock
-- `subtract` - Subtracts quantity from current stock
-- `set` - Sets stock to exact quantity
+The branch-core system can receive webhooks from chain-core for real-time updates:
 
-### Logging:
+```http
+POST /api/chain-core/webhooks/product-update
+POST /api/chain-core/webhooks/price-change
+POST /api/chain-core/webhooks/inventory-adjustment
+POST /api/chain-core/webhooks/employee-update
+```
 
-All inventory adjustments are automatically logged with:
+Each webhook follows the same authentication and response format as regular API endpoints.
 
-- Before/after quantities
-- Adjustment amount and type
-- Reason and reference ID
-- Timestamp
+---
 
-## Price History
+## Support
 
-All price changes are tracked with:
+For technical support or integration assistance, contact the RockPoint development team.
 
-- Old and new prices/costs
-- Effective date
-- Change timestamp
-
-## Security Considerations
-
-- All endpoints should be authenticated
-- Rate limiting recommended
-- Input validation is enforced
-- Database transactions ensure data consistency
-- Audit logging for all changes
+**API Version:** 1.0  
+**Last Updated:** August 17, 2025

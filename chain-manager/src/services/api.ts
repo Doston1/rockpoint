@@ -1188,6 +1188,170 @@ class ApiService {
       };
     }
   }
+
+  // Network Management APIs
+  async getBranchServers(params?: { status?: string; network_type?: string }): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/network/branch-servers', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch branch servers',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getBranchServer(id: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.get(`/network/branch-servers/${id}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch branch server',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async saveBranchServer(data: {
+    branch_id: string;
+    server_name: string;
+    ip_address: string;
+    port: number;
+    api_port?: number;
+    websocket_port?: number;
+    vpn_ip_address?: string;
+    public_ip_address?: string;
+    network_type?: string;
+    api_key?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post('/network/branch-servers', data);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to save branch server',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async updateBranchServerStatus(id: string, data: {
+    status: string;
+    response_time_ms?: number;
+    server_info?: any;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.patch(`/network/branch-servers/${id}/status`, data);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to update branch server status',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async testBranchServerConnection(id: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post(`/network/branch-servers/${id}/test-connection`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to test branch server connection',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async deleteBranchServer(id: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.delete(`/network/branch-servers/${id}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to delete branch server',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getNetworkSettings(category?: string): Promise<ApiResponse<any[]>> {
+    try {
+      const params = category ? { category } : {};
+      const response = await this.api.get('/network/settings', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch network settings',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async updateNetworkSetting(key: string, data: {
+    setting_value: string;
+    description?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.patch(`/network/settings/${key}`, data);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to update network setting',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getConnectionHealthLogs(params?: {
+    limit?: number;
+    source_type?: string;
+    target_type?: string;
+  }): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await this.api.get('/network/health-logs', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch connection health logs',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Generic request method for network API calls
+  async request(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', endpoint: string, data?: any): Promise<ApiResponse<any>> {
+    try {
+      const config: any = { method: method.toLowerCase() };
+      if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+        config.data = data;
+      }
+      
+      const response = await this.api.request({
+        ...config,
+        url: endpoint,
+      });
+      
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || `Failed to ${method} ${endpoint}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
 }
 
 // Create and export API service instance

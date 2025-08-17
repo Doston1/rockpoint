@@ -1,17 +1,33 @@
 import { CssBaseline } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
+import { useEffect } from 'react';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './hooks/useAuth';
+import ApiKeyManagementPage from './pages/ApiKeyManagementPage';
 import CheckoutPage from './pages/CheckoutPage';
 import DashboardPage from './pages/DashboardPage';
 import EmployeesPage from './pages/EmployeesPage';
 import InventoryPage from './pages/InventoryPage';
 import LoginPage from './pages/LoginPage';
+import NetworkSettingsPage from './pages/NetworkSettingsPage';
+import POSTerminalManagementPage from './pages/POSTerminalManagementPage';
+import NetworkService from './services/networkService';
 import { theme } from './theme';
 import './utils/i18next'; // Import i18n configuration
 
 function App() {
+  useEffect(() => {
+    // Initialize network service when the app starts
+    const networkService = NetworkService.getInstance();
+    networkService.startStatusReporting();
+
+    // Cleanup on unmount
+    return () => {
+      networkService.stopStatusReporting();
+    };
+  }, []);
+
   return (
     <Router>
       <ThemeProvider theme={theme}>
@@ -44,7 +60,38 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-            <Route path="/employees" element={<ProtectedRoute><EmployeesPage /></ProtectedRoute>} />
+            <Route 
+              path="/employees" 
+              element={
+                <ProtectedRoute>
+                  <EmployeesPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/network-settings" 
+              element={
+                <ProtectedRoute requiredRoles={['admin', 'manager']}>
+                  <NetworkSettingsPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/api-keys" 
+              element={
+                <ProtectedRoute requiredRoles={['admin']}>
+                  <ApiKeyManagementPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/terminals" 
+              element={
+                <ProtectedRoute requiredRoles={['admin', 'manager']}>
+                  <POSTerminalManagementPage />
+                </ProtectedRoute>
+              } 
+            />
 
           </Routes>
         </AuthProvider>
