@@ -56,10 +56,18 @@ CREATE TABLE IF NOT EXISTS products (
 -- Customers table
 CREATE TABLE IF NOT EXISTS customers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255),
+    name VARCHAR(255) NOT NULL,
     email VARCHAR(255),
     phone VARCHAR(50),
+    address TEXT,
+    date_of_birth DATE,
+    gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
+    loyalty_card_number VARCHAR(50) UNIQUE,
     loyalty_points INTEGER DEFAULT 0,
+    discount_percentage DECIMAL(5,2) DEFAULT 0 CHECK (discount_percentage >= 0 AND discount_percentage <= 100),
+    is_vip BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -233,6 +241,14 @@ CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active);
 CREATE INDEX IF NOT EXISTS idx_products_name ON products USING gin(to_tsvector('english', name));
+
+-- Customers indexes
+CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+CREATE INDEX IF NOT EXISTS idx_customers_loyalty_card_number ON customers(loyalty_card_number);
+CREATE INDEX IF NOT EXISTS idx_customers_is_vip ON customers(is_vip);
+CREATE INDEX IF NOT EXISTS idx_customers_is_active ON customers(is_active);
+CREATE INDEX IF NOT EXISTS idx_customers_created_at ON customers(created_at);
 
 -- Transactions indexes
 CREATE INDEX IF NOT EXISTS idx_transactions_terminal_id ON transactions(terminal_id);

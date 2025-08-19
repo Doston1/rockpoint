@@ -4,6 +4,7 @@ import {
     Dashboard,
     Group,
     Inventory,
+    People,
     Settings,
 } from '@mui/icons-material';
 import {
@@ -45,6 +46,11 @@ export function Sidebar({ open }: SidebarProps) {
       path: '/employees',
       label: t('navigation.employees'),
       icon: <Group />,
+    },
+    {
+      path: '/customers',
+      label: t('navigation.customers'),
+      icon: <People />,
     },
     {
       path: '/inventory',

@@ -1,6 +1,7 @@
 // Export all hooks from this module
 export { useBranches } from './useBranches';
 export { useCategories } from './useCategories';
+export { useCustomers } from './useCustomers';
 export { useDashboard } from './useDashboard';
 export { useEmployees } from './useEmployees';
 export { useInventory } from './useInventory';
@@ -10,3 +11,4 @@ export { useReports } from './useReports';
 
 // Re-export auth hook if it exists
 export { useAuth } from './useAuth';
+
