@@ -78,6 +78,38 @@ export interface Employee {
   updatedAt?: string;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  date_of_birth?: string;
+  gender?: 'male' | 'female' | 'other';
+  loyalty_card_number?: string;
+  loyalty_points: number;
+  discount_percentage: number;
+  is_vip: boolean;
+  is_active: boolean;
+  notes?: string;
+  transaction_count?: number;
+  total_spent?: number;
+  last_transaction_date?: string;
+  first_transaction_date?: string;
+  average_transaction_amount?: number;
+  recent_transactions?: Array<{
+    id: string;
+    transaction_number: string;
+    transaction_date: string;
+    total_amount: number;
+    payment_method: string;
+    branch_name: string;
+    cashier_name: string;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Product {
   id: string;
   sku: string;
@@ -525,6 +557,139 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to fetch employees',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Customer APIs
+  async getCustomers(filters?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    is_active?: boolean;
+    is_vip?: boolean;
+    phone?: string;
+    email?: string;
+  }): Promise<ApiResponse<{ customers: Customer[] }> & { pagination?: any }> {
+    try {
+      const params: any = {};
+      if (filters?.page) params.page = filters.page;
+      if (filters?.limit) params.limit = filters.limit;
+      if (filters?.search) params.search = filters.search;
+      if (filters?.is_active !== undefined) params.is_active = filters.is_active;
+      if (filters?.is_vip !== undefined) params.is_vip = filters.is_vip;
+      if (filters?.phone) params.phone = filters.phone;
+      if (filters?.email) params.email = filters.email;
+      
+      const response = await this.api.get('/customers', { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch customers',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getCustomer(id: string, includeTransactions?: boolean): Promise<ApiResponse<Customer>> {
+    try {
+      const params = includeTransactions ? { include_transactions: 'true' } : {};
+      const response = await this.api.get(`/customers/${id}`, { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch customer',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async createCustomer(customerData: Partial<Customer>): Promise<ApiResponse<Customer>> {
+    try {
+      const response = await this.api.post('/customers', customerData);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to create customer',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async updateCustomer(id: string, customerData: Partial<Customer>): Promise<ApiResponse<Customer>> {
+    try {
+      const response = await this.api.put(`/customers/${id}`, customerData);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to update customer',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async deleteCustomer(id: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.delete(`/customers/${id}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to delete customer',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async activateCustomer(id: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.post(`/customers/${id}/activate`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to activate customer',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getCustomerTransactions(
+    id: string,
+    filters?: {
+      page?: number;
+      limit?: number;
+      start_date?: string;
+      end_date?: string;
+      min_amount?: number;
+      max_amount?: number;
+      branch_id?: string;
+    }
+  ): Promise<ApiResponse<{
+    customer: Customer;
+    transactions: any[];
+  }> & { pagination?: any }> {
+    try {
+      const params: any = {};
+      if (filters?.page) params.page = filters.page;
+      if (filters?.limit) params.limit = filters.limit;
+      if (filters?.start_date) params.start_date = filters.start_date;
+      if (filters?.end_date) params.end_date = filters.end_date;
+      if (filters?.min_amount) params.min_amount = filters.min_amount;
+      if (filters?.max_amount) params.max_amount = filters.max_amount;
+      if (filters?.branch_id) params.branch_id = filters.branch_id;
+      
+      const response = await this.api.get(`/customers/${id}/transactions`, { params });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch customer transactions',
         timestamp: new Date().toISOString(),
       };
     }

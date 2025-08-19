@@ -10,6 +10,7 @@ import { Sidebar } from './components/Sidebar';
 
 // Import pages
 import BranchesPage from './pages/BranchesPage';
+import CustomersPage from './pages/CustomersPage';
 import DashboardPage from './pages/DashboardPage';
 import EmployeesPage from './pages/EmployeesPage';
 import InventoryPage from './pages/InventoryPage';
@@ -100,6 +101,14 @@ function App() {
               element={
                 <ProtectedRoute permissions={['employees.read']}>
                   <EmployeesPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/customers/*" 
+              element={
+                <ProtectedRoute permissions={['customers.read']}>
+                  <CustomersPage />
                 </ProtectedRoute>
               } 
             />
