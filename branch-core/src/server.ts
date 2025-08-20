@@ -23,6 +23,7 @@ import productsRoutes from './api/products';
 import reportsRoutes from './api/reports';
 import syncRoutes from './api/sync';
 import transactionsRoutes from './api/transactions';
+import fastpayRoutes from './api/uzum-bank/fastpay';
 
 // Import authentication middleware
 import { authenticateApiKey } from './middleware/auth';
@@ -110,6 +111,7 @@ class BranchServer {
     this.app.use('/api/reports', reportsRoutes);
     this.app.use('/api/sync', syncRoutes);
     this.app.use('/api/network', networkRoutes);
+    this.app.use('/api/payments/fastpay', fastpayRoutes);
 
     // Serve static files (receipts, images, etc.)
     this.app.use('/static', express.static('uploads'));

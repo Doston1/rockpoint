@@ -58,11 +58,41 @@ export interface TransactionItem {
 
 export interface Payment {
   id?: string;
-  method: 'cash' | 'card' | 'digital_wallet' | 'store_credit';
+  method: 'cash' | 'card' | 'digital_wallet' | 'store_credit' | 'fastpay';
   amount: number;
   reference?: string;
   card_last4?: string;
   change_given?: number;
+}
+
+export interface FastPayRequest {
+  qrCode: string;
+  amount: number;
+  description: string;
+  cashboxCode: string;
+}
+
+export interface FastPayResponse {
+  success: boolean;
+  data: {
+    payment_id?: string;
+    status: 'success' | 'failed' | 'pending';
+    error_message?: string;
+    client_phone_number?: string;
+    operation_time?: string;
+  };
+  error?: string;
+}
+
+export interface UzumBankConfig {
+  merchant_service_user_id: string;
+  secret_key: string;
+  service_id: string;
+  api_base_url: string;
+  request_timeout_ms: string;
+  cashbox_code_prefix: string;
+  max_retry_attempts: string;
+  enable_logging: string;
 }
 
 class ApiService {
@@ -482,6 +512,57 @@ class ApiService {
 
   async getSyncStatus(): Promise<ApiResponse> {
     return this.request('/sync/status');
+  }
+
+  // FastPay endpoints
+  async processFastPayPayment(request: FastPayRequest): Promise<ApiResponse<FastPayResponse>> {
+    return this.request('/fastpay', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async getFastPayStatus(paymentId: string): Promise<ApiResponse<any>> {
+    return this.request(`/fastpay/status/${paymentId}`);
+  }
+
+  async reverseFastPayPayment(paymentId: string, reason: string): Promise<ApiResponse<any>> {
+    return this.request('/fastpay/reverse', {
+      method: 'POST',
+      body: JSON.stringify({ paymentId, reason }),
+    });
+  }
+
+  async getFastPayTransactions(params?: { limit?: number; offset?: number; status?: string }): Promise<ApiResponse<any[]>> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    
+    const queryString = queryParams.toString();
+    return this.request(`/fastpay/transactions${queryString ? `?${queryString}` : ''}`);
+  }
+
+  // Uzum Bank Configuration endpoints (Admin only)
+  async getUzumBankConfig(): Promise<ApiResponse<UzumBankConfig>> {
+    return this.request('/admin/uzum-bank/config');
+  }
+
+  async updateUzumBankConfig(config: Partial<UzumBankConfig>): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/admin/uzum-bank/config', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async getUzumBankAnalytics(): Promise<ApiResponse<any>> {
+    return this.request('/admin/uzum-bank/analytics');
+  }
+
+  async testUzumBankConnection(): Promise<ApiResponse<{ status: string; message: string }>> {
+    return this.request('/admin/uzum-bank/test-connection', {
+      method: 'POST',
+    });
   }
 }
 

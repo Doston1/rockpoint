@@ -1,17 +1,18 @@
 import {
-    Assessment,
-    Inventory,
-    People,
-    PointOfSale,
+  Assessment,
+  Inventory,
+  People,
+  PointOfSale,
+  Settings,
 } from '@mui/icons-material';
 import {
-    Box,
-    Card,
-    CardContent,
-    Chip,
-    Container,
-    Paper,
-    Typography,
+  Box,
+  Card,
+  CardContent,
+  Chip,
+  Container,
+  Paper,
+  Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -58,6 +59,13 @@ const DashboardPage = () => {
       action: () => navigate('/employees'),
       color: 'success.main',
     },
+    ...(user?.role === 'admin' ? [{
+      title: 'Settings',
+      description: 'Configure system settings and Uzum Bank integration',
+      icon: <Settings sx={{ fontSize: 48 }} />,
+      action: () => navigate('/settings'),
+      color: 'info.main',
+    }] : []),
     {
       title: t('navigation.reports'),
       description: t('dashboard.reportsDescription'),
