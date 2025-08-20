@@ -1,34 +1,36 @@
 import {
-    CreditCard,
-    Money,
-    Payment as PaymentIcon,
-    QrCode,
-    Receipt,
-    Remove,
+  CreditCard,
+  Money,
+  Payment as PaymentIcon,
+  QrCode,
+  QrCodeScanner,
+  Receipt,
+  Remove,
 } from '@mui/icons-material';
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Dialog,
-    DialogContent,
-    DialogTitle,
-    Divider,
-    IconButton,
-    LinearProgress,
-    Tab,
-    Tabs,
-    TextField,
-    Typography,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  IconButton,
+  LinearProgress,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface Payment {
   id: string;
-  method: 'cash' | 'card' | 'digital_wallet';
+  method: 'cash' | 'card' | 'digital_wallet' | 'fastpay';
   amount: number;
   timestamp: Date;
 }
@@ -74,6 +76,9 @@ export const EnhancedPaymentDialog: React.FC<EnhancedPaymentDialogProps> = ({
   const [cashSum, setCashSum] = useState(0);
   const [cardAmount, setCardAmount] = useState('');
   const [digitalAmount, setDigitalAmount] = useState('');
+  const [fastPayQrCode, setFastPayQrCode] = useState('');
+  const [fastPayProcessing, setFastPayProcessing] = useState(false);
+  const [fastPayError, setFastPayError] = useState('');
   
   const paidAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
   const exactRemainingAmount = Math.max(0, totalAmount - paidAmount);
@@ -87,6 +92,9 @@ export const EnhancedPaymentDialog: React.FC<EnhancedPaymentDialogProps> = ({
     setCashSum(0);
     setCardAmount('');
     setDigitalAmount('');
+    setFastPayQrCode('');
+    setFastPayProcessing(false);
+    setFastPayError('');
     setActiveTab(0);
   };
 
@@ -96,7 +104,48 @@ export const EnhancedPaymentDialog: React.FC<EnhancedPaymentDialogProps> = ({
     setCashSum(prev => Math.round((prev + value) * 100) / 100);
   };
 
-  const processPayment = (method: 'cash' | 'card' | 'digital_wallet', amount: number) => {
+  const processFastPayPayment = async () => {
+    if (!fastPayQrCode || fastPayQrCode.length < 40) {
+      setFastPayError('QR code must be at least 40 characters long');
+      return;
+    }
+
+    setFastPayProcessing(true);
+    setFastPayError('');
+
+    try {
+      // Call FastPay API
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/fastpay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify({
+          qrCode: fastPayQrCode,
+          amount: exactRemainingAmount,
+          description: `POS Payment - ${cartItems?.length || 0} items`,
+          cashboxCode: `RockPoint_${terminalId || 'POS001'}`,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data.status === 'success') {
+        // Payment successful
+        processPayment('fastpay', exactRemainingAmount);
+      } else {
+        setFastPayError(result.error || result.data.error_message || 'FastPay payment failed');
+      }
+    } catch (error) {
+      console.error('FastPay error:', error);
+      setFastPayError('Network error. Please try again.');
+    } finally {
+      setFastPayProcessing(false);
+    }
+  };
+
+  const processPayment = (method: 'cash' | 'card' | 'digital_wallet' | 'fastpay', amount: number) => {
     if (amount <= 0) return;
     
     // Allow cash overpayment, but restrict card and digital payments
@@ -115,10 +164,15 @@ export const EnhancedPaymentDialog: React.FC<EnhancedPaymentDialogProps> = ({
     if (method === 'cash') setCashSum(0);
     if (method === 'card') setCardAmount('');
     if (method === 'digital_wallet') setDigitalAmount('');
+    if (method === 'fastpay') {
+      setFastPayQrCode('');
+      setFastPayProcessing(false);
+      setFastPayError('');
+    }
 
     // Auto-switch to next payment method if not fully paid
     if (amount < exactRemainingAmount && exactRemainingAmount > 0.05) {
-      const nextTab = (activeTab + 1) % 3;
+      const nextTab = (activeTab + 1) % 4; // Updated to include FastPay tab
       setActiveTab(nextTab);
     }
   };
@@ -152,6 +206,7 @@ export const EnhancedPaymentDialog: React.FC<EnhancedPaymentDialogProps> = ({
       case 'cash': return <Money />;
       case 'card': return <CreditCard />;
       case 'digital_wallet': return <QrCode />;
+      case 'fastpay': return <QrCodeScanner />;
       default: return <PaymentIcon />;
     }
   };
@@ -161,6 +216,7 @@ export const EnhancedPaymentDialog: React.FC<EnhancedPaymentDialogProps> = ({
       case 'cash': return t('checkout.cash');
       case 'card': return t('checkout.card');
       case 'digital_wallet': return t('checkout.digitalWallet');
+      case 'fastpay': return t('checkout.fastPay');
       default: return method;
     }
   };
@@ -262,6 +318,11 @@ export const EnhancedPaymentDialog: React.FC<EnhancedPaymentDialogProps> = ({
             <Tab 
               icon={<QrCode sx={{ fontSize: 32 }} />} 
               label="📱 Digital Wallet"
+              iconPosition="top" 
+            />
+            <Tab 
+              icon={<QrCodeScanner sx={{ fontSize: 32 }} />} 
+              label="🏦 Uzum FastPay"
               iconPosition="top" 
             />
           </Tabs>
@@ -490,6 +551,94 @@ export const EnhancedPaymentDialog: React.FC<EnhancedPaymentDialogProps> = ({
                 >
                   📱 Process Digital Payment ${digitalAmount ? parseFloat(digitalAmount).toFixed(2) : '0.00'}
                 </Button>
+              </Box>
+            )}
+
+            {/* Uzum FastPay Payment Tab */}
+            {activeTab === 3 && (
+              <Box>
+                <Typography variant="h5" gutterBottom color="primary" fontWeight="bold">
+                  🏦 Uzum Bank FastPay
+                </Typography>
+                <Typography variant="body1" color="text.secondary" mb={3}>
+                  Scan the QR code from customer's Uzum Bank app to process payment
+                </Typography>
+                
+                {fastPayError && (
+                  <Alert severity="error" sx={{ mb: 3 }}>
+                    {fastPayError}
+                  </Alert>
+                )}
+                
+                <TextField
+                  fullWidth
+                  label="🔗 Customer QR Code Data"
+                  value={fastPayQrCode}
+                  onChange={(e) => {
+                    setFastPayQrCode(e.target.value);
+                    setFastPayError('');
+                  }}
+                  placeholder="Scan or paste QR code from customer's Uzum Bank app"
+                  multiline
+                  rows={3}
+                  sx={{ 
+                    mb: 3,
+                    '& .MuiInputBase-input': {
+                      fontSize: '1.1rem',
+                      fontFamily: 'monospace'
+                    }
+                  }}
+                  helperText={`QR code must be at least 40 characters. Current: ${fastPayQrCode.length}`}
+                  error={fastPayQrCode.length > 0 && fastPayQrCode.length < 40}
+                />
+                
+                <Box sx={{ 
+                  mb: 3, 
+                  p: 3, 
+                  bgcolor: 'info.light', 
+                  borderRadius: 2,
+                  border: 1,
+                  borderColor: 'info.main'
+                }}>
+                  <Typography variant="h6" color="info.main" gutterBottom>
+                    💰 Payment Amount: ${exactRemainingAmount.toFixed(2)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    FastPay will process the exact remaining amount
+                  </Typography>
+                </Box>
+                
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  disabled={
+                    fastPayProcessing || 
+                    !fastPayQrCode || 
+                    fastPayQrCode.length < 40 || 
+                    remainingAmount <= 0
+                  }
+                  onClick={processFastPayPayment}
+                  sx={{ 
+                    py: 3, 
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold',
+                    bgcolor: 'primary.main',
+                    '&:hover': {
+                      bgcolor: 'primary.dark'
+                    }
+                  }}
+                  startIcon={fastPayProcessing ? <CircularProgress size={20} /> : <QrCodeScanner />}
+                >
+                  {fastPayProcessing 
+                    ? '🔄 Processing FastPay...' 
+                    : `🏦 Process FastPay $${exactRemainingAmount.toFixed(2)}`
+                  }
+                </Button>
+                
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
+                  Powered by Uzum Bank • Secure payment processing
+                </Typography>
               </Box>
             )}
           </Box>

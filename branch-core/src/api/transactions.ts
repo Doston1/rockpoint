@@ -21,7 +21,7 @@ const createTransactionSchema = z.object({
 });
 
 const paymentSchema = z.object({
-  method: z.enum(['cash', 'card', 'digital_wallet', 'store_credit']),
+  method: z.enum(['cash', 'card', 'digital_wallet', 'store_credit', 'fastpay']),
   amount: z.number().min(0),
   reference: z.string().optional(),
   cardLast4: z.string().optional(),
@@ -30,7 +30,7 @@ const paymentSchema = z.object({
 
 const splitPaymentSchema = z.object({
   payments: z.array(z.object({
-    method: z.enum(['cash', 'card', 'digital_wallet', 'store_credit']),
+    method: z.enum(['cash', 'card', 'digital_wallet', 'store_credit', 'fastpay']),
     amount: z.number().min(0),
     reference: z.string().optional(),
     cardLast4: z.string().optional()

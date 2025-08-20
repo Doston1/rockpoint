@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { DatabaseManager } from '../database/manager';
 import { generateApiKey, hashApiKey } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
+import uzumBankAdminRoutes from './uzum-bank/uzum-bank-admin';
 
 const router = Router();
 
@@ -213,5 +214,8 @@ router.get('/api-keys/permissions', asyncHandler(async (req: Request, res: Respo
     }
   });
 }));
+
+// Mount Uzum Bank admin routes
+router.use('/uzum-bank', uzumBankAdminRoutes);
 
 export default router;

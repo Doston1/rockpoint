@@ -11,9 +11,7 @@ RockPoint is designed as a secure, distributed system with a clear separation be
 ```
 1C System (ERP)
        ↓ (API Integration)
-   Chain-Core (Main Office Backend)
-       ↓ (Secure API Communication)
-   Chain-Manager (Main Office Frontend)
+   Chain-Core (Main Office Backend)  ←(Secure API Communication)→ Chain-Manager (Main Office Frontend)
        ↓ (Network Management & Sync)
 Multiple Branch Networks:
    Branch-Core (Branch Backend) ←→ POS-Manager (Branch Frontend)

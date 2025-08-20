@@ -12,6 +12,7 @@ import InventoryPage from './pages/InventoryPage';
 import LoginPage from './pages/LoginPage';
 import NetworkSettingsPage from './pages/NetworkSettingsPage';
 import POSTerminalManagementPage from './pages/POSTerminalManagementPage';
+import SettingsPage from './pages/SettingsPage';
 import NetworkService from './services/networkService';
 import { theme } from './theme';
 import './utils/i18next'; // Import i18n configuration
@@ -89,6 +90,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRoles={['admin', 'manager']}>
                   <POSTerminalManagementPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/settings" 
+              element={
+                <ProtectedRoute requiredRoles={['admin']}>
+                  <SettingsPage />
                 </ProtectedRoute>
               } 
             />

@@ -57,7 +57,7 @@ export interface TransactionItem {
 export interface Payment {
   id: string;
   transaction_id: string;
-  method: 'cash' | 'card' | 'digital_wallet' | 'store_credit';
+  method: 'cash' | 'card' | 'digital_wallet' | 'store_credit' | 'fastpay';
   amount: number;
   reference_number?: string;
   processed_at: Date;
@@ -212,4 +212,105 @@ export interface EmployeePerformance {
   average_transaction: number;
   hours_worked: number;
   sales_per_hour: number;
+}
+
+// =================================================================
+// UZUM BANK FASTPAY TYPES
+// =================================================================
+
+export interface FastPayTransaction {
+  id: string;
+  transaction_id: string;
+  order_id: string;
+  pos_transaction_id?: string;
+  amount: number; // in tiyin
+  amount_uzs: number; // in UZS
+  cashbox_code: string;
+  otp_data: string;
+  service_id: number;
+  payment_id?: string;
+  request_payload: any;
+  response_payload?: any;
+  authorization_header: string;
+  status: 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'reversed';
+  error_code: number;
+  error_message?: string;
+  initiated_at: Date;
+  completed_at?: Date;
+  employee_id: string;
+  terminal_id: string;
+  client_phone_number?: string;
+  operation_time?: string;
+  retry_count: number;
+  timeout_occurred: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface FastPayConfig {
+  merchant_service_user_id: string;
+  secret_key: string;
+  service_id: number;
+  api_base_url: string;
+  request_timeout_ms: number;
+  cashbox_code_prefix: string;
+  max_retry_attempts: number;
+  enable_logging: boolean;
+}
+
+export interface FastPayRequest {
+  amount: number; // in tiyin
+  cashbox_code: string;
+  otp_data: string;
+  order_id: string;
+  transaction_id: string;
+  service_id: number;
+}
+
+export interface FastPayResponse {
+  payment_id?: string;
+  payment_status?: string;
+  error_code: number;
+  error_message?: string;
+  operation_time?: string;
+  client_phone_number?: string;
+}
+
+export interface FastPayFiscalizationRequest {
+  payment_id: string;
+  service_id: number;
+  fiscal_url: string;
+}
+
+export interface FastPayReversalRequest {
+  service_id: number;
+  payment_id: string;
+}
+
+export interface FastPayStatusRequest {
+  payment_id: string;
+  service_id: number;
+}
+
+export interface FastPayCreatePaymentRequest {
+  amount_uzs: number;
+  otp_data: string;
+  employee_id: string;
+  terminal_id: string;
+  pos_transaction_id?: string;
+}
+
+export interface FastPayCreatePaymentResponse {
+  success: boolean;
+  data?: {
+    fastpay_transaction_id: string;
+    order_id: string;
+    payment_id?: string;
+    status: string;
+    error_code: number;
+    error_message?: string;
+    processing_time_ms?: number;
+  };
+  error?: string;
+  message?: string;
 }
