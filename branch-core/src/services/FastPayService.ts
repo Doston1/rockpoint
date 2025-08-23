@@ -287,6 +287,22 @@ export class FastPayService {
         };
       }
 
+      // Validate payment amount
+      if (!request.amount_uzs || request.amount_uzs <= 0) {
+        await this.logAudit({
+          action: 'payment_failed',
+          details: { error: 'Invalid amount', amount_uzs: request.amount_uzs },
+          employeeId: request.employee_id,
+          terminalId: request.terminal_id
+        });
+
+        return {
+          success: false,
+          error: 'Invalid payment amount',
+          message: 'Payment amount must be greater than 0'
+        };
+      }
+
       // Generate unique identifiers
       const transactionId = uuidv4();
       const orderId = await this.generateUniqueOrderId();
@@ -480,6 +496,15 @@ export class FastPayService {
 
     } catch (error: any) {
       console.error('❌ FastPay payment creation failed:', error);
+      
+      // Check if this is a configuration error
+      if (error.message && error.message.includes('FastPay service is not properly configured')) {
+        return {
+          success: false,
+          error: error.message,
+          message: 'FastPay service configuration is missing or invalid'
+        };
+      }
       
       // Update database if we have a transaction ID
       if (fastpayTransactionId) {
