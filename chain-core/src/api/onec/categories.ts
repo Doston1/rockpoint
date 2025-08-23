@@ -70,12 +70,17 @@ router.get('/', requirePermission('products:read'), asyncHandler(async (req: Req
     query += ` AND (c.name ILIKE $${params.length} OR c.key ILIKE $${params.length})`;
   }
   
-  query += ` GROUP BY c.id, pc.key, pc.name`;
+  query += ` GROUP BY c.id, c.key, c.name, c.name_ru, c.name_uz, c.description, c.description_ru, c.description_uz, c.onec_id, c.sort_order, c.is_active, c.created_at, c.updated_at, pc.key, pc.name`;
   
   // Get total count for pagination
-  const countQuery = query.replace(/SELECT .* FROM/, 'SELECT COUNT(DISTINCT c.id) FROM').split('GROUP BY')[0];
+  const countQuery = `
+    SELECT COUNT(DISTINCT c.id) 
+    FROM categories c
+    LEFT JOIN categories pc ON c.parent_id = pc.id
+    WHERE 1=1
+  ` + (params.length > 0 ? query.substring(query.indexOf('WHERE 1=1') + 9).split('GROUP BY')[0] : '');
   const countResult = await DatabaseManager.query(countQuery, params);
-  const total = parseInt(countResult.rows[0].count);
+  const total = parseInt(countResult.rows[0]?.count || '0');
   
   // Add ordering and pagination
   query += ` ORDER BY c.sort_order ASC, c.name ASC`;

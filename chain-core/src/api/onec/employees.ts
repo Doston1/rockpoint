@@ -89,12 +89,17 @@ router.get('/', requirePermission('employees:read'), asyncHandler(async (req: Re
     query += ` AND (e.name ILIKE $${params.length} OR e.employee_id ILIKE $${params.length})`;
   }
   
-  query += ` GROUP BY e.id, b.code, b.name`;
+  query += ` GROUP BY e.id, e.onec_id, e.employee_id, e.name, e.role, e.phone, e.email, e.hire_date, e.salary, e.status, e.created_at, e.updated_at, b.code, b.name`;
   
   // Get total count for pagination
-  const countQuery = query.replace(/SELECT .* FROM/, 'SELECT COUNT(DISTINCT e.id) FROM').split('GROUP BY')[0];
+  const countQuery = `
+    SELECT COUNT(DISTINCT e.id) 
+    FROM employees e
+    LEFT JOIN branches b ON e.branch_id = b.id
+    WHERE 1=1
+  ` + (params.length > 0 ? query.substring(query.indexOf('WHERE 1=1') + 9).split('GROUP BY')[0] : '');
   const countResult = await DatabaseManager.query(countQuery, params);
-  const total = parseInt(countResult.rows[0].count);
+  const total = parseInt(countResult.rows[0]?.count || '0');
   
   // Add pagination
   params.push(Number(limit), offset);
@@ -128,7 +133,9 @@ router.get('/:id', requirePermission('employees:read'), asyncHandler(async (req:
       b.code as branch_code, b.name as branch_name
     FROM employees e
     LEFT JOIN branches b ON e.branch_id = b.id
-    WHERE e.id = $1 OR e.onec_id = $1 OR e.employee_id = $1
+    WHERE (e.id::text = $1 AND $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') 
+       OR e.onec_id = $1 
+       OR e.employee_id = $1
   `;
   
   const result = await DatabaseManager.query(query, [id]);
@@ -416,7 +423,7 @@ router.get('/time-logs', requirePermission('employees:read'), asyncHandler(async
   // Get total count for pagination
   const countQuery = query.replace(/SELECT .* FROM/, 'SELECT COUNT(*) FROM');
   const countResult = await DatabaseManager.query(countQuery, params);
-  const total = parseInt(countResult.rows[0].count);
+  const total = parseInt(countResult.rows[0]?.count || '0');
   
   // Add pagination
   params.push(Number(limit), offset);

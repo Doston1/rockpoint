@@ -35,7 +35,7 @@ const productSchema = z.object({
 
 const priceUpdateSchema = z.object({
   updates: z.array(z.object({
-    barcode: z.string().min(1), // Use barcode as primary identifier
+    barcode: z.string().min(1).optional(), // Use barcode as primary identifier but make it optional
     oneC_id: z.string().optional(),
     sku: z.string().optional(),
     base_price: z.number().positive(),
@@ -56,7 +56,7 @@ router.get('/', requirePermission('products:read'), asyncHandler(async (req: Req
   
   let query = `
     SELECT 
-      p.id, p.oneC_id, p.sku, p.barcode, p.name, p.name_ru, p.name_uz,
+      p.id, p.oneC_id as "oneC_id", p.sku, p.barcode, p.name, p.name_ru, p.name_uz,
       p.description, p.description_ru, p.description_uz, p.brand,
       p.unit_of_measure, p.base_price, p.cost, p.tax_rate,
       p.image_url, p.images, p.attributes, p.is_active,
@@ -85,9 +85,9 @@ router.get('/', requirePermission('products:read'), asyncHandler(async (req: Req
   }
   
   // Get total count for pagination
-  const countQuery = query.replace(/SELECT .* FROM/, 'SELECT COUNT(*) FROM').split('ORDER BY')[0];
+  const countQuery = query.replace(/SELECT[\s\S]*?FROM/, 'SELECT COUNT(*) FROM').split('ORDER BY')[0];
   const countResult = await DatabaseManager.query(countQuery, params);
-  const total = parseInt(countResult.rows[0].count);
+  const total = parseInt(countResult.rows[0]?.count || '0');
   
   // Add pagination
   params.push(Number(limit), offset);
@@ -114,8 +114,8 @@ router.get('/:id', requirePermission('products:read'), asyncHandler(async (req: 
   const { id } = req.params;
   
   const query = `
-    SELECT 
-      p.id, p.oneC_id, p.sku, p.barcode, p.name, p.name_ru, p.name_uz,
+    SELECT
+      p.id, p.oneC_id as "oneC_id", p.sku, p.barcode, p.name, p.name_ru, p.name_uz,
       p.description, p.description_ru, p.description_uz, p.brand,
       p.unit_of_measure, p.base_price, p.cost, p.tax_rate,
       p.image_url, p.images, p.attributes, p.is_active,
@@ -123,10 +123,11 @@ router.get('/:id', requirePermission('products:read'), asyncHandler(async (req: 
       c.key as category_key, c.name as category_name
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
-    WHERE p.id = $1 OR p.oneC_id = $1 OR p.sku = $1 OR p.barcode = $1
-  `;
-  
-  const result = await DatabaseManager.query(query, [id]);
+    WHERE (p.id::text = $1 AND $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') 
+       OR p.oneC_id = $1 
+       OR p.sku = $1 
+       OR p.barcode = $1
+  `;  const result = await DatabaseManager.query(query, [id]);
   
   if (result.rows.length === 0) {
     return res.status(404).json({
@@ -145,15 +146,37 @@ router.get('/:id', requirePermission('products:read'), asyncHandler(async (req: 
 
 // POST /api/1c/products - Create or update products from 1C
 router.post('/', requirePermission('products:write'), asyncHandler(async (req: Request, res: Response) => {
-  const products = z.array(productSchema).parse(req.body);
+  // Validate that we received an array
+  if (!Array.isArray(req.body)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Request body must be an array of products'
+    });
+  }
   
-  const syncId = await createSyncLog('products', 'import', products.length);
+  const rawProducts = req.body;
+  const syncId = await createSyncLog('products', 'import', rawProducts.length);
   const results = [];
   
   await DatabaseManager.query('BEGIN');
   
   try {
-    for (const productData of products) {
+    for (const rawProductData of rawProducts) {
+      let productData;
+      try {
+        // Validate this individual product
+        productData = productSchema.parse(rawProductData);
+      } catch (validationError) {
+        // Handle validation error for this product
+        results.push({
+          oneC_id: rawProductData.oneC_id || 'unknown',
+          sku: rawProductData.sku || 'unknown',
+          success: false,
+          error: 'Validation failed: ' + (validationError as Error).message
+        });
+        continue; // Skip to next product
+      }
+
       try {
         // Find or create category
         let categoryId = null;
@@ -258,6 +281,21 @@ router.post('/', requirePermission('products:write'), asyncHandler(async (req: R
     await DatabaseManager.query('COMMIT');
     await completeSyncLog(syncId, 'completed', results.filter(r => r.success).length);
     
+    // If all products failed validation, return 400
+    const successCount = results.filter(r => r.success).length;
+    if (successCount === 0 && results.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'All products failed validation',
+        data: {
+          sync_id: syncId,
+          results,
+          imported: 0,
+          failed: results.length
+        }
+      });
+    }
+
     res.json({
       success: true,
       data: {
@@ -277,7 +315,18 @@ router.post('/', requirePermission('products:write'), asyncHandler(async (req: R
 
 // PUT /api/1c/products/prices - Update product prices across branches
 router.put('/prices', requirePermission('products:write'), asyncHandler(async (req: Request, res: Response) => {
-  const { updates } = priceUpdateSchema.parse(req.body);
+  // Validate input data
+  let updates;
+  try {
+    const validated = priceUpdateSchema.parse(req.body);
+    updates = validated.updates;
+  } catch (validationError) {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      details: validationError
+    });
+  }
   
   const syncId = await createSyncLog('products', 'price_update', updates.length);
   const results = [];
@@ -426,7 +475,11 @@ router.put('/:id', requirePermission('products:write'), asyncHandler(async (req:
   
   // Find product
   const productResult = await DatabaseManager.query(
-    'SELECT id FROM products WHERE id = $1 OR oneC_id = $1 OR sku = $1 OR barcode = $1',
+    `SELECT id FROM products WHERE 
+     (id::text = $1 AND $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') 
+     OR oneC_id = $1 
+     OR sku = $1 
+     OR barcode = $1`,
     [id]
   );
   
@@ -515,7 +568,10 @@ router.delete('/:id', requirePermission('products:write'), asyncHandler(async (r
   const result = await DatabaseManager.query(`
     UPDATE products 
     SET is_active = false, updated_at = NOW()
-    WHERE id = $1 OR oneC_id = $1 OR sku = $1 OR barcode = $1
+    WHERE (id::text = $1 AND $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') 
+       OR oneC_id = $1 
+       OR sku = $1 
+       OR barcode = $1
     RETURNING id, name
   `, [id]);
   

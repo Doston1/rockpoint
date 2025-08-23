@@ -104,7 +104,7 @@ router.get('/', requirePermission('branches:read'), asyncHandler(async (req: Req
   `;
   
   const countResult = await DatabaseManager.query(countQuery, params);
-  const total = parseInt(countResult.rows[0].count);
+  const total = parseInt(countResult.rows[0]?.count || '0');
   
   // Add pagination
   params.push(Number(limit), offset);
