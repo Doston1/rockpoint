@@ -184,6 +184,35 @@ const LoginPage = () => {
           </Stack>
 
           <Box mt={3} textAlign="center">
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Quick Login:
+            </Typography>
+            <Stack direction="row" spacing={1} mb={2}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => {
+                  setEmployeeId('admin');
+                  setPin('admin1234');
+                }}
+                disabled={isLoggingIn}
+                sx={{ flex: 1 }}
+              >
+                Admin
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => {
+                  setEmployeeId('cashier');
+                  setPin('1111');
+                }}
+                disabled={isLoggingIn}
+                sx={{ flex: 1 }}
+              >
+                Cashier
+              </Button>
+            </Stack>
             <Typography variant="body2" color="text.secondary">
               Default: admin/admin1234 or cashier/1111
             </Typography>

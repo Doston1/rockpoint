@@ -70,7 +70,12 @@ const NetworkStatusComponent = () => {
     const testConnection = async () => {
       try {
         const startTime = Date.now();
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/health`, {
+        
+        // Use the public health endpoint (no authentication required)
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+        const serverUrl = baseUrl.replace('/api', ''); // Remove /api to get base server URL
+        
+        const response = await fetch(`${serverUrl}/health`, {
           method: 'GET',
         });
         

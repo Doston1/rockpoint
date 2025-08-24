@@ -200,14 +200,14 @@ beforeAll(async () => {
       )
     `);
 
-    // Insert test API key
+    // Insert test API key with clear test identification
     const testApiKey = 'rp_test_1C_integration_key_for_testing_only';
     await DatabaseManager.query(`
       INSERT INTO api_keys (name, key_hash, permissions, is_active)
       VALUES ($1, $2, $3, true)
       ON CONFLICT (key_hash) DO NOTHING
     `, [
-      '1C Integration Test Key',
+      'TEST: 1C Integration Test Key', // Clear test prefix
       testApiKey,
       ['*'] // Full permissions for testing
     ]);
@@ -219,18 +219,27 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Clean up test data
+  // Clean up only recent test data (added in last 30 seconds)
   try {
-    await DatabaseManager.query('DROP TABLE IF EXISTS connection_health_logs CASCADE');
-    await DatabaseManager.query('DROP TABLE IF EXISTS branch_product_pricing CASCADE');
-    await DatabaseManager.query('DROP TABLE IF EXISTS branch_inventory CASCADE');
-    await DatabaseManager.query('DROP TABLE IF EXISTS branch_servers CASCADE');
-    await DatabaseManager.query('DROP TABLE IF EXISTS onec_sync_logs CASCADE');
-    await DatabaseManager.query('DROP TABLE IF EXISTS employees CASCADE');
-    await DatabaseManager.query('DROP TABLE IF EXISTS products CASCADE');
-    await DatabaseManager.query('DROP TABLE IF EXISTS categories CASCADE');
-    await DatabaseManager.query('DROP TABLE IF EXISTS branches CASCADE');
-    await DatabaseManager.query('DROP TABLE IF EXISTS api_keys CASCADE');
+    const thirtySecondsAgo = new Date(Date.now() - 30 * 1000).toISOString();
+    
+    // Delete only recent test data, not the entire tables
+    await DatabaseManager.query('DELETE FROM connection_health_logs WHERE checked_at > $1', [thirtySecondsAgo]);
+    await DatabaseManager.query('DELETE FROM branch_product_pricing WHERE created_at > $1', [thirtySecondsAgo]);
+    await DatabaseManager.query('DELETE FROM branch_inventory WHERE last_movement_at > $1 OR updated_at > $1', [thirtySecondsAgo]);
+    await DatabaseManager.query('DELETE FROM branch_servers WHERE created_at > $1', [thirtySecondsAgo]);
+    await DatabaseManager.query('DELETE FROM onec_sync_logs WHERE started_at > $1', [thirtySecondsAgo]);
+    await DatabaseManager.query('DELETE FROM employees WHERE created_at > $1', [thirtySecondsAgo]);
+    await DatabaseManager.query('DELETE FROM products WHERE created_at > $1', [thirtySecondsAgo]);
+    await DatabaseManager.query('DELETE FROM categories WHERE created_at > $1', [thirtySecondsAgo]);
+    await DatabaseManager.query('DELETE FROM branches WHERE created_at > $1', [thirtySecondsAgo]);
+    
+    // For API keys, only delete test keys (those with clear test markers or recent)
+    await DatabaseManager.query(`DELETE FROM api_keys WHERE 
+      (created_at > $1 OR name LIKE 'TEST:%' OR name LIKE '%test%' OR name LIKE '%Test%' OR key_hash LIKE '%test%')`, 
+      [thirtySecondsAgo]);
+      
+    console.log('✅ Test data cleanup completed (recent data only)');
   } catch (error) {
     console.error('Test cleanup error:', error);
   }

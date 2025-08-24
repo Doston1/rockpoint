@@ -1,10 +1,7 @@
 import {
     AccountCircle,
-    Computer,
     Dashboard,
-    Key,
     Logout,
-    NetworkCheck,
     PointOfSale,
     Settings,
     SignalWifi4Bar,
@@ -69,8 +66,6 @@ export function NavigationBar() {
   };
 
   const canAccessDashboard = user?.role === 'admin' || user?.role === 'manager';
-  const canAccessApiKeys = user?.role === 'admin';
-  const canAccessNetworkSettings = user?.role === 'admin' || user?.role === 'manager';
 
   return (
     <AppBar position="static" elevation={1}>
@@ -116,36 +111,14 @@ export function NavigationBar() {
             {t('navigation.checkout')}
           </Button>
 
-          {canAccessNetworkSettings && (
+          {user?.role === 'admin' && (
             <Button
               color="inherit"
-              startIcon={<NetworkCheck />}
-              onClick={() => handleNavigate('/network-settings')}
-              variant={location.pathname === '/network-settings' ? 'outlined' : 'text'}
+              startIcon={<Settings />}
+              onClick={() => handleNavigate('/settings')}
+              variant={location.pathname.startsWith('/settings') ? 'outlined' : 'text'}
             >
-              {t('navigation.network')}
-            </Button>
-          )}
-
-          {canAccessNetworkSettings && (
-            <Button
-              color="inherit"
-              startIcon={<Computer />}
-              onClick={() => handleNavigate('/terminals')}
-              variant={location.pathname === '/terminals' ? 'outlined' : 'text'}
-            >
-              {t('navigation.terminals')}
-            </Button>
-          )}
-
-          {canAccessApiKeys && (
-            <Button
-              color="inherit"
-              startIcon={<Key />}
-              onClick={() => handleNavigate('/api-keys')}
-              variant={location.pathname === '/api-keys' ? 'outlined' : 'text'}
-            >
-              {t('navigation.apiKeys')}
+              {t('navigation.settings')}
             </Button>
           )}
         </Box>
@@ -189,10 +162,6 @@ export function NavigationBar() {
               horizontal: 'right',
             }}
           >
-            <MenuItem onClick={handleMenuClose}>
-              <Settings sx={{ mr: 1 }} />
-              {t('common.settings')}
-            </MenuItem>
             <MenuItem onClick={handleLogout}>
               <Logout sx={{ mr: 1 }} />
               {t('auth.logout')}

@@ -1,5 +1,6 @@
 import {
   Add,
+  ArrowBack,
   ContentCopy,
   Delete,
   Edit,
@@ -31,6 +32,7 @@ import {
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { NavigationBar } from '../components/NavigationBar';
 
 interface ApiKey {
@@ -64,6 +66,7 @@ interface Permission {
 
 const ApiKeyManagementPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<Permission[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
@@ -245,6 +248,13 @@ const ApiKeyManagementPage: React.FC = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={() => navigate('/settings')}
+            sx={{ mr: 2 }}
+          >
+            Back to Settings
+          </Button>
           <Key sx={{ mr: 1, fontSize: 32 }} />
           <Typography variant="h4" fontWeight="bold">
             {t('apiKeys.title')}
