@@ -9,7 +9,6 @@ import { WebSocket, WebSocketServer } from 'ws';
 
 // Import managers and services
 import { DatabaseManager } from './database/manager';
-import { OneCIntegration } from './integrations/OneCIntegration';
 import { RedisManager } from './services/redis';
 import { WebSocketManager } from './services/websocket';
 
@@ -22,7 +21,8 @@ import oneCRoutes from './api/1c';
 import adminRoutes from './api/admin';
 import authRoutes from './api/auth';
 import branchPricingRoutes from './api/branch-pricing';
-import branchesRoutes from './api/branches';
+import branchesRoutes from './api/branches'; // Branch management (existing)
+import branchAPIRoutes from './api/branches-api'; // Branch-to-chain-core API (new)
 import customersRoutes from './api/customers';
 import dashboardRoutes from './api/dashboard';
 import employeesRoutes from './api/employees';
@@ -44,7 +44,6 @@ class ChainServer {
   private httpServer: ReturnType<typeof createServer>;
   private wsServer: WebSocketServer;
   private wsManager: WebSocketManager;
-  private oneCIntegration: OneCIntegration;
   private redisManager: RedisManager;
 
   constructor() {
@@ -55,7 +54,6 @@ class ChainServer {
       path: process.env.WS_PATH || '/ws'
     });
     this.wsManager = WebSocketManager.getInstance(this.httpServer);
-    this.oneCIntegration = OneCIntegration.getInstance();
     this.redisManager = RedisManager.getInstance();
 
     this.setupMiddleware();
@@ -94,7 +92,6 @@ class ChainServer {
           database: 'connected',
           redis: 'connected',
           websocket: 'running',
-          oneC: this.oneCIntegration.getStatus()
         }
       });
     });
@@ -113,7 +110,6 @@ class ChainServer {
           database: 'connected',
           redis: 'connected',
           websocket: 'running',
-          oneC: this.oneCIntegration.getStatus()
         }
       });
     });
@@ -121,7 +117,8 @@ class ChainServer {
     // API routes
     this.app.use('/api/auth', authRoutes);
     this.app.use('/api/admin', adminRoutes);
-    this.app.use('/api/branches', branchesRoutes);
+    this.app.use('/api/branches', branchesRoutes); // Branch management
+    this.app.use('/api/branch-api', branchAPIRoutes); // Branch-to-chain API
     this.app.use('/api/branch-pricing', branchPricingRoutes);
     this.app.use('/api/customers', customersRoutes);
     this.app.use('/api/employees', employeesRoutes);
@@ -203,11 +200,6 @@ class ChainServer {
       await RedisManager.initialize();
       console.log('✅ Redis connected');
 
-      // Initialize 1C integration
-      console.log('🔌 Initializing 1C integration...');
-      await this.oneCIntegration.initialize();
-      console.log('✅ 1C integration initialized');
-
       // Start HTTP server
       this.httpServer.listen(PORT, () => {
         console.log(`🚀 Chain Core Server running on port ${PORT}`);
@@ -240,10 +232,6 @@ class ChainServer {
           resolve();
         });
       });
-
-      // Close 1C integration
-      await this.oneCIntegration.close();
-      console.log('✅ 1C integration closed');
 
       // Close database connection
       await DatabaseManager.close();

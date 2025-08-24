@@ -564,6 +564,12 @@ class ApiService {
       method: 'POST',
     });
   }
+
+  async checkHealth(): Promise<ApiResponse<{ status: string; timestamp: string }>> {
+    return this.request('/health', {
+      method: 'GET',
+    });
+  }
 }
 
 // Create and export a singleton instance

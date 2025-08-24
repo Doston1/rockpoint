@@ -1,37 +1,39 @@
 import {
-  Computer as ComputerIcon,
-  NetworkCheck as NetworkCheckIcon,
-  Refresh as RefreshIcon,
-  Settings as SettingsIcon,
-  Storage as StorageIcon,
+    ArrowBack,
+    Computer as ComputerIcon,
+    NetworkCheck as NetworkCheckIcon,
+    Refresh as RefreshIcon,
+    Settings as SettingsIcon,
+    Storage as StorageIcon,
 } from '@mui/icons-material';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    IconButton,
+    Paper,
+    Stack,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TextField,
+    Tooltip,
+    Typography,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { NavigationBar } from '../components/NavigationBar';
 import NetworkService from '../services/networkService';
 
@@ -60,6 +62,7 @@ interface NetworkConfig {
 
 const NetworkSettingsPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [networkConfig, setNetworkConfig] = useState<NetworkConfig[]>([]);
   const [loading, setLoading] = useState(false);
@@ -91,9 +94,13 @@ const NetworkSettingsPage: React.FC = () => {
       setNetworkConfig(config);
       
       // Set server IP from config if available
-      if (config.length > 0) {
-        setServerIp(config[0].server_ip);
-        setServerPort(config[0].server_port.toString());
+      if (config && config.length > 0 && config[0]) {
+        if (config[0].server_ip) {
+          setServerIp(config[0].server_ip);
+        }
+        if (config[0].server_port) {
+          setServerPort(config[0].server_port.toString());
+        }
       }
     } catch (error) {
       console.error('Failed to load network config:', error);
@@ -103,8 +110,10 @@ const NetworkSettingsPage: React.FC = () => {
   const testConnection = async () => {
     setLoading(true);
     try {
+      // Use the public health endpoint (no authentication required)
       const baseUrl = import.meta.env.VITE_API_URL || `http://${serverIp || 'localhost'}:${serverPort}/api`;
-      const response = await fetch(`${baseUrl}/health`);
+      const serverUrl = baseUrl.replace('/api', ''); // Remove /api to get base server URL
+      const response = await fetch(`${serverUrl}/health`);
       setConnectionStatus(response.ok ? 'connected' : 'error');
     } catch (error) {
       setConnectionStatus('disconnected');
@@ -164,9 +173,18 @@ const NetworkSettingsPage: React.FC = () => {
       <NavigationBar />
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          {t('network.title')}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={() => navigate('/settings')}
+            sx={{ mr: 2 }}
+          >
+            Back to Settings
+          </Button>
+          <Typography variant="h4" fontWeight="bold">
+            {t('network.title')}
+          </Typography>
+        </Box>
         <Typography variant="body1" color="text.secondary">
           {t('network.subtitle')}
         </Typography>

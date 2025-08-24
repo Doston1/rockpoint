@@ -1,37 +1,39 @@
 import {
-  Add,
-  Computer,
-  Edit,
-  NetworkCheck,
-  Refresh,
-  Search,
+    Add,
+    ArrowBack,
+    Computer,
+    Edit,
+    NetworkCheck,
+    Refresh,
+    Search,
 } from '@mui/icons-material';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  LinearProgress,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  TextField,
-  Typography,
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    FormControl,
+    IconButton,
+    InputAdornment,
+    InputLabel,
+    LinearProgress,
+    MenuItem,
+    Paper,
+    Select,
+    Stack,
+    TextField,
+    Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { NavigationBar } from '../components/NavigationBar';
 
 // This would be imported from your API service
@@ -75,6 +77,7 @@ interface POSTerminalFormData {
 
 const POSTerminalManagementPage = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [terminals, setTerminals] = useState<POSTerminal[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -280,6 +283,13 @@ const POSTerminalManagementPage = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={() => navigate('/settings')}
+            sx={{ mr: 2 }}
+          >
+            Back to Settings
+          </Button>
           <Computer sx={{ mr: 1, fontSize: 32 }} />
           <Typography variant="h4" fontWeight="bold">
             {t('terminals.title')}

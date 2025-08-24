@@ -24,8 +24,7 @@ const branchSchema = z.object({
   is_active: z.boolean().default(true),
   api_endpoint: z.string().url().optional(),
   api_key: z.string().optional(),
-  network_status: z.enum(['online', 'offline', 'error']).default('offline'),
-  onec_id: z.string().optional()
+  network_status: z.enum(['online', 'offline', 'error']).default('offline')
 });
 
 const updateBranchSchema = branchSchema.partial();
@@ -59,9 +58,9 @@ router.get('/', requirePermission('branches:read'), asyncHandler(async (req: Req
   let query = `
     SELECT 
       b.id, b.code, b.name, b.address, b.phone, b.email,
-      b.manager_name, b.timezone, b.currency, b.tax_rate,
-      b.is_active, b.api_endpoint, b.network_status, b.onec_id,
-      b.last_sync_at, b.created_at, b.updated_at,
+          b.manager_name, b.timezone, b.currency, b.tax_rate,
+          b.is_active, b.api_endpoint, b.network_status,
+          b.last_sync_at, b.created_at, b.updated_at,
       COUNT(DISTINCT bs.id) as server_count,
       COUNT(DISTINCT e.id) as employee_count,
       COUNT(DISTINCT bi.id) as product_count
@@ -135,7 +134,7 @@ router.get('/:code', requirePermission('branches:read'), asyncHandler(async (req
     SELECT 
       b.id, b.code, b.name, b.address, b.phone, b.email,
       b.manager_name, b.timezone, b.currency, b.tax_rate,
-      b.is_active, b.api_endpoint, b.network_status, b.onec_id,
+      b.is_active, b.api_endpoint, b.network_status,
       b.last_sync_at, b.created_at, b.updated_at
     FROM branches b
     WHERE b.code = $1
@@ -219,8 +218,8 @@ router.post('/', requirePermission('branches:write'), asyncHandler(async (req: R
       try {
         // Check if branch exists
         const existingResult = await DatabaseManager.query(
-          'SELECT id FROM branches WHERE code = $1 OR onec_id = $2',
-          [branchData.code, branchData.onec_id || null]
+          'SELECT id FROM branches WHERE code = $1',
+          [branchData.code]
         );
         
         let branchId;
@@ -232,13 +231,13 @@ router.post('/', requirePermission('branches:write'), asyncHandler(async (req: R
               code = $1, name = $2, address = $3, phone = $4, email = $5,
               manager_name = $6, timezone = $7, currency = $8, tax_rate = $9,
               is_active = $10, api_endpoint = $11, network_status = $12,
-              onec_id = $13, updated_at = NOW()
-            WHERE id = $14
+              updated_at = NOW()
+            WHERE id = $13
           `, [
             branchData.code, branchData.name, branchData.address, branchData.phone, branchData.email,
             branchData.manager_name, branchData.timezone, branchData.currency, branchData.tax_rate,
             branchData.is_active, branchData.api_endpoint, branchData.network_status,
-            branchData.onec_id, branchId
+            branchId
           ]);
         } else {
           // Create new branch
@@ -246,21 +245,20 @@ router.post('/', requirePermission('branches:write'), asyncHandler(async (req: R
             INSERT INTO branches (
               code, name, address, phone, email, manager_name,
               timezone, currency, tax_rate, is_active, api_endpoint,
-              network_status, onec_id, created_at, updated_at
+              network_status, created_at, updated_at
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW()
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
             ) RETURNING id
           `, [
             branchData.code, branchData.name, branchData.address, branchData.phone, branchData.email,
             branchData.manager_name, branchData.timezone, branchData.currency, branchData.tax_rate,
-            branchData.is_active, branchData.api_endpoint, branchData.network_status, branchData.onec_id
+            branchData.is_active, branchData.api_endpoint, branchData.network_status
           ]);
           branchId = insertResult.rows[0].id;
         }
         
         results.push({
           code: branchData.code,
-          onec_id: branchData.onec_id,
           success: true,
           action: existingResult.rows.length > 0 ? 'updated' : 'created',
           branch_id: branchId
@@ -269,7 +267,6 @@ router.post('/', requirePermission('branches:write'), asyncHandler(async (req: R
       } catch (error) {
         results.push({
           code: branchData.code,
-          onec_id: branchData.onec_id,
           success: false,
           error: (error as Error).message
         });
@@ -315,15 +312,14 @@ router.put('/:code', requirePermission('branches:write'), asyncHandler(async (re
       is_active = COALESCE($10, is_active),
       api_endpoint = COALESCE($11, api_endpoint),
       network_status = COALESCE($12, network_status),
-      onec_id = COALESCE($13, onec_id),
       updated_at = NOW()
-    WHERE code = $14
+    WHERE code = $13
     RETURNING id, name
   `, [
     branchData.code, branchData.name, branchData.address, branchData.phone, branchData.email,
     branchData.manager_name, branchData.timezone, branchData.currency, branchData.tax_rate,
     branchData.is_active, branchData.api_endpoint, branchData.network_status,
-    branchData.onec_id, code
+    code
   ]);
   
   if (result.rows.length === 0) {

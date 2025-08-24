@@ -9,31 +9,48 @@ BEGIN;
 -- CLEAR EXISTING DATA
 -- =================================================================
 
--- Clear all existing data (in reverse dependency order)
-TRUNCATE TABLE sync_history CASCADE;
-TRUNCATE TABLE sync_tasks CASCADE;
-TRUNCATE TABLE onec_sync_logs CASCADE;
-TRUNCATE TABLE branch_sync_logs CASCADE;
-TRUNCATE TABLE system_settings CASCADE;
-TRUNCATE TABLE connection_health_logs CASCADE;
-TRUNCATE TABLE network_settings CASCADE;
-TRUNCATE TABLE branch_servers CASCADE;
-TRUNCATE TABLE api_keys CASCADE;
-TRUNCATE TABLE promotions CASCADE;
-TRUNCATE TABLE payments CASCADE;
-TRUNCATE TABLE transaction_items CASCADE;
-TRUNCATE TABLE transactions CASCADE;
-TRUNCATE TABLE customers CASCADE;
-TRUNCATE TABLE stock_movements CASCADE;
-TRUNCATE TABLE branch_inventory CASCADE;
-TRUNCATE TABLE branch_product_pricing CASCADE;
-TRUNCATE TABLE employee_time_logs CASCADE;
-TRUNCATE TABLE employees CASCADE;
-TRUNCATE TABLE products CASCADE;
-TRUNCATE TABLE categories CASCADE;
-TRUNCATE TABLE users CASCADE;
-TRUNCATE TABLE branches CASCADE;
-TRUNCATE TABLE chains CASCADE;
+-- Clear all existing data (in proper dependency order to avoid foreign key violations)
+-- Delete child records first, then parent records
+
+-- Clear transaction-related data
+DELETE FROM payments;
+DELETE FROM transaction_items;
+DELETE FROM transactions;
+
+-- Clear inventory and pricing data
+DELETE FROM stock_movements;
+DELETE FROM branch_inventory;
+DELETE FROM branch_product_pricing;
+
+-- Clear employee data
+DELETE FROM employee_time_logs;
+DELETE FROM employees;
+
+-- Clear product data
+DELETE FROM products;
+DELETE FROM categories;
+
+-- Clear customer data
+DELETE FROM customers;
+
+-- Clear promotional data
+DELETE FROM promotions;
+
+-- Clear infrastructure and logging data
+DELETE FROM branch_sync_logs;
+DELETE FROM onec_sync_logs;
+DELETE FROM connection_health_logs;
+DELETE FROM branch_servers;
+DELETE FROM network_settings;
+DELETE FROM api_keys;
+DELETE FROM system_settings;
+DELETE FROM sync_history;
+DELETE FROM sync_tasks;
+
+-- Clear core organizational data
+DELETE FROM users;
+DELETE FROM branches;
+DELETE FROM chains;
 
 -- =================================================================
 -- CORE MASTER DATA
@@ -459,7 +476,7 @@ INSERT INTO customers (name, email, phone, loyalty_points, total_spent) VALUES
 -- Generate sample transactions for testing
 INSERT INTO transactions (branch_id, transaction_number, employee_id, customer_id, terminal_id, subtotal, tax_amount, discount_amount, total_amount, payment_method, status, completed_at)
 SELECT * FROM (
-    SELECT 
+    (SELECT 
         b.id,
         'TXN-' || LPAD((RANDOM() * 999999)::TEXT, 6, '0'),
         e.id,
@@ -471,11 +488,11 @@ SELECT * FROM (
     JOIN employees e ON b.id = e.branch_id
     WHERE b.code = 'DT001' AND e.role IN ('cashier', 'manager')
     ORDER BY RANDOM()
-    LIMIT 5
+    LIMIT 5)
     
     UNION ALL
     
-    SELECT 
+    (SELECT 
         b.id,
         'TXN-' || LPAD((RANDOM() * 999999)::TEXT, 6, '0'),
         e.id,
@@ -487,11 +504,11 @@ SELECT * FROM (
     JOIN employees e ON b.id = e.branch_id
     WHERE b.code = 'ML002' AND e.role IN ('cashier', 'manager')
     ORDER BY RANDOM()
-    LIMIT 5
+    LIMIT 5)
     
     UNION ALL
     
-    SELECT 
+    (SELECT 
         b.id,
         'TXN-' || LPAD((RANDOM() * 999999)::TEXT, 6, '0'),
         e.id,
@@ -503,7 +520,7 @@ SELECT * FROM (
     JOIN employees e ON b.id = e.branch_id
     WHERE b.code = 'AP003' AND e.role IN ('cashier', 'manager')
     ORDER BY RANDOM()
-    LIMIT 3
+    LIMIT 3)
 ) txn_data;
 
 -- Insert sample transaction items
@@ -633,30 +650,30 @@ INSERT INTO system_settings (key, value, description) VALUES
 -- Insert sample sync logs
 INSERT INTO branch_sync_logs (branch_id, sync_type, direction, status, records_processed, initiated_by, started_at, completed_at)
 SELECT * FROM (
-    SELECT 
+    (SELECT 
         b.id, 'products', 'to_branch', 'completed', 24, u.id, 
         NOW() - INTERVAL '4 hours', NOW() - INTERVAL '4 hours' + INTERVAL '45 seconds'
     FROM branches b, users u 
     WHERE b.code = 'DT001' AND u.username = 'admin'
-    LIMIT 1
+    LIMIT 1)
     
     UNION ALL
     
-    SELECT 
+    (SELECT 
         b.id, 'inventory', 'from_branch', 'completed', 120, u.id,
         NOW() - INTERVAL '2 hours', NOW() - INTERVAL '2 hours' + INTERVAL '1 minute 20 seconds'
     FROM branches b, users u 
     WHERE b.code = 'ML002' AND u.username = 'admin'
-    LIMIT 1
+    LIMIT 1)
     
     UNION ALL
     
-    SELECT 
+    (SELECT 
         b.id, 'transactions', 'from_branch', 'completed', 78, u.id,
         NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour' + INTERVAL '35 seconds'
     FROM branches b, users u 
     WHERE b.code = 'AP003' AND u.username = 'manager'
-    LIMIT 1
+    LIMIT 1)
 ) sync_data;
 
 -- Insert 1C sync logs
