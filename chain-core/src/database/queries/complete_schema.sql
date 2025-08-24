@@ -226,10 +226,18 @@ CREATE TABLE stock_movements (
 -- Customers (optional - for loyalty programs, etc.)
 CREATE TABLE customers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255),
+    name VARCHAR(255) NOT NULL,
     email VARCHAR(255),
     phone VARCHAR(50),
+    address TEXT,
+    date_of_birth DATE,
+    gender VARCHAR(20),
+    loyalty_card_number VARCHAR(50) UNIQUE,
     loyalty_points INTEGER DEFAULT 0,
+    discount_percentage DECIMAL(5,2) DEFAULT 0,
+    is_vip BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    notes TEXT,
     total_spent DECIMAL(10,2) DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -507,6 +515,10 @@ CREATE INDEX idx_stock_movements_movement_type ON stock_movements(movement_type)
 -- Customers indexes
 CREATE INDEX idx_customers_email ON customers(email);
 CREATE INDEX idx_customers_phone ON customers(phone);
+CREATE INDEX idx_customers_loyalty_card_number ON customers(loyalty_card_number);
+CREATE INDEX idx_customers_is_active ON customers(is_active);
+CREATE INDEX idx_customers_is_vip ON customers(is_vip);
+CREATE INDEX idx_customers_name ON customers USING gin(to_tsvector('english', name));
 
 -- Transactions indexes
 CREATE INDEX idx_transactions_branch_id ON transactions(branch_id);

@@ -393,32 +393,52 @@ export const useInventoryManagement = (): UseInventoryManagementReturn => {
   const syncProducts = useCallback(async (branchId: string): Promise<boolean> => {
     try {
       const response = await apiService.syncProductsToBranch(branchId);
+      if (response.success) {
+        // Refetch data to show updated products
+        await Promise.all([
+          fetchProducts(),
+          selectedBranchId === branchId ? fetchBranchInventory() : Promise.resolve()
+        ]);
+      }
       return response.success;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       return false;
     }
-  }, []);
+  }, [fetchProducts, fetchBranchInventory, selectedBranchId]);
 
   const syncPrices = useCallback(async (branchId: string): Promise<boolean> => {
     try {
       const response = await apiService.syncPricesToBranch(branchId);
+      if (response.success) {
+        // Refetch data to show updated prices
+        await Promise.all([
+          fetchProducts(),
+          selectedBranchId === branchId ? fetchBranchInventory() : Promise.resolve()
+        ]);
+      }
       return response.success;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       return false;
     }
-  }, []);
+  }, [fetchProducts, fetchBranchInventory, selectedBranchId]);
 
   const syncPromotions = useCallback(async (branchId: string): Promise<boolean> => {
     try {
       const response = await apiService.syncPromotionsToBranch(branchId);
+      if (response.success) {
+        // Refetch promotions to show updated data
+        if (selectedBranchId === branchId) {
+          await fetchPromotions();
+        }
+      }
       return response.success;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       return false;
     }
-  }, []);
+  }, [fetchPromotions, selectedBranchId]);
 
   // Effects
   useEffect(() => {

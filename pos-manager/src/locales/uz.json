@@ -124,6 +124,7 @@
   },
   "inventory": {
     "inventoryManagement": "Ombor boshqaruvi",
+    "sku": "Artikul",
     "productName": "Mahsulot nomi",
     "barcode": "Shtrix kod",
     "price": "Narx",

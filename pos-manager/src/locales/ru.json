@@ -124,6 +124,7 @@
   },
   "inventory": {
     "inventoryManagement": "Управление складом",
+    "sku": "Артикул",
     "productName": "Название товара",
     "barcode": "Штрихкод",
     "price": "Цена",

@@ -457,17 +457,22 @@ WHERE b.is_active = true AND p.is_active = true;
 -- =================================================================
 
 -- Insert sample customers
-INSERT INTO customers (name, email, phone, loyalty_points, total_spent) VALUES
-('John Customer', 'john.customer@email.com', '+1-555-9001', 150, 75.50),
-('Jane Smith', 'jane.smith@email.com', '+1-555-9002', 320, 160.75),
-('Mike Johnson', 'mike.johnson@email.com', '+1-555-9003', 85, 42.25),
-('Sarah Williams', 'sarah.williams@email.com', '+1-555-9004', 220, 110.00),
-('Robert Brown', 'robert.brown@email.com', '+1-555-9005', 180, 90.30),
-('Emily Davis', 'emily.davis@email.com', '+1-555-9006', 95, 47.50),
-('David Wilson', 'david.wilson@email.com', '+1-555-9007', 275, 137.75),
-('Lisa Garcia', 'lisa.garcia@email.com', '+1-555-9008', 145, 72.25),
-('Tom Anderson', 'tom.anderson@email.com', '+1-555-9009', 310, 155.00),
-('Maria Rodriguez', 'maria.rodriguez@email.com', '+1-555-9010', 205, 102.50);
+INSERT INTO customers (name, email, phone, address, date_of_birth, gender, loyalty_card_number, loyalty_points, discount_percentage, is_vip, is_active, notes, total_spent) VALUES
+('John Customer', 'john.customer@email.com', '+1-555-9001', '123 Oak Street, Downtown', '1985-03-15', 'male', 'LC20230001', 150, 0, false, true, 'Regular customer since 2023', 75.50),
+('Jane Smith', 'jane.smith@email.com', '+1-555-9002', '456 Maple Avenue, Suburbs', '1990-07-22', 'female', 'LC20230002', 320, 5, true, true, 'VIP customer, prefers organic products', 160.75),
+('Mike Johnson', 'mike.johnson@email.com', '+1-555-9003', '789 Pine Road, City Center', '1988-11-08', 'male', 'LC20230003', 85, 0, false, true, 'Occasional buyer, mostly beverages', 42.25),
+('Sarah Williams', 'sarah.williams@email.com', '+1-555-9004', '321 Elm Drive, Mall District', '1992-04-03', 'female', 'LC20230004', 220, 2, false, true, 'Frequent shopper, family of 4', 110.00),
+('Robert Brown', 'robert.brown@email.com', '+1-555-9005', '654 Cedar Lane, Airport Area', '1975-12-18', 'male', 'LC20230005', 180, 3, false, true, 'Business traveler, convenience items', 90.30),
+('Emily Davis', 'emily.davis@email.com', '+1-555-9006', '987 Birch Court, Residential', '1995-08-14', 'female', 'LC20230006', 95, 0, false, true, 'Student, limited budget purchases', 47.50),
+('David Wilson', 'david.wilson@email.com', '+1-555-9007', '147 Willow Street, Downtown', '1980-06-25', 'male', 'LC20230007', 275, 10, true, true, 'VIP customer, corporate account', 137.75),
+('Lisa Garcia', 'lisa.garcia@email.com', '+1-555-9008', '258 Spruce Avenue, Suburbs', '1987-01-11', 'female', 'LC20230008', 145, 0, false, true, 'Health-conscious shopper', 72.25),
+('Tom Anderson', 'tom.anderson@email.com', '+1-555-9009', '369 Ash Boulevard, City', '1983-09-30', 'male', 'LC20230009', 310, 5, true, true, 'VIP customer, bulk purchases', 155.00),
+('Maria Rodriguez', 'maria.rodriguez@email.com', '+1-555-9010', '741 Cherry Lane, Mall Area', '1991-02-17', 'female', 'LC20230010', 205, 2, false, true, 'Family shopper, weekly visits', 102.50),
+('Kevin Thompson', 'kevin.thompson@email.com', '+1-555-9011', '852 Hickory Drive, Suburbs', '1986-05-09', 'male', 'LC20230011', 120, 0, false, true, 'Weekend shopper', 62.75),
+('Rachel White', 'rachel.white@email.com', '+1-555-9012', '963 Poplar Street, Downtown', '1993-10-05', 'female', 'LC20230012', 380, 15, true, true, 'VIP customer, premium products only', 195.25),
+('James Clark', 'james.clark@email.com', '+1-555-9013', '159 Dogwood Lane, Airport', '1979-12-22', 'male', 'LC20230013', 65, 0, false, false, 'Inactive customer, moved away', 35.80),
+('Amanda Lewis', 'amanda.lewis@email.com', '+1-555-9014', '357 Magnolia Court, City', '1994-03-28', 'female', 'LC20230014', 240, 3, false, true, 'Young professional, convenient shopping', 128.90),
+('Christopher Hall', 'christopher.hall@email.com', '+1-555-9015', '468 Sycamore Road, Residential', '1982-07-16', 'male', 'LC20230015', 175, 2, false, true, 'Regular customer, family purchases', 89.45);
 
 -- =================================================================
 -- TRANSACTION DATA (Sample from last 30 days)

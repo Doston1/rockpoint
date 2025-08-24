@@ -124,6 +124,7 @@
   },
   "inventory": {
     "inventoryManagement": "Inventory Management",
+    "sku": "SKU",
     "productName": "Product Name",
     "barcode": "Barcode",
     "price": "Price",

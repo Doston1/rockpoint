@@ -601,6 +601,7 @@ const InventoryPage = () => {
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell>{t('inventory.sku')}</TableCell>
                 <TableCell>{t('inventory.product')}</TableCell>
                 <TableCell>{t('inventory.category')}</TableCell>
                 <TableCell>{t('inventory.barcode')}</TableCell>
@@ -615,6 +616,11 @@ const InventoryPage = () => {
             <TableBody>
               {paginatedProducts.map((product) => (
                 <TableRow key={product.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" fontFamily="monospace" color="primary">
+                      {product.sku || 'N/A'}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     <Box>
                       <Typography variant="subtitle2" fontWeight="bold">

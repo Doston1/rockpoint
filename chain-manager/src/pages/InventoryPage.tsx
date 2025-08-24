@@ -350,6 +350,12 @@ const InventoryPage = () => {
       return;
     }
 
+    setSnackbar({
+      open: true,
+      message: `Starting ${type} sync...`,
+      severity: 'info',
+    });
+
     let success = false;
     switch (type) {
       case 'products':
@@ -365,7 +371,9 @@ const InventoryPage = () => {
 
     setSnackbar({
       open: true,
-      message: success ? `${type} sync initiated successfully` : `Failed to sync ${type}`,
+      message: success 
+        ? `${type.charAt(0).toUpperCase() + type.slice(1)} sync completed successfully` 
+        : `Failed to sync ${type}`,
       severity: success ? 'success' : 'error',
     });
   };
@@ -387,23 +395,45 @@ const InventoryPage = () => {
     });
 
     try {
-      const [productsResult, pricesResult, promotionsResult] = await Promise.all([
+      const results = await Promise.allSettled([
         syncProducts(selectedBranchId),
         syncPrices(selectedBranchId),
         syncPromotions(selectedBranchId)
       ]);
 
-      const successCount = [productsResult, pricesResult, promotionsResult].filter(Boolean).length;
+      const successCount = results.filter(result => 
+        result.status === 'fulfilled' && result.value === true
+      ).length;
+
+      const operations = ['products', 'prices', 'promotions'];
+      const failedOperations = results
+        .map((result, index) => ({ result, operation: operations[index] }))
+        .filter(({ result }) => result.status === 'rejected' || result.value === false)
+        .map(({ operation }) => operation);
       
-      setSnackbar({
-        open: true,
-        message: `Bulk sync completed: ${successCount}/3 operations successful`,
-        severity: successCount === 3 ? 'success' : successCount > 0 ? 'warning' : 'error',
-      });
+      if (successCount === 3) {
+        setSnackbar({
+          open: true,
+          message: 'All sync operations completed successfully!',
+          severity: 'success',
+        });
+      } else if (successCount > 0) {
+        setSnackbar({
+          open: true,
+          message: `Partial sync success: ${successCount}/3 operations completed. Failed: ${failedOperations.join(', ')}`,
+          severity: 'warning',
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'All sync operations failed. Please check your connection and try again.',
+          severity: 'error',
+        });
+      }
     } catch (error) {
       setSnackbar({
         open: true,
-        message: 'Bulk sync failed',
+        message: 'Bulk sync failed with an unexpected error',
         severity: 'error',
       });
     }

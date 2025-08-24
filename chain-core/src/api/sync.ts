@@ -40,6 +40,252 @@ const SyncInventorySchema = z.object({
   })).min(1)
 });
 
+// POST /api/sync/products/branch/:branchId - Sync products to specific branch
+router.post('/products/branch/:branchId', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { branchId } = req.params;
+    
+    // Validate branch exists
+    const branchCheck = await DatabaseManager.query(
+      'SELECT id, name FROM branches WHERE id = $1 AND is_active = true',
+      [branchId]
+    );
+    
+    if (branchCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Branch not found or inactive'
+      });
+    }
+    
+    // Get all active products with their current pricing
+    const productsQuery = `
+      SELECT 
+        p.id, p.sku, p.name, p.name_ru, p.name_uz, p.barcode, p.description,
+        p.description_ru, p.description_uz, p.brand, p.unit_of_measure,
+        p.tax_rate, p.is_active, 
+        COALESCE(bpp.price, p.base_price) as price,
+        COALESCE(bpp.cost, p.cost) as cost,
+        c.key as category_key
+      FROM products p
+      LEFT JOIN branch_product_pricing bpp ON p.id = bpp.product_id AND bpp.branch_id = $1
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.is_active = true
+      ORDER BY p.name
+    `;
+    
+    const productsResult = await DatabaseManager.query(productsQuery, [branchId]);
+    
+    const products = productsResult.rows.map((row: any) => ({
+      sku: row.sku,
+      barcode: row.barcode,
+      name: row.name,
+      name_ru: row.name_ru,
+      name_uz: row.name_uz,
+      description: row.description,
+      description_ru: row.description_ru,
+      description_uz: row.description_uz,
+      category_key: row.category_key,
+      brand: row.brand,
+      price: parseFloat(row.price || 0),
+      cost: parseFloat(row.cost || 0),
+      unit_of_measure: row.unit_of_measure,
+      tax_rate: parseFloat(row.tax_rate || 0),
+      is_active: row.is_active
+    }));
+    
+    // Send to branch
+    const result = await BranchApiService.makeRequest({
+      branchId,
+      endpoint: 'chain-core/products/sync',
+      method: 'POST',
+      data: { products },
+      timeout: 60000 // Longer timeout for large sync
+    });
+    
+    res.json({
+      success: result.success,
+      data: {
+        sync_type: 'products',
+        branch_id: branchId,
+        branch_name: branchCheck.rows[0].name,
+        total_products: products.length,
+        sync_result: result.success ? result.data : null,
+        error: result.error
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error syncing products to branch:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync products to branch',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
+// POST /api/sync/prices/branch/:branchId - Sync prices to specific branch
+router.post('/prices/branch/:branchId', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { branchId } = req.params;
+    
+    // Validate branch exists
+    const branchCheck = await DatabaseManager.query(
+      'SELECT id, name FROM branches WHERE id = $1 AND is_active = true',
+      [branchId]
+    );
+    
+    if (branchCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Branch not found or inactive'
+      });
+    }
+    
+    // Get all products with their pricing for this branch
+    const priceUpdatesQuery = `
+      SELECT 
+        p.id, p.sku, p.barcode,
+        COALESCE(bpp.price, p.base_price) as price,
+        COALESCE(bpp.cost, p.cost) as cost
+      FROM products p
+      LEFT JOIN branch_product_pricing bpp ON p.id = bpp.product_id AND bpp.branch_id = $1
+      WHERE p.is_active = true AND p.barcode IS NOT NULL
+      ORDER BY p.name
+    `;
+    
+    const priceResult = await DatabaseManager.query(priceUpdatesQuery, [branchId]);
+    
+    const updates = priceResult.rows.map((row: any) => ({
+      barcode: row.barcode,
+      sku: row.sku,
+      product_id: row.id,
+      price: parseFloat(row.price || 0),
+      cost: parseFloat(row.cost || 0),
+      effective_date: new Date().toISOString()
+    }));
+    
+    // Send to branch
+    const result = await BranchApiService.makeRequest({
+      branchId,
+      endpoint: 'chain-core/products/prices',
+      method: 'PUT',
+      data: { updates },
+      timeout: 60000
+    });
+    
+    res.json({
+      success: result.success,
+      data: {
+        sync_type: 'prices',
+        branch_id: branchId,
+        branch_name: branchCheck.rows[0].name,
+        total_price_updates: updates.length,
+        sync_result: result.success ? result.data : null,
+        error: result.error
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error syncing prices to branch:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync prices to branch',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
+// POST /api/sync/promotions/branch/:branchId - Sync promotions to specific branch
+router.post('/promotions/branch/:branchId', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { branchId } = req.params;
+    
+    // Validate branch exists
+    const branchCheck = await DatabaseManager.query(
+      'SELECT id, name FROM branches WHERE id = $1 AND is_active = true',
+      [branchId]
+    );
+    
+    if (branchCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Branch not found or inactive'
+      });
+    }
+    
+    // Get active promotions for this branch (both branch-specific and chain-wide)
+    const promotionsQuery = `
+      SELECT 
+        p.id, p.name, p.description, p.type, p.branch_id, p.product_id, p.category_id,
+        p.discount_percentage, p.discount_amount, p.min_quantity, p.buy_quantity, p.get_quantity,
+        p.start_date, p.end_date, p.is_active,
+        pr.barcode as product_barcode, pr.sku as product_sku,
+        c.key as category_key
+      FROM promotions p
+      LEFT JOIN products pr ON p.product_id = pr.id
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.is_active = true 
+        AND p.start_date <= NOW() 
+        AND p.end_date >= NOW()
+        AND (p.branch_id = $1 OR p.branch_id IS NULL)
+      ORDER BY p.start_date DESC
+    `;
+    
+    const promotionsResult = await DatabaseManager.query(promotionsQuery, [branchId]);
+    
+    // Note: For this implementation, we'll log the promotions that would be synced
+    // Branch-core doesn't currently have a promotions sync endpoint, but this shows the data structure
+    const promotions = promotionsResult.rows.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      type: row.type,
+      product_barcode: row.product_barcode,
+      product_sku: row.product_sku,
+      category_key: row.category_key,
+      discount_percentage: row.discount_percentage,
+      discount_amount: row.discount_amount,
+      min_quantity: row.min_quantity,
+      buy_quantity: row.buy_quantity,
+      get_quantity: row.get_quantity,
+      start_date: row.start_date,
+      end_date: row.end_date,
+      is_active: row.is_active
+    }));
+    
+    // Send to branch
+    const result = await BranchApiService.makeRequest({
+      branchId,
+      endpoint: 'chain-core/promotions/sync',
+      method: 'POST',
+      data: { promotions },
+      timeout: 60000
+    });
+    
+    res.json({
+      success: result.success,
+      data: {
+        sync_type: 'promotions',
+        branch_id: branchId,
+        branch_name: branchCheck.rows[0].name,
+        total_promotions: promotions.length,
+        sync_result: result.success ? result.data : null,
+        error: result.error
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error syncing promotions to branch:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync promotions to branch',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
 // POST /api/sync/products - Sync products to branches
 router.post('/products', asyncHandler(async (req: Request, res: Response) => {
   try {

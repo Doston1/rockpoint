@@ -7,6 +7,33 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- =================================================================
+-- DROP EXISTING TABLES (in dependency order)
+-- =================================================================
+
+-- Drop tables with foreign key dependencies first
+DROP TABLE IF EXISTS uzum_fastpay_audit_log CASCADE;
+DROP TABLE IF EXISTS uzum_fastpay_reversals CASCADE;
+DROP TABLE IF EXISTS uzum_fastpay_fiscalization CASCADE;
+DROP TABLE IF EXISTS uzum_fastpay_transactions CASCADE;
+DROP TABLE IF EXISTS uzum_bank_config CASCADE;
+DROP TABLE IF EXISTS sync_logs CASCADE;
+DROP TABLE IF EXISTS api_keys CASCADE;
+DROP TABLE IF EXISTS connection_health_logs CASCADE;
+DROP TABLE IF EXISTS branch_network_config CASCADE;
+DROP TABLE IF EXISTS pos_terminals CASCADE;
+DROP TABLE IF EXISTS employee_time_logs CASCADE;
+DROP TABLE IF EXISTS price_history CASCADE;
+DROP TABLE IF EXISTS stock_movements CASCADE;
+DROP TABLE IF EXISTS promotions CASCADE;
+DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS transaction_items CASCADE;
+DROP TABLE IF EXISTS transactions CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS employees CASCADE;
+
+-- =================================================================
 -- MAIN BUSINESS TABLES
 -- =================================================================
 
@@ -38,7 +65,11 @@ CREATE TABLE IF NOT EXISTS categories (
 -- Products table
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sku VARCHAR(100) UNIQUE,
     name VARCHAR(255) NOT NULL,
+    name_en VARCHAR(255),
+    name_ru VARCHAR(255),
+    name_uz VARCHAR(255),
     barcode VARCHAR(255) UNIQUE,
     price DECIMAL(10,2) NOT NULL,
     cost DECIMAL(10,2) DEFAULT 0,
@@ -47,6 +78,11 @@ CREATE TABLE IF NOT EXISTS products (
     category VARCHAR(100),
     brand VARCHAR(100),
     description TEXT,
+    description_en TEXT,
+    description_ru TEXT,
+    description_uz TEXT,
+    unit_of_measure VARCHAR(50) DEFAULT 'pcs',
+    tax_rate DECIMAL(5,4) DEFAULT 0.0000,
     image_url TEXT,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -113,6 +149,26 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Promotions table (synced from chain-core)
+CREATE TABLE IF NOT EXISTS promotions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    chain_promotion_id VARCHAR(100) UNIQUE NOT NULL, -- ID from chain-core
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    promotion_type VARCHAR(50) NOT NULL CHECK (promotion_type IN ('percentage_discount', 'fixed_discount', 'buy_x_get_y', 'bulk_discount')),
+    discount_value DECIMAL(10,2), -- percentage (0-100) or fixed amount
+    min_quantity INTEGER,
+    buy_quantity INTEGER, -- for buy_x_get_y promotions
+    get_quantity INTEGER, -- for buy_x_get_y promotions
+    product_barcode VARCHAR(255), -- specific product promotion
+    category_key VARCHAR(100), -- category-wide promotion
+    start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Stock movements table
 CREATE TABLE IF NOT EXISTS stock_movements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -124,6 +180,18 @@ CREATE TABLE IF NOT EXISTS stock_movements (
     reason VARCHAR(255),
     transaction_id UUID REFERENCES transactions(id),
     employee_id VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Price history table
+CREATE TABLE IF NOT EXISTS price_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID NOT NULL REFERENCES products(id),
+    old_price DECIMAL(10, 2),
+    new_price DECIMAL(10, 2) NOT NULL,
+    old_cost DECIMAL(10, 2),
+    new_cost DECIMAL(10, 2),
+    effective_date TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -237,6 +305,7 @@ CREATE INDEX IF NOT EXISTS idx_employees_role ON employees(role);
 CREATE INDEX IF NOT EXISTS idx_categories_key ON categories(key);
 
 -- Products indexes
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
 CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active);
@@ -264,6 +333,13 @@ CREATE INDEX IF NOT EXISTS idx_transaction_items_product_id ON transaction_items
 -- Payments indexes
 CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments(transaction_id);
 CREATE INDEX IF NOT EXISTS idx_payments_method ON payments(method);
+
+-- Promotions indexes
+CREATE INDEX IF NOT EXISTS idx_promotions_chain_promotion_id ON promotions(chain_promotion_id);
+CREATE INDEX IF NOT EXISTS idx_promotions_product_barcode ON promotions(product_barcode);
+CREATE INDEX IF NOT EXISTS idx_promotions_category_key ON promotions(category_key);
+CREATE INDEX IF NOT EXISTS idx_promotions_active_dates ON promotions(is_active, start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_promotions_promotion_type ON promotions(promotion_type);
 
 -- Stock movements indexes
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements(product_id);
@@ -346,6 +422,9 @@ CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON customers
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_promotions_updated_at BEFORE UPDATE ON promotions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON categories
@@ -676,7 +755,7 @@ ORDER BY transaction_date DESC;
 -- SUMMARY
 -- =================================================================
 
--- This schema includes 19 tables:
+-- This schema includes 20 tables:
 -- 1. employees - Staff management
 -- 2. categories - Product categories with translations
 -- 3. products - Product catalog
@@ -684,15 +763,16 @@ ORDER BY transaction_date DESC;
 -- 5. transactions - Sales transactions
 -- 6. transaction_items - Transaction line items
 -- 7. payments - Payment information
--- 8. stock_movements - Inventory tracking
--- 9. employee_time_logs - Time tracking
--- 10. pos_terminals - POS terminal management
--- 11. branch_network_config - Network configuration
--- 12. connection_health_logs - Health monitoring
--- 13. api_keys - Authentication system
--- 14. sync_logs - Synchronization tracking
--- 15. uzum_bank_config - Uzum Bank API configuration
--- 16. uzum_fastpay_transactions - FastPay payment tracking
--- 17. uzum_fastpay_fiscalization - Fiscal receipt submissions
--- 18. uzum_fastpay_reversals - Payment cancellations
--- 19. uzum_fastpay_audit_log - Comprehensive audit trail
+-- 8. promotions - Promotional offers (synced from chain-core)
+-- 9. stock_movements - Inventory tracking
+-- 10. employee_time_logs - Time tracking
+-- 11. pos_terminals - POS terminal management
+-- 12. branch_network_config - Network configuration
+-- 13. connection_health_logs - Health monitoring
+-- 14. api_keys - Authentication system
+-- 15. sync_logs - Synchronization tracking
+-- 16. uzum_bank_config - Uzum Bank API configuration
+-- 17. uzum_fastpay_transactions - FastPay payment tracking
+-- 18. uzum_fastpay_fiscalization - Fiscal receipt submissions
+-- 19. uzum_fastpay_reversals - Payment cancellations
+-- 20. uzum_fastpay_audit_log - Comprehensive audit trail

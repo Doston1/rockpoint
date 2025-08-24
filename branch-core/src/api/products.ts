@@ -95,7 +95,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   
   let query = `
     SELECT 
-      p.id, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
       ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
@@ -136,7 +136,7 @@ router.get('/search', asyncHandler(async (req: Request, res: Response) => {
   
   const searchQuery = `
     SELECT 
-      p.id, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
       ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
@@ -145,6 +145,7 @@ router.get('/search', asyncHandler(async (req: Request, res: Response) => {
       p.is_active = true 
       AND (
         p.name ILIKE $1 
+        OR p.sku ILIKE $1 
         OR p.barcode ILIKE $1 
         OR p.description ILIKE $1
         OR p.brand ILIKE $1
@@ -187,13 +188,13 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
   // First, try exact name matches (higher priority)
   const exactQuery = `
     SELECT 
-      p.id, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
+      p.id, p.sku, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
       ${categoryField}, p.brand, p.low_stock_threshold
     FROM products p
     LEFT JOIN categories c ON p.category = c.key
     WHERE 
       p.is_active = true 
-      AND p.name ILIKE $1
+      AND (p.name ILIKE $1 OR p.sku ILIKE $1)
     ORDER BY p.name ASC
     LIMIT $2
   `;
@@ -221,7 +222,7 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
       const excludeIds = exactResult.rows.map((r: any) => `'${r.id}'`).join(',');
       partialQuery = `
         SELECT 
-          p.id, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
+          p.id, p.sku, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
           ${categoryField}, p.brand, p.low_stock_threshold
         FROM products p
         LEFT JOIN categories c ON p.category = c.key
@@ -229,6 +230,7 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
           p.is_active = true 
           AND (
             p.name ILIKE $1 
+            OR p.sku ILIKE $1 
             OR p.barcode ILIKE $1
           )
           AND p.id NOT IN (${excludeIds})
@@ -241,7 +243,7 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
       // If no exact matches, just do the partial search
       partialQuery = `
         SELECT 
-          p.id, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
+          p.id, p.sku, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
           ${categoryField}, p.brand, p.low_stock_threshold
         FROM products p
         LEFT JOIN categories c ON p.category = c.key
@@ -249,6 +251,7 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
           p.is_active = true 
           AND (
             p.name ILIKE $1 
+            OR p.sku ILIKE $1 
             OR p.barcode ILIKE $1
           )
         ORDER BY p.name ASC
@@ -285,7 +288,7 @@ router.get('/barcode/:barcode', asyncHandler(async (req: Request, res: Response)
   
   const productQuery = `
     SELECT 
-      p.id, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
       ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
@@ -392,7 +395,7 @@ router.get('/low-stock', asyncHandler(async (req: Request, res: Response) => {
 
   const lowStockQuery = `
     SELECT 
-      p.id, ${nameField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      p.id, p.sku, ${nameField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
       p.low_stock_threshold, ${categoryField}, p.brand, ${descField}, p.image_url,
       p.is_active, p.created_at, p.updated_at
     FROM products p
@@ -456,7 +459,7 @@ router.get('/category/:category', asyncHandler(async (req: Request, res: Respons
   
   const query = `
     SELECT 
-      p.id, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
       ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
@@ -627,14 +630,19 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 // GET /api/products/:id - Must come after specific routes
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const productId = req.params.id;
+  const language = (req.query.language as string) || 'en';
+  
+  const { nameField, descField } = getLocalizedFields(language);
+  const categoryField = getLocalizedCategoryField(language);
 
   const productQuery = `
     SELECT 
-      id, name, barcode, price, cost, quantity_in_stock, 
-      category, brand, description, image_url, 
-      is_active, created_at, updated_at
-    FROM products 
-    WHERE id = $1
+      p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      p.low_stock_threshold
+    FROM products p
+    LEFT JOIN categories c ON p.category = c.key
+    WHERE p.id = $1
   `;
 
   const result = await DatabaseManager.query(productQuery, [productId]);
