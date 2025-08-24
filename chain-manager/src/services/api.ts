@@ -1023,21 +1023,15 @@ class ApiService {
     }
   }
 
-  // Sync to Branch APIs (placeholders for future branch-specific sync)
+  // Sync to Branch APIs
   async syncProductsToBranch(branchId: string): Promise<ApiResponse<{ synced: number }>> {
     try {
-      // Placeholder - will be implemented when branch endpoints are ready
-      console.log(`Syncing products to branch ${branchId}`);
-      return {
-        success: true,
-        data: { synced: 0 },
-        message: 'Products sync initiated (placeholder)',
-        timestamp: new Date().toISOString(),
-      };
+      const response = await this.api.post(`/sync/products/branch/${branchId}`);
+      return response.data;
     } catch (error: any) {
       return {
         success: false,
-        error: 'Failed to sync products to branch',
+        error: error.response?.data?.error || 'Failed to sync products to branch',
         timestamp: new Date().toISOString(),
       };
     }
@@ -1045,18 +1039,12 @@ class ApiService {
 
   async syncPricesToBranch(branchId: string): Promise<ApiResponse<{ synced: number }>> {
     try {
-      // Placeholder - will be implemented when branch endpoints are ready
-      console.log(`Syncing prices to branch ${branchId}`);
-      return {
-        success: true,
-        data: { synced: 0 },
-        message: 'Prices sync initiated (placeholder)',
-        timestamp: new Date().toISOString(),
-      };
+      const response = await this.api.post(`/sync/prices/branch/${branchId}`);
+      return response.data;
     } catch (error: any) {
       return {
         success: false,
-        error: 'Failed to sync prices to branch',
+        error: error.response?.data?.error || 'Failed to sync prices to branch',
         timestamp: new Date().toISOString(),
       };
     }
@@ -1064,18 +1052,12 @@ class ApiService {
 
   async syncPromotionsToBranch(branchId: string): Promise<ApiResponse<{ synced: number }>> {
     try {
-      // Placeholder - will be implemented when branch endpoints are ready
-      console.log(`Syncing promotions to branch ${branchId}`);
-      return {
-        success: true,
-        data: { synced: 0 },
-        message: 'Promotions sync initiated (placeholder)',
-        timestamp: new Date().toISOString(),
-      };
+      const response = await this.api.post(`/sync/promotions/branch/${branchId}`);
+      return response.data;
     } catch (error: any) {
       return {
         success: false,
-        error: 'Failed to sync promotions to branch',
+        error: error.response?.data?.error || 'Failed to sync promotions to branch',
         timestamp: new Date().toISOString(),
       };
     }

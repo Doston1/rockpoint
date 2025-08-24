@@ -34,18 +34,15 @@ const InventoryUpdateSchema = z.object({
 
 const ProductSyncSchema = z.object({
   products: z.array(z.object({
-    sku: z.string(),
-    barcode: z.string().min(1), // Barcode is required
+    barcode: z.string().min(1), // Barcode is required and primary identifier
+    sku: z.string().optional(), // SKU for product identification
     name: z.string(),
-    name_ru: z.string().optional(),
-    name_uz: z.string().optional(),
     description: z.string().optional(),
     category_key: z.string().optional(),
     brand: z.string().optional(),
     price: z.number().positive(),
     cost: z.number().positive().optional(),
     unit_of_measure: z.string().optional(),
-    tax_rate: z.number().min(0).max(1).optional(),
     is_active: z.boolean().optional()
   })).min(1)
 });
@@ -68,7 +65,7 @@ const EmployeeSyncSchema = z.object({
 // GET /api/chain-core/inventory - Get current inventory levels
 router.get('/inventory', authenticateApiKey, requirePermission('inventory:read'), async (req: Request, res: Response) => {
   try {
-  const { barcode, sku, category, low_stock_only, page = '1', limit = '100' } = req.query;
+  const { barcode, category, low_stock_only, page = '1', limit = '100' } = req.query;
   
   let query = `
     SELECT 
@@ -101,11 +98,7 @@ router.get('/inventory', authenticateApiKey, requirePermission('inventory:read')
     paramIndex++;
   }
 
-  if (sku) {
-    query += ` AND p.sku = $${paramIndex}`;
-    params.push(sku);
-    paramIndex++;
-  }    if (category) {
+  if (category) {
       query += ` AND c.key = $${paramIndex}`;
       params.push(category);
       paramIndex++;
@@ -136,12 +129,6 @@ router.get('/inventory', authenticateApiKey, requirePermission('inventory:read')
   if (barcode) {
     countQuery += ` AND p.barcode = $${countParamIndex}`;
     countParams.push(barcode);
-    countParamIndex++;
-  }
-
-  if (sku) {
-    countQuery += ` AND p.sku = $${countParamIndex}`;
-    countParams.push(sku);
     countParamIndex++;
   }
 
@@ -190,21 +177,18 @@ router.put('/inventory', authenticateApiKey, requirePermission('inventory:write'
 
     for (const update of validatedData.updates) {
       try {
-        // Find product by barcode (primary), fallback to SKU or product_id
+        // Find product by barcode or product_id
         let productQuery: string;
         let identifier: string;
         
         if (update.barcode) {
           productQuery = 'SELECT id FROM products WHERE barcode = $1';
           identifier = update.barcode;
-        } else if (update.sku) {
-          productQuery = 'SELECT id FROM products WHERE sku = $1';
-          identifier = update.sku;
         } else if (update.product_id) {
           productQuery = 'SELECT id FROM products WHERE id = $1';
           identifier = update.product_id;
         } else {
-          throw new Error('Either barcode, sku or product_id must be provided');
+          throw new Error('Either barcode or product_id must be provided');
         }
 
         const productResult = await DatabaseManager.query(productQuery, [identifier]);
@@ -274,7 +258,6 @@ router.put('/inventory', authenticateApiKey, requirePermission('inventory:write'
           success: true,
           product_id: productId,
           barcode: update.barcode,
-          sku: update.sku,
           old_quantity: currentQty,
           new_quantity: newQuantity,
           adjustment: update.quantity_adjustment
@@ -284,7 +267,6 @@ router.put('/inventory', authenticateApiKey, requirePermission('inventory:write'
         results.push({
           success: false,
           barcode: update.barcode,
-          sku: update.sku,
           product_id: update.product_id,
           error: error instanceof Error ? error.message : 'Unknown error'
         });
@@ -335,10 +317,7 @@ router.get('/products', authenticateApiKey, requirePermission('products:read'), 
     let query = `
       SELECT 
         p.id,
-        p.sku,
         p.name,
-        p.name_ru,
-        p.name_uz,
         p.description,
         p.price,
         p.cost,
@@ -408,23 +387,23 @@ router.put('/products/prices', authenticateApiKey, requirePermission('products:w
 
     for (const update of validatedData.updates) {
       try {
-        // Find product by SKU or ID
+        // Find product by barcode or ID
         let productQuery = 'SELECT id, price, cost FROM products WHERE ';
         let productParams: any[] = [];
         
-        if (update.sku) {
-          productQuery += 'sku = $1';
-          productParams.push(update.sku);
+        if (update.barcode) {
+          productQuery += 'barcode = $1';
+          productParams.push(update.barcode);
         } else if (update.product_id) {
           productQuery += 'id = $1';
           productParams.push(update.product_id);
         } else {
-          throw new Error('Either sku or product_id must be provided');
+          throw new Error('Either barcode or product_id must be provided');
         }
 
         const productResult = await DatabaseManager.query(productQuery, productParams);
         if (productResult.rows.length === 0) {
-          throw new Error(`Product not found: ${update.sku || update.product_id}`);
+          throw new Error(`Product not found: ${update.barcode || update.product_id}`);
         }
 
         const product = productResult.rows[0];
@@ -463,7 +442,6 @@ router.put('/products/prices', authenticateApiKey, requirePermission('products:w
           success: true,
           product_id: product.id,
           barcode: update.barcode,
-          sku: update.sku,
           old_price: oldPrice,
           new_price: update.price,
           old_cost: oldCost,
@@ -474,7 +452,6 @@ router.put('/products/prices', authenticateApiKey, requirePermission('products:w
         results.push({
           success: false,
           barcode: update.barcode,
-          sku: update.sku,
           product_id: update.product_id,
           error: error instanceof Error ? error.message : 'Unknown error'
         });
@@ -529,25 +506,27 @@ router.post('/products/sync', authenticateApiKey, requirePermission('products:wr
         // Upsert product - branch-core uses simpler schema
         const upsertQuery = `
           INSERT INTO products (
-            barcode, name, description, category, 
+            sku, barcode, name, description, category, 
             brand, price, cost, is_active
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           ON CONFLICT (barcode) 
           DO UPDATE SET 
-            name = $2,
-            description = $3,
-            category = $4,
-            brand = $5,
-            price = $6,
-            cost = $7,
-            is_active = $8,
+            sku = $1,
+            name = $3,
+            description = $4,
+            category = $5,
+            brand = $6,
+            price = $7,
+            cost = $8,
+            is_active = $9,
             updated_at = NOW()
           RETURNING *
         `;
 
         const result = await DatabaseManager.query(upsertQuery, [
-          product.barcode || product.sku, // Use barcode as unique identifier
+          product.sku || null, // SKU can be null
+          product.barcode, // Use barcode as unique identifier
           product.name,
           product.description || null,
           categoryValue,
@@ -560,7 +539,6 @@ router.post('/products/sync', authenticateApiKey, requirePermission('products:wr
         results.push({
           success: true,
           barcode: product.barcode,
-          sku: product.sku,
           action: 'synced',
           product_id: result.rows[0].id
         });
@@ -569,7 +547,6 @@ router.post('/products/sync', authenticateApiKey, requirePermission('products:wr
         results.push({
           success: false,
           barcode: product.barcode,
-          sku: product.sku,
           error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
@@ -603,6 +580,105 @@ router.post('/products/sync', authenticateApiKey, requirePermission('products:wr
       success: false,
       error: 'Internal Server Error',
       message: 'Failed to sync products'
+    });
+  }
+});
+
+// Sync promotions from chain-core
+router.post('/promotions/sync', authenticateApiKey, requirePermission('promotions:write'), async (req: Request, res: Response) => {
+  try {
+    const { promotions } = req.body;
+    
+    if (!Array.isArray(promotions)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Promotions array is required'
+      });
+    }
+
+    const results: any[] = [];
+
+    await DatabaseManager.query('BEGIN');
+
+    for (const promotion of promotions) {
+      try {
+        // For branch-core, we'll store promotions in a simple table
+        // This is a simplified implementation - you may want to expand the schema
+        const upsertQuery = `
+          INSERT INTO promotions (
+            chain_promotion_id, name, description, promotion_type, 
+            discount_value, min_quantity, product_barcode, category_key,
+            start_date, end_date, is_active
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          ON CONFLICT (chain_promotion_id) 
+          DO UPDATE SET 
+            name = $2,
+            description = $3,
+            promotion_type = $4,
+            discount_value = $5,
+            min_quantity = $6,
+            product_barcode = $7,
+            category_key = $8,
+            start_date = $9,
+            end_date = $10,
+            is_active = $11,
+            updated_at = NOW()
+          RETURNING *
+        `;
+
+        const discountValue = promotion.discount_percentage || promotion.discount_amount || 0;
+
+        const result = await DatabaseManager.query(upsertQuery, [
+          promotion.id, // chain_promotion_id
+          promotion.name,
+          promotion.description || null,
+          promotion.type,
+          discountValue,
+          promotion.min_quantity || null,
+          promotion.product_barcode || null,
+          promotion.category_key || null,
+          promotion.start_date,
+          promotion.end_date,
+          promotion.is_active !== false
+        ]);
+
+        results.push({
+          success: true,
+          promotion_id: promotion.id,
+          name: promotion.name,
+          action: 'synced'
+        });
+
+      } catch (error) {
+        results.push({
+          success: false,
+          promotion_id: promotion.id,
+          name: promotion.name,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    await DatabaseManager.query('COMMIT');
+
+    res.json({
+      success: true,
+      data: {
+        results,
+        synced: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length
+      }
+    });
+
+  } catch (error) {
+    await DatabaseManager.query('ROLLBACK');
+    console.error('Error syncing promotions:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Internal Server Error',
+      message: 'Failed to sync promotions'
     });
   }
 });
@@ -825,7 +901,7 @@ router.get('/transactions', authenticateApiKey, requirePermission('transactions:
         SELECT 
           ti.transaction_id,
           ti.product_id,
-          p.sku,
+          p.barcode,
           p.name as product_name,
           ti.quantity,
           ti.unit_price,
