@@ -309,6 +309,50 @@ router.get('/barcode/:barcode', asyncHandler(async (req: Request, res: Response)
   });
 }));
 
+// GET /api/products/by-ids - Get products by array of IDs
+router.get('/by-ids', asyncHandler(async (req: Request, res: Response) => {
+  const idsParam = req.query.ids as string;
+  const language = (req.query.language as string) || 'en';
+  
+  if (!idsParam) {
+    throw createError('Product IDs are required', 400);
+  }
+  
+  const productIds = idsParam.split(',').filter(id => id.trim().length > 0);
+  
+  if (productIds.length === 0) {
+    res.json({
+      success: true,
+      data: { products: [] }
+    });
+    return;
+  }
+  
+  const { nameField, descField } = getLocalizedFields(language);
+  const categoryField = getLocalizedCategoryField(language);
+  
+  // Create placeholders for the IN clause
+  const placeholders = productIds.map((_, index) => `$${index + 1}`).join(',');
+  
+  const productQuery = `
+    SELECT 
+      p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
+      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      p.low_stock_threshold
+    FROM products p
+    LEFT JOIN categories c ON p.category = c.key
+    WHERE p.id IN (${placeholders}) AND p.is_active = true
+    ORDER BY p.name_en
+  `;
+
+  const result = await DatabaseManager.query(productQuery, productIds);
+
+  res.json({
+    success: true,
+    data: { products: result.rows }
+  });
+}));
+
 // Categories endpoints
 // GET /api/products/categories
 router.get('/categories', asyncHandler(async (req: Request, res: Response) => {

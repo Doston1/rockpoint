@@ -1037,9 +1037,11 @@ class ApiService {
     }
   }
 
-  async syncPricesToBranch(branchId: string): Promise<ApiResponse<{ synced: number }>> {
+  async syncPricesToBranch(branchId: string, forceAll: boolean = false): Promise<ApiResponse<{ synced: number }>> {
     try {
-      const response = await this.api.post(`/sync/prices/branch/${branchId}`);
+      const response = await this.api.post(`/sync/prices/branch/${branchId}`, {
+        force_all: forceAll
+      });
       return response.data;
     } catch (error: any) {
       return {

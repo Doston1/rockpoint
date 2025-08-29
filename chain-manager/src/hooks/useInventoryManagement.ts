@@ -407,9 +407,9 @@ export const useInventoryManagement = (): UseInventoryManagementReturn => {
     }
   }, [fetchProducts, fetchBranchInventory, selectedBranchId]);
 
-  const syncPrices = useCallback(async (branchId: string): Promise<boolean> => {
+  const syncPrices = useCallback(async (branchId: string, forceAll: boolean = false): Promise<boolean> => {
     try {
-      const response = await apiService.syncPricesToBranch(branchId);
+      const response = await apiService.syncPricesToBranch(branchId, forceAll);
       if (response.success) {
         // Refetch data to show updated prices
         await Promise.all([
