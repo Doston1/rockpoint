@@ -613,20 +613,6 @@ const InventoryPage = () => {
       minWidth: 200, 
       valueGetter: (_value: any, row: any) => row.product?.name 
     },
-    { 
-      field: 'branch_price', 
-      headerName: selectedBranchId ? t('inventory.branchPrice') : t('inventory.basePrice'), 
-      width: 120,
-      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '$0.00',
-      valueGetter: (_value: any, row: any) => row.branch_price || row.product?.base_price || 0
-    },
-    { 
-      field: 'branch_cost', 
-      headerName: selectedBranchId ? t('inventory.branchCost') : t('inventory.baseCost'), 
-      width: 120,
-      valueFormatter: (value: number) => value != null ? `$${Number(value).toFixed(2)}` : '-',
-      valueGetter: (_value: any, row: any) => row.branch_cost || row.product?.cost || 0
-    },
     { field: 'quantityInStock', headerName: t('inventory.quantity'), width: 100 },
     { field: 'minStockLevel', headerName: t('inventory.minStock'), width: 100 },
     { field: 'maxStockLevel', headerName: t('inventory.maxStock'), width: 100 },

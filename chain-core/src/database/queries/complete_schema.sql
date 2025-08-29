@@ -191,6 +191,21 @@ CREATE TABLE branch_product_pricing (
     UNIQUE(branch_id, product_id)
 );
 
+-- Branch product price sync tracking (tracks which products need price sync to branches)
+CREATE TABLE branch_product_price_sync_status (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    needs_sync BOOLEAN DEFAULT true,
+    last_synced_price DECIMAL(10,2),
+    last_synced_cost DECIMAL(10,2),
+    last_synced_at TIMESTAMP WITH TIME ZONE,
+    price_changed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(branch_id, product_id)
+);
+
 -- Branch inventory (stock levels per branch)
 CREATE TABLE branch_inventory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -500,6 +515,12 @@ CREATE INDEX idx_branch_product_pricing_effective_from ON branch_product_pricing
 CREATE INDEX idx_branch_product_pricing_effective_until ON branch_product_pricing(effective_until);
 CREATE INDEX idx_branch_product_pricing_branch_product ON branch_product_pricing(branch_id, product_id);
 
+-- Branch product price sync status indexes
+CREATE INDEX idx_price_sync_status_branch_id ON branch_product_price_sync_status(branch_id);
+CREATE INDEX idx_price_sync_status_product_id ON branch_product_price_sync_status(product_id);
+CREATE INDEX idx_price_sync_status_needs_sync ON branch_product_price_sync_status(needs_sync) WHERE needs_sync = true;
+CREATE INDEX idx_price_sync_status_branch_product ON branch_product_price_sync_status(branch_id, product_id);
+
 -- Branch inventory indexes
 CREATE INDEX idx_branch_inventory_branch_id ON branch_inventory(branch_id);
 CREATE INDEX idx_branch_inventory_product_id ON branch_inventory(product_id);
@@ -624,6 +645,21 @@ CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON products
 
 CREATE TRIGGER update_branch_product_pricing_updated_at BEFORE UPDATE ON branch_product_pricing
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger for price sync status updated_at
+CREATE TRIGGER update_price_sync_status_updated_at BEFORE UPDATE ON branch_product_price_sync_status
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Triggers to automatically mark products for sync when prices change
+CREATE TRIGGER products_price_change_sync_trigger
+    AFTER UPDATE ON products
+    FOR EACH ROW
+    EXECUTE FUNCTION mark_product_for_price_sync();
+
+CREATE TRIGGER branch_pricing_change_sync_trigger
+    AFTER INSERT OR UPDATE ON branch_product_pricing
+    FOR EACH ROW
+    EXECUTE FUNCTION mark_product_for_price_sync();
 
 CREATE TRIGGER update_branch_inventory_updated_at BEFORE UPDATE ON branch_inventory
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -778,6 +814,100 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to mark product for price sync when price changes
+CREATE OR REPLACE FUNCTION mark_product_for_price_sync()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Mark all branches to sync this product when base price changes
+    IF TG_TABLE_NAME = 'products' THEN
+        IF (OLD.base_price != NEW.base_price OR OLD.cost != NEW.cost) THEN
+            INSERT INTO branch_product_price_sync_status (branch_id, product_id, needs_sync, price_changed_at)
+            SELECT b.id, NEW.id, true, NOW()
+            FROM branches b
+            WHERE b.is_active = true
+            ON CONFLICT (branch_id, product_id) 
+            DO UPDATE SET 
+                needs_sync = true, 
+                price_changed_at = NOW(),
+                updated_at = NOW();
+        END IF;
+    END IF;
+    
+    -- Mark specific branch to sync when branch-specific pricing changes
+    IF TG_TABLE_NAME = 'branch_product_pricing' THEN
+        IF (TG_OP = 'INSERT') OR (TG_OP = 'UPDATE' AND (OLD.price != NEW.price OR OLD.cost != NEW.cost)) THEN
+            INSERT INTO branch_product_price_sync_status (branch_id, product_id, needs_sync, price_changed_at)
+            VALUES (NEW.branch_id, NEW.product_id, true, NOW())
+            ON CONFLICT (branch_id, product_id) 
+            DO UPDATE SET 
+                needs_sync = true, 
+                price_changed_at = NOW(),
+                updated_at = NOW();
+        END IF;
+    END IF;
+    
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to mark products as synced
+CREATE OR REPLACE FUNCTION mark_products_as_synced(
+    p_branch_id UUID,
+    p_product_ids UUID[],
+    p_synced_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+)
+RETURNS INTEGER AS $$
+DECLARE
+    updated_count INTEGER;
+BEGIN
+    UPDATE branch_product_price_sync_status 
+    SET 
+        needs_sync = false,
+        last_synced_at = p_synced_at,
+        updated_at = NOW()
+    WHERE branch_id = p_branch_id 
+        AND product_id = ANY(p_product_ids)
+        AND needs_sync = true;
+    
+    GET DIAGNOSTICS updated_count = ROW_COUNT;
+    RETURN updated_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get products that need price sync for a branch
+CREATE OR REPLACE FUNCTION get_products_needing_price_sync(p_branch_id UUID)
+RETURNS TABLE (
+    product_id UUID,
+    sku VARCHAR,
+    barcode VARCHAR,
+    current_price DECIMAL(10,2),
+    current_cost DECIMAL(10,2),
+    last_synced_price DECIMAL(10,2),
+    last_synced_cost DECIMAL(10,2),
+    price_changed_at TIMESTAMP WITH TIME ZONE
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        p.id as product_id,
+        p.sku,
+        p.barcode,
+        COALESCE(bpp.price, p.base_price) as current_price,
+        COALESCE(bpp.cost, p.cost) as current_cost,
+        bpss.last_synced_price,
+        bpss.last_synced_cost,
+        bpss.price_changed_at
+    FROM products p
+    INNER JOIN branch_product_price_sync_status bpss ON p.id = bpss.product_id
+    LEFT JOIN branch_product_pricing bpp ON p.id = bpp.product_id AND bpp.branch_id = p_branch_id
+    WHERE bpss.branch_id = p_branch_id
+        AND bpss.needs_sync = true
+        AND p.is_active = true 
+        AND p.barcode IS NOT NULL
+    ORDER BY bpss.price_changed_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+
 -- =================================================================
 -- COMMENTS FOR DOCUMENTATION
 -- =================================================================
@@ -786,6 +916,12 @@ COMMENT ON TABLE api_keys IS 'API keys for external system authentication';
 COMMENT ON COLUMN api_keys.key_hash IS 'Hashed API key for security';
 COMMENT ON COLUMN api_keys.permissions IS 'Array of permission strings (e.g., products:write, inventory:read)';
 COMMENT ON COLUMN api_keys.usage_count IS 'Number of times this API key has been used';
+
+COMMENT ON TABLE branch_product_price_sync_status IS 'Tracks which products need price synchronization to specific branches';
+COMMENT ON COLUMN branch_product_price_sync_status.needs_sync IS 'True when product price has changed and needs to be synced to branch';
+COMMENT ON COLUMN branch_product_price_sync_status.last_synced_price IS 'The price that was last successfully synced to the branch';
+COMMENT ON COLUMN branch_product_price_sync_status.last_synced_cost IS 'The cost that was last successfully synced to the branch';
+COMMENT ON COLUMN branch_product_price_sync_status.price_changed_at IS 'When the price was last changed (triggering need for sync)';
 
 COMMENT ON COLUMN branch_servers.api_key IS 'API key that the branch uses to authenticate to chain-core (inbound authentication)';
 COMMENT ON COLUMN branch_servers.outbound_api_key IS 'API key that chain-core uses to authenticate to this branch (outbound authentication)';
@@ -801,7 +937,7 @@ ANALYZE;
 -- SUMMARY
 -- =================================================================
 
--- This schema includes 24 tables:
+-- This schema includes 25 tables:
 -- 1. chains - Top-level chain organization
 -- 2. branches - Individual store locations
 -- 3. users - Main office/administrative users
@@ -810,21 +946,22 @@ ANALYZE;
 -- 6. categories - Product categories
 -- 7. products - Product master data
 -- 8. branch_product_pricing - Branch-specific pricing
--- 9. branch_inventory - Stock levels per branch
--- 10. stock_movements - Inventory movements
--- 11. customers - Customer information
--- 12. transactions - Sales transactions
--- 13. transaction_items - Transaction line items
--- 14. payments - Payment information
--- 15. promotions - Sales promotions
--- 16. branch_servers - Network server information
--- 17. network_settings - Network configuration
--- 18. connection_health_logs - Network health monitoring
--- 19. api_keys - Authentication system
--- 20. branch_sync_logs - Branch synchronization logs
--- 21. onec_sync_logs - 1C integration logs
--- 22. system_settings - System configuration
--- 23. sync_history - Legacy compatibility table
--- 24. sync_tasks - Legacy compatibility table
+-- 9. branch_product_price_sync_status - Price synchronization tracking
+-- 10. branch_inventory - Stock levels per branch
+-- 11. stock_movements - Inventory movements
+-- 12. customers - Customer information
+-- 13. transactions - Sales transactions
+-- 14. transaction_items - Transaction line items
+-- 15. payments - Payment information
+-- 16. promotions - Sales promotions
+-- 17. branch_servers - Network server information
+-- 18. network_settings - Network configuration
+-- 19. connection_health_logs - Network health monitoring
+-- 20. api_keys - Authentication system
+-- 21. branch_sync_logs - Branch synchronization logs
+-- 22. onec_sync_logs - 1C integration logs
+-- 23. system_settings - System configuration
+-- 24. sync_history - Legacy compatibility table
+-- 25. sync_tasks - Legacy compatibility table
 
 COMMIT;

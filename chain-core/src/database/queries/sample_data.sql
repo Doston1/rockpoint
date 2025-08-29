@@ -20,6 +20,7 @@ DELETE FROM transactions;
 -- Clear inventory and pricing data
 DELETE FROM stock_movements;
 DELETE FROM branch_inventory;
+DELETE FROM branch_product_price_sync_status;
 DELETE FROM branch_product_pricing;
 
 -- Clear employee data
@@ -418,6 +419,14 @@ SELECT
 FROM branches b
 CROSS JOIN products p
 WHERE b.is_active = true AND p.is_active = true;
+
+-- Initialize price sync tracking for all products and branches
+-- This marks all products as initially needing sync (first time setup)
+INSERT INTO branch_product_price_sync_status (branch_id, product_id, needs_sync, price_changed_at)
+SELECT b.id, p.id, true, NOW() - INTERVAL '1 hour' -- Mark as changed 1 hour ago
+FROM branches b
+CROSS JOIN products p
+WHERE b.is_active = true AND p.is_active = true AND p.barcode IS NOT NULL;
 
 -- Insert sample inventory for each branch
 INSERT INTO branch_inventory (branch_id, product_id, quantity_in_stock, min_stock_level, max_stock_level, reorder_point)

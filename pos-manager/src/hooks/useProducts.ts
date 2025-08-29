@@ -25,10 +25,12 @@ export interface UseProductsReturn {
   getAllProducts: () => Promise<Product[]>;
   getCategories: () => Promise<{ key: string; name: string; product_count: number }[]>;
   getProductsByCategory: (category: string, limit?: number, offset?: number) => Promise<Product[]>;
+  getProductsByIds: (productIds: string[]) => Promise<Product[]>;
   createProduct: (product: Partial<Product>) => Promise<Product | null>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<Product | null>;
   deleteProduct: (id: string) => Promise<boolean>;
   getLowStockProducts: () => Promise<Product[]>;
+  updateLocalProductStock: (productId: string, newQuantity: number) => void;
   clearError: () => void;
   clearSearchSuggestions: () => void;
 }
@@ -54,6 +56,37 @@ export function useProducts(): UseProductsReturn {
 
   const clearSearchSuggestions = useCallback(() => {
     setSearchSuggestions([]);
+  }, []);
+
+  const updateLocalProductStock = useCallback((productId: string, newQuantity: number) => {
+    // Update products array
+    setProducts(prev => 
+      prev.map(product => 
+        product.id === productId 
+          ? { ...product, quantity_in_stock: newQuantity }
+          : product
+      )
+    );
+
+    // Update search suggestions
+    setSearchSuggestions(prev => 
+      prev.map(product => 
+        product.id === productId 
+          ? { ...product, quantity_in_stock: newQuantity }
+          : product
+      )
+    );
+
+    // Update cache entries
+    const cache = searchCache.current;
+    for (const [key, value] of cache.entries()) {
+      const updatedProducts = value.products.map(product => 
+        product.id === productId 
+          ? { ...product, quantity_in_stock: newQuantity }
+          : product
+      );
+      cache.set(key, { ...value, products: updatedProducts });
+    }
   }, []);
 
   // Cache cleanup function
@@ -374,6 +407,32 @@ export function useProducts(): UseProductsReturn {
     }
   }, [i18n.language]);
 
+  const getProductsByIds = useCallback(async (productIds: string[]): Promise<Product[]> => {
+    if (productIds.length === 0) return [];
+    
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiService.getProductsByIds(productIds, i18n.language);
+      
+      if (response.success && response.data && response.data.products) {
+        const normalizedProducts = normalizeProducts(response.data.products);
+        return normalizedProducts;
+      } else {
+        const errorMsg = response.error || 'Failed to load products by IDs';
+        setError(errorMsg);
+        return [];
+      }
+    } catch (err: any) {
+      const errorMsg = err.message || 'Network error occurred';
+      setError(errorMsg);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [i18n.language]);
+
   // Refresh products when language changes
   useEffect(() => {
     if (products.length > 0) {
@@ -393,10 +452,12 @@ export function useProducts(): UseProductsReturn {
     getAllProducts,
     getCategories,
     getProductsByCategory,
+    getProductsByIds,
     createProduct,
     updateProduct,
     deleteProduct,
     getLowStockProducts,
+    updateLocalProductStock,
     clearError,
     clearSearchSuggestions,
   };

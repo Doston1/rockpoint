@@ -56,13 +56,15 @@ const CheckoutPage = () => {
     searchProductsForAutoComplete,
     getCategories,
     getProductsByCategory,
+    getProductsByIds,
     products, 
     categories,
     searchSuggestions,
     loading: productsLoading, 
     error: productsError,
     clearError: clearProductsError,
-    clearSearchSuggestions
+    clearSearchSuggestions,
+    updateLocalProductStock
   } = useProducts();
   const { 
     createTransaction, 
@@ -75,7 +77,8 @@ const CheckoutPage = () => {
     isConnected, 
     requestPrice, 
     onPriceResponse,
-    syncTransaction
+    syncTransaction,
+    onInventoryChanged
   } = useWebSocket();
 
   const [barcode, setBarcode] = useState('');
@@ -101,6 +104,7 @@ const CheckoutPage = () => {
   // Scanner-related state
   const [scannerMode, setScannerMode] = useState(false);
   const [productNotFoundSnackbar, setProductNotFoundSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('checkout.productNotFound');
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   const subtotal = cart.reduce((sum, item) => sum + item.total_price, 0);
@@ -141,6 +145,17 @@ const CheckoutPage = () => {
 
     return cleanup;
   }, [onPriceResponse]);
+
+  // Set up WebSocket inventory change handler
+  useEffect(() => {
+    const cleanup = onInventoryChanged((inventoryChange) => {
+      console.log('Inventory change received:', inventoryChange);
+      // Update local product stock
+      updateLocalProductStock(inventoryChange.productId, inventoryChange.newQuantity);
+    });
+
+    return cleanup;
+  }, [onInventoryChanged, updateLocalProductStock]);
 
   // Load categories on component mount
   useEffect(() => {
@@ -188,12 +203,21 @@ const CheckoutPage = () => {
       if (!product || product === null) {
         clearProductsError();
         console.log('Product not found for barcode:', cleanBarcode);
+        setSnackbarMessage('checkout.productNotFound');
         setProductNotFoundSnackbar(true);
         setBarcode('');
         return;
       }
 
-      // Product found - add to cart
+      // Product found - check stock before adding to cart
+      if (product.quantity_in_stock <= 0) {
+        setSnackbarMessage('inventory.outOfStock');
+        setProductNotFoundSnackbar(true);
+        setBarcode('');
+        return;
+      }
+
+      // Product found and in stock - add to cart
       addToCart(product);
       setBarcode('');
 
@@ -207,6 +231,7 @@ const CheckoutPage = () => {
       // Check if it's a 404 error (product not found)
       if (error.message?.includes('Product not found') || error.message?.includes('404')) {
         clearProductsError();
+        setSnackbarMessage('checkout.productNotFound');
         setProductNotFoundSnackbar(true);
         setBarcode('');
       } else {
@@ -253,7 +278,7 @@ const CheckoutPage = () => {
 
   const handleProductSelect = (product: Product | null) => {
     setSelectedProduct(product);
-    if (product) {
+    if (product && product.quantity_in_stock > 0) {
       addToCart(product);
       setSearchQuery('');
       setSelectedProduct(null);
@@ -263,24 +288,50 @@ const CheckoutPage = () => {
       if (isConnected && product.barcode) {
         requestPrice(product.id, product.barcode);
       }
+    } else if (product && product.quantity_in_stock === 0) {
+      // Show out of stock warning
+      setSnackbarMessage('inventory.outOfStock');
+      setProductNotFoundSnackbar(true);
+      setSearchQuery('');
+      setSelectedProduct(null);
+      clearSearchSuggestions();
     }
   };
 
   const addToCart = (product: Product, quantity = 1) => {
+    // Check if product is in stock
+    if (product.quantity_in_stock <= 0) {
+      setSnackbarMessage('inventory.outOfStock');
+      setProductNotFoundSnackbar(true);
+      return;
+    }
+
     setCart(prev => {
       const existingItem = prev.find(item => item.product_id === product.id);
       
       if (existingItem) {
+        // Check if we can add more quantity
+        const newQuantity = existingItem.quantity + quantity;
+        if (newQuantity > product.quantity_in_stock) {
+          // Can't add more than available stock
+          return prev;
+        }
+        
         return prev.map(item =>
           item.product_id === product.id
             ? {
                 ...item,
-                quantity: item.quantity + quantity,
-                total_price: (item.quantity + quantity) * product.price
+                quantity: newQuantity,
+                total_price: newQuantity * product.price
               }
             : item
         );
       } else {
+        // Check if requested quantity is available
+        if (quantity > product.quantity_in_stock) {
+          return prev;
+        }
+        
         const newItem: CartItem = {
           product_id: product.id,
           quantity,
@@ -297,6 +348,12 @@ const CheckoutPage = () => {
     setCart(prev => prev.map(item => {
       if (item.product_id === productId) {
         const newQuantity = Math.max(0, item.quantity + change);
+        
+        // Check stock limits when increasing quantity
+        if (change > 0 && newQuantity > item.product.quantity_in_stock) {
+          return item; // Don't allow quantity greater than stock
+        }
+        
         return {
           ...item,
           quantity: newQuantity,
@@ -385,6 +442,22 @@ const CheckoutPage = () => {
             ...transactionResponse,
             id: transactionId,
             status: 'completed'
+          });
+        }
+        
+        // Fetch updated stock quantities from backend for all items in the cart
+        const productIds = cart.map(item => item.product_id);
+        try {
+          const updatedProducts = await getProductsByIds(productIds);
+          updatedProducts.forEach(updatedProduct => {
+            updateLocalProductStock(updatedProduct.id, updatedProduct.quantity_in_stock);
+          });
+        } catch (error) {
+          console.error('Failed to fetch updated stock:', error);
+          // Fallback to local calculation if backend call fails
+          cart.forEach(item => {
+            const newStock = Math.max(0, item.product.quantity_in_stock - item.quantity);
+            updateLocalProductStock(item.product_id, newStock);
           });
         }
         
@@ -541,23 +614,40 @@ const CheckoutPage = () => {
                   )}
                   renderOption={(props: any, option: Product) => {
                     const { key, ...otherProps } = props;
+                    const isOutOfStock = option.quantity_in_stock === 0;
                     return (
-                      <Box component="li" key={key} {...otherProps}>
+                      <Box 
+                        component="li" 
+                        key={key} 
+                        {...otherProps}
+                        sx={{
+                          opacity: isOutOfStock ? 0.6 : 1,
+                          pointerEvents: isOutOfStock ? 'none' : 'auto'
+                        }}
+                      >
                         <Box sx={{ width: '100%' }}>
                           <Typography variant="body2" fontWeight="bold">
                             {option.name}
                           </Typography>
                           <Box display="flex" justifyContent="space-between" alignItems="center">
                             <Typography variant="caption" color="text.secondary">
-                              {option.category && `${option.category} • `}{t('checkout.stockLabel')} {option.quantity_in_stock}
+                              {option.category && `${option.category} • `}
+                              <span style={{ color: isOutOfStock ? 'red' : 'inherit' }}>
+                                {t('checkout.stockLabel')} {option.quantity_in_stock}
+                              </span>
                               {option.barcode && ` • ${option.barcode}`}
                             </Typography>
                             <Typography variant="body2" color="primary.main" fontWeight="bold">
                               ${option.price.toFixed(2)}
                             </Typography>
                           </Box>
-                          {option.quantity_in_stock <= (option.low_stock_threshold || 10) && (
+                          {isOutOfStock && (
                             <Typography variant="caption" color="error.main">
+                              {t('inventory.outOfStock')}
+                            </Typography>
+                          )}
+                          {!isOutOfStock && option.quantity_in_stock <= (option.low_stock_threshold || 10) && (
+                            <Typography variant="caption" color="warning.main">
                               {t('checkout.lowStockWarning')}
                             </Typography>
                           )}
@@ -652,8 +742,14 @@ const CheckoutPage = () => {
                       products.map((product) => (
                         <Card 
                           key={product.id} 
-                          sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
-                          onClick={() => addToCart(product)}
+                          sx={{ 
+                            cursor: product.quantity_in_stock > 0 ? 'pointer' : 'not-allowed',
+                            opacity: product.quantity_in_stock > 0 ? 1 : 0.6,
+                            '&:hover': { 
+                              backgroundColor: product.quantity_in_stock > 0 ? 'action.hover' : 'transparent' 
+                            } 
+                          }}
+                          onClick={() => product.quantity_in_stock > 0 && addToCart(product)}
                         >
                           <CardContent sx={{ textAlign: 'center', py: 2 }}>
                             <Typography variant="body2" fontWeight="bold" noWrap>
@@ -662,11 +758,19 @@ const CheckoutPage = () => {
                             <Typography variant="h6" color="primary.main" sx={{ my: 1 }}>
                               ${product.price.toFixed(2)}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography 
+                              variant="caption" 
+                              color={product.quantity_in_stock > 0 ? "text.secondary" : "error.main"}
+                            >
                               {t('checkout.stockLabel')} {product.quantity_in_stock}
                             </Typography>
-                            {product.quantity_in_stock <= (product.low_stock_threshold || 10) && (
+                            {product.quantity_in_stock === 0 && (
                               <Typography variant="caption" color="error.main" display="block">
+                                {t('inventory.outOfStock')}
+                              </Typography>
+                            )}
+                            {product.quantity_in_stock > 0 && product.quantity_in_stock <= (product.low_stock_threshold || 10) && (
+                              <Typography variant="caption" color="warning.main" display="block">
                                 {t('checkout.lowStockWarning')}
                               </Typography>
                             )}
@@ -704,7 +808,16 @@ const CheckoutPage = () => {
                   <ListItem key={item.product_id} sx={{ px: 0 }}>
                     <ListItemText
                       primary={item.product.name}
-                      secondary={`$${item.unit_price.toFixed(2)} ${t('checkout.each')}`}
+                      secondary={
+                        <Box>
+                          <Typography variant="body2">
+                            ${item.unit_price.toFixed(2)} {t('checkout.each')}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {t('checkout.stockLabel')} {item.product.quantity_in_stock}
+                          </Typography>
+                        </Box>
+                      }
                     />
                     <ListItemSecondaryAction>
                       <Box display="flex" alignItems="center" gap={1}>
@@ -712,7 +825,11 @@ const CheckoutPage = () => {
                           <Remove />
                         </IconButton>
                         <Typography>{item.quantity}</Typography>
-                        <IconButton size="small" onClick={() => updateQuantity(item.product_id, 1)}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => updateQuantity(item.product_id, 1)}
+                          disabled={item.quantity >= item.product.quantity_in_stock}
+                        >
                           <Add />
                         </IconButton>
                         <IconButton size="small" onClick={() => removeItem(item.product_id)}>
@@ -903,7 +1020,7 @@ const CheckoutPage = () => {
             severity="warning" 
             sx={{ width: '100%' }}
           >
-            {t('checkout.productNotFound')}
+            {t(snackbarMessage)}
           </Alert>
         </Snackbar>
       </Container>

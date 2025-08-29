@@ -269,6 +269,18 @@ class ApiService {
     return this.request(`/products?${params.toString()}`);
   }
 
+  async getProductsByIds(productIds: string[], language?: string): Promise<ApiResponse<{ products: Product[] }>> {
+    const params = new URLSearchParams({
+      ids: productIds.join(',')
+    });
+    
+    if (language) {
+      params.append('language', language);
+    }
+    
+    return this.request(`/products/by-ids?${params.toString()}`);
+  }
+
   async createProduct(productData: Partial<Product>): Promise<ApiResponse<Product>> {
     return this.request('/products', {
       method: 'POST',
