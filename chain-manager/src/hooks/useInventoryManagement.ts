@@ -28,7 +28,7 @@ interface UseInventoryManagementReturn {
   refetchPromotions: () => Promise<void>;
   
   // Product management
-  createProduct: (data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Product | null>;
+  createProduct: (data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>, selectedBranches?: string[]) => Promise<Product | null>;
   updateProduct: (productId: string, data: Partial<Product>) => Promise<Product | null>;
   deleteProduct: (productId: string) => Promise<boolean>;
   
@@ -40,10 +40,12 @@ interface UseInventoryManagementReturn {
   updatePromotion: (promotionId: string, data: Partial<Promotion>) => Promise<Promotion | null>;
   deletePromotion: (promotionId: string) => Promise<boolean>;
   
-  // Sync operations
-  syncProducts: (branchId: string) => Promise<boolean>;
-  syncPrices: (branchId: string) => Promise<boolean>;
-  syncPromotions: (branchId: string) => Promise<boolean>;
+  // NEW: Comprehensive sync
+  syncCompleteProducts: (branchId: string, sinceTimestamp?: string) => Promise<{
+    success: boolean;
+    results?: any;
+    message?: string;
+  }>;
 }
 
 export const useInventoryManagement = (): UseInventoryManagementReturn => {
@@ -158,9 +160,9 @@ export const useInventoryManagement = (): UseInventoryManagementReturn => {
   }, [selectedBranchId]);
 
   // Product management
-  const createProduct = useCallback(async (data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product | null> => {
+  const createProduct = useCallback(async (data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>, selectedBranches: string[] = []): Promise<Product | null> => {
     try {
-      const response = await apiService.createProduct(data);
+      const response = await apiService.createProduct(data, selectedBranches);
       
       if (response.success && response.data) {
         setProducts(prev => [...prev, response.data!]);
@@ -389,56 +391,45 @@ export const useInventoryManagement = (): UseInventoryManagementReturn => {
     }
   }, []);
 
-  // Sync operations
-  const syncProducts = useCallback(async (branchId: string): Promise<boolean> => {
+  // NEW: Comprehensive product sync
+  const syncCompleteProducts = useCallback(async (branchId: string, sinceTimestamp?: string): Promise<{
+    success: boolean;
+    results?: any;
+    message?: string;
+  }> => {
     try {
-      const response = await apiService.syncProductsToBranch(branchId);
+      const response = await apiService.syncCompleteProductsToBranch(branchId, sinceTimestamp);
+      
       if (response.success) {
-        // Refetch data to show updated products
+        // Refetch all relevant data to show updates
         await Promise.all([
           fetchProducts(),
-          selectedBranchId === branchId ? fetchBranchInventory() : Promise.resolve()
+          selectedBranchId === branchId ? fetchBranchInventory() : Promise.resolve(),
+          selectedBranchId === branchId ? fetchPromotions() : Promise.resolve()
         ]);
+        
+        return {
+          success: true,
+          results: response.data?.results,
+          message: (response.data?.total_synced || 0) > 0 
+            ? `Successfully synced ${response.data?.total_synced || 0} changes`
+            : 'No changes to sync'
+        };
+      } else {
+        return {
+          success: false,
+          message: response.error || 'Failed to sync products'
+        };
       }
-      return response.success;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      return false;
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
+      return {
+        success: false,
+        message: errorMessage
+      };
     }
-  }, [fetchProducts, fetchBranchInventory, selectedBranchId]);
-
-  const syncPrices = useCallback(async (branchId: string, forceAll: boolean = false): Promise<boolean> => {
-    try {
-      const response = await apiService.syncPricesToBranch(branchId, forceAll);
-      if (response.success) {
-        // Refetch data to show updated prices
-        await Promise.all([
-          fetchProducts(),
-          selectedBranchId === branchId ? fetchBranchInventory() : Promise.resolve()
-        ]);
-      }
-      return response.success;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      return false;
-    }
-  }, [fetchProducts, fetchBranchInventory, selectedBranchId]);
-
-  const syncPromotions = useCallback(async (branchId: string): Promise<boolean> => {
-    try {
-      const response = await apiService.syncPromotionsToBranch(branchId);
-      if (response.success) {
-        // Refetch promotions to show updated data
-        if (selectedBranchId === branchId) {
-          await fetchPromotions();
-        }
-      }
-      return response.success;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      return false;
-    }
-  }, [fetchPromotions, selectedBranchId]);
+  }, [fetchProducts, fetchBranchInventory, fetchPromotions, selectedBranchId]);
 
   // Effects
   useEffect(() => {
@@ -491,8 +482,6 @@ export const useInventoryManagement = (): UseInventoryManagementReturn => {
     deletePromotion,
     
     // Sync operations
-    syncProducts,
-    syncPrices,
-    syncPromotions,
+    syncCompleteProducts,
   };
 };

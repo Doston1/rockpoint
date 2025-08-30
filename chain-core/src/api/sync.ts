@@ -40,14 +40,17 @@ const SyncInventorySchema = z.object({
   })).min(1)
 });
 
-// POST /api/sync/products/branch/:branchId - Sync products to specific branch
-router.post('/products/branch/:branchId', asyncHandler(async (req: Request, res: Response) => {
+
+
+// POST /api/sync/products-complete/branch/:branchId - Comprehensive product sync
+router.post('/products-complete/branch/:branchId', asyncHandler(async (req: Request, res: Response) => {
   try {
     const { branchId } = req.params;
+    const { since_timestamp } = req.body; // Optional: only sync changes since this timestamp
     
     // Validate branch exists
     const branchCheck = await DatabaseManager.query(
-      'SELECT id, name FROM branches WHERE id = $1 AND is_active = true',
+      'SELECT id, name, last_sync_at FROM branches WHERE id = $1 AND is_active = true',
       [branchId]
     );
     
@@ -58,473 +61,236 @@ router.post('/products/branch/:branchId', asyncHandler(async (req: Request, res:
       });
     }
     
-    // Get all active products with their current pricing
-    const productsQuery = `
+    const branch = branchCheck.rows[0];
+    const lastSyncAt = since_timestamp || branch.last_sync_at || '1970-01-01';
+    
+    console.log(`🔄 [COMPLETE SYNC] Starting comprehensive sync for branch ${branchId} since ${lastSyncAt}`);
+    
+    const syncResults = {
+      products: { synced: 0, checked: 0 },
+      prices: { synced: 0, checked: 0 },
+      promotions: { synced: 0, checked: 0 },
+      inventory_status: { synced: 0, checked: 0 }
+    };
+    
+    // 1. Get products that are new or updated since last sync
+    const newOrUpdatedProducts = await DatabaseManager.query(`
       SELECT 
         p.id, p.sku, p.name, p.name_ru, p.name_uz, p.barcode, p.description,
         p.description_ru, p.description_uz, p.brand, p.unit_of_measure,
-        p.tax_rate, p.is_active, 
+        p.tax_rate, p.is_active, p.created_at, p.updated_at,
         COALESCE(bpp.price, p.base_price) as price,
         COALESCE(bpp.cost, p.cost) as cost,
         c.key as category_key
       FROM products p
       LEFT JOIN branch_product_pricing bpp ON p.id = bpp.product_id AND bpp.branch_id = $1
       LEFT JOIN categories c ON p.category_id = c.id
-      WHERE p.is_active = true
-      ORDER BY p.name
-    `;
+      WHERE (p.created_at > $2 OR p.updated_at > $2 OR bpp.updated_at > $2)
+        AND p.barcode IS NOT NULL
+      ORDER BY p.updated_at DESC, p.created_at DESC
+    `, [branchId, lastSyncAt]);
     
-    const productsResult = await DatabaseManager.query(productsQuery, [branchId]);
+    syncResults.products.checked = newOrUpdatedProducts.rows.length;
     
-    const products = productsResult.rows.map((row: any) => ({
-      sku: row.sku,
-      barcode: row.barcode,
-      name: row.name,
-      name_ru: row.name_ru,
-      name_uz: row.name_uz,
-      description: row.description,
-      description_ru: row.description_ru,
-      description_uz: row.description_uz,
-      category_key: row.category_key,
-      brand: row.brand,
-      price: parseFloat(row.price || 0),
-      cost: parseFloat(row.cost || 0),
-      unit_of_measure: row.unit_of_measure,
-      tax_rate: parseFloat(row.tax_rate || 0),
-      is_active: row.is_active
-    }));
-    
-    // Send to branch
-    const result = await BranchApiService.makeRequest({
-      branchId,
-      endpoint: 'chain-core/products/sync',
-      method: 'POST',
-      data: { products },
-      timeout: 60000 // Longer timeout for large sync
-    });
-    
-    res.json({
-      success: result.success,
-      data: {
-        sync_type: 'products',
-        branch_id: branchId,
-        branch_name: branchCheck.rows[0].name,
-        total_products: products.length,
-        sync_result: result.success ? result.data : null,
-        error: result.error
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error syncing products to branch:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to sync products to branch',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-}));
-
-// POST /api/sync/prices/branch/:branchId - Sync only changed prices to specific branch
-router.post('/prices/branch/:branchId', asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const { branchId } = req.params;
-    const { force_all = false } = req.body; // Option to force sync all products
-    
-    // Validate branch exists
-    const branchCheck = await DatabaseManager.query(
-      'SELECT id, name FROM branches WHERE id = $1 AND is_active = true',
+    // 2. Get products with price changes (using existing sync status table)
+    const priceChanges = await DatabaseManager.query(
+      'SELECT * FROM get_products_needing_price_sync($1)',
       [branchId]
     );
     
-    if (branchCheck.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Branch not found or inactive'
-      });
+    syncResults.prices.checked = priceChanges.rows.length;
+    
+    // 3. Get promotions that are new or updated since last sync
+    const promotionChanges = await DatabaseManager.query(`
+      SELECT 
+        pr.id, pr.name, pr.description, pr.type, pr.discount_percentage,
+        pr.discount_amount, pr.min_quantity, pr.buy_quantity, pr.get_quantity,
+        pr.start_date, pr.end_date, pr.is_active,
+        p.sku, p.barcode,
+        c.key as category_key
+      FROM promotions pr
+      LEFT JOIN products p ON pr.product_id = p.id
+      LEFT JOIN categories c ON pr.category_id = c.id
+      WHERE (pr.branch_id = $1 OR pr.branch_id IS NULL)
+        AND (pr.created_at > $2 OR pr.updated_at > $2)
+        AND pr.is_active = true
+        AND pr.start_date <= NOW()
+        AND pr.end_date >= NOW()
+      ORDER BY pr.updated_at DESC
+    `, [branchId, lastSyncAt]);
+    
+    syncResults.promotions.checked = promotionChanges.rows.length;
+    
+    // 4. Get products with active/inactive status changes
+    const statusChanges = await DatabaseManager.query(`
+      SELECT 
+        p.id, p.sku, p.barcode, p.is_active, p.updated_at
+      FROM products p
+      WHERE p.updated_at > $1 AND p.barcode IS NOT NULL
+      ORDER BY p.updated_at DESC
+    `, [lastSyncAt]);
+    
+    syncResults.inventory_status.checked = statusChanges.rows.length;
+    
+    // Prepare comprehensive sync payload
+    const syncPayload: any = {
+      sync_type: 'complete_products',
+      timestamp: new Date().toISOString(),
+      last_sync_at: lastSyncAt,
+      data: {}
+    };
+    
+    // Add new/updated products
+    if (newOrUpdatedProducts.rows.length > 0) {
+      syncPayload.data.products = newOrUpdatedProducts.rows.map((row: any) => ({
+        sku: row.sku,
+        barcode: row.barcode,
+        name: row.name,
+        name_ru: row.name_ru,
+        name_uz: row.name_uz,
+        description: row.description,
+        description_ru: row.description_ru,
+        description_uz: row.description_uz,
+        category_key: row.category_key,
+        brand: row.brand,
+        price: parseFloat(row.price || 0),
+        cost: parseFloat(row.cost || 0),
+        tax_rate: parseFloat(row.tax_rate || 0),
+        unit_of_measure: row.unit_of_measure,
+        is_active: row.is_active,
+        product_id: row.id
+      }));
+      syncResults.products.synced = syncPayload.data.products.length;
     }
     
-    let updates: any[] = [];
-    let totalChecked = 0;
+    // Add price changes
+    if (priceChanges.rows.length > 0) {
+      syncPayload.data.price_updates = priceChanges.rows.map((row: any) => ({
+        barcode: row.barcode,
+        sku: row.sku,
+        product_id: row.product_id,
+        price: parseFloat(row.current_price || 0),
+        cost: parseFloat(row.current_cost || 0),
+        effective_date: new Date().toISOString()
+      }));
+      syncResults.prices.synced = syncPayload.data.price_updates.length;
+    }
     
-    if (force_all) {
-      // Force sync all products (original behavior)
-      console.log(`🔄 [PRICE SYNC] Force sync all products for branch ${branchId}`);
-      const allProductsQuery = `
-        SELECT 
-          p.id, p.sku, p.barcode,
-          COALESCE(bpp.price, p.base_price) as price,
-          COALESCE(bpp.cost, p.cost) as cost
-        FROM products p
-        LEFT JOIN branch_product_pricing bpp ON p.id = bpp.product_id AND bpp.branch_id = $1
-        WHERE p.is_active = true AND p.barcode IS NOT NULL
-        ORDER BY p.name
-      `;
-      
-      const priceResult = await DatabaseManager.query(allProductsQuery, [branchId]);
-      totalChecked = priceResult.rows.length;
-      
-      updates = priceResult.rows.map((row: any) => ({
+    // Add promotions
+    if (promotionChanges.rows.length > 0) {
+      syncPayload.data.promotions = promotionChanges.rows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        type: row.type,
+        discount_percentage: parseFloat(row.discount_percentage || 0),
+        discount_amount: parseFloat(row.discount_amount || 0),
+        min_quantity: parseInt(row.min_quantity || 1),
+        buy_quantity: parseInt(row.buy_quantity || 0),
+        get_quantity: parseInt(row.get_quantity || 0),
+        start_date: row.start_date,
+        end_date: row.end_date,
+        is_active: row.is_active,
+        product_sku: row.sku,
+        product_barcode: row.barcode,
+        category_key: row.category_key
+      }));
+      syncResults.promotions.synced = syncPayload.data.promotions.length;
+    }
+    
+    // Add status changes
+    if (statusChanges.rows.length > 0) {
+      syncPayload.data.status_updates = statusChanges.rows.map((row: any) => ({
         barcode: row.barcode,
         sku: row.sku,
         product_id: row.id,
-        price: parseFloat(row.price || 0),
-        cost: parseFloat(row.cost || 0),
-        effective_date: new Date().toISOString()
+        is_active: row.is_active
       }));
-      
-      console.log(`🔄 [PRICE SYNC] Force sync: Found ${updates.length} products to sync`);
-    } else {
-      // Only sync products that have changed prices (new optimized behavior)
-      console.log(`🔄 [PRICE SYNC] Optimized sync: checking for changed prices for branch ${branchId}`);
-      
-      // Check if the sync tracking table exists and has data
-      try {
-        const trackingTableCheck = await DatabaseManager.query(`
-          SELECT COUNT(*) as total_entries, 
-                 COUNT(CASE WHEN needs_sync = true THEN 1 END) as needs_sync_count
-          FROM branch_product_price_sync_status 
-          WHERE branch_id = $1
-        `, [branchId]);
-        
-        console.log(`🔄 [PRICE SYNC] Sync tracking table status:`, trackingTableCheck.rows[0]);
-        
-        // If no entries exist, fall back to force_all mode
-        if (trackingTableCheck.rows[0]?.total_entries === '0') {
-          console.warn(`⚠️  [PRICE SYNC] No sync tracking entries found for branch ${branchId}, falling back to force_all mode`);
-          const allProductsQuery = `
-            SELECT 
-              p.id, p.sku, p.barcode,
-              COALESCE(bpp.price, p.base_price) as price,
-              COALESCE(bpp.cost, p.cost) as cost
-            FROM products p
-            LEFT JOIN branch_product_pricing bpp ON p.id = bpp.product_id AND bpp.branch_id = $1
-            WHERE p.is_active = true AND p.barcode IS NOT NULL
-            ORDER BY p.name
-          `;
-          
-          const priceResult = await DatabaseManager.query(allProductsQuery, [branchId]);
-          totalChecked = priceResult.rows.length;
-          
-          updates = priceResult.rows.map((row: any) => ({
-            barcode: row.barcode,
-            sku: row.sku,
-            product_id: row.id,
-            price: parseFloat(row.price || 0),
-            cost: parseFloat(row.cost || 0),
-            effective_date: new Date().toISOString()
-          }));
-          
-          console.log(`🔄 [PRICE SYNC] Fallback mode: Found ${updates.length} products to sync`);
-        } else {
-          // Proceed with original optimized sync logic
-          // First, check for duplicates in the sync status table
-          const duplicateCheck = await DatabaseManager.query(`
-            SELECT product_id, COUNT(*) as count
-            FROM branch_product_price_sync_status 
-            WHERE branch_id = $1 AND needs_sync = true
-            GROUP BY product_id 
-            HAVING COUNT(*) > 1
-          `, [branchId]);
-          
-          if (duplicateCheck.rows.length > 0) {
-            console.warn(`⚠️  [PRICE SYNC] WARNING: Found duplicate entries in sync status table:`, duplicateCheck.rows);
-          }
-          
-          const changedPricesResult = await DatabaseManager.query(
-            'SELECT * FROM get_products_needing_price_sync($1)',
-            [branchId]
-          );
-          
-          totalChecked = changedPricesResult.rows.length;
-          console.log(`🔄 [PRICE SYNC] Found ${totalChecked} products needing sync`);
-          
-          if (totalChecked > 0) {
-            // Check for duplicates in the database result
-            const productIds = changedPricesResult.rows.map((row: any) => row.product_id);
-            const uniqueProductIds = [...new Set(productIds)];
-            if (productIds.length !== uniqueProductIds.length) {
-              console.warn(`⚠️  [PRICE SYNC] WARNING: Database function returned duplicate products! Total: ${productIds.length}, Unique: ${uniqueProductIds.length}`);
-            }
-            
-            console.log(`🔄 [PRICE SYNC] Products needing sync:`, changedPricesResult.rows.map((row: any) => ({
-              sku: row.sku,
-              barcode: row.barcode,
-              product_id: row.product_id,
-              current_price: row.current_price,
-              last_synced_price: row.last_synced_price,
-              price_changed_at: row.price_changed_at
-            })));
-          }
-          
-          updates = changedPricesResult.rows.map((row: any) => ({
-            barcode: row.barcode,
-            sku: row.sku,
-            product_id: row.product_id,
-            price: parseFloat(row.current_price || 0),
-            cost: parseFloat(row.current_cost || 0),
-            effective_date: new Date().toISOString()
-          }));
-          
-          // Remove duplicates based on barcode just in case
-          const seen = new Set();
-          updates = updates.filter((update: any) => {
-            if (seen.has(update.barcode)) {
-              console.warn(`⚠️  [PRICE SYNC] Removing duplicate update for barcode: ${update.barcode}`);
-              return false;
-            }
-            seen.add(update.barcode);
-            return true;
-          });
+      syncResults.inventory_status.synced = syncPayload.data.status_updates.length;
+    }
+    
+    // Only send if there are changes to sync
+    const totalChanges = syncResults.products.synced + syncResults.prices.synced + 
+                        syncResults.promotions.synced + syncResults.inventory_status.synced;
+    
+    if (totalChanges === 0) {
+      console.log(`✅ [COMPLETE SYNC] No changes found for branch ${branchId}`);
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: 'No changes to sync',
+          results: syncResults,
+          total_synced: 0
         }
-      } catch (error) {
-        console.error(`❌ [PRICE SYNC] Error checking sync tracking table, falling back to force_all mode:`, error);
-        // Fall back to force_all behavior if tracking table doesn't exist
-        const allProductsQuery = `
-          SELECT 
-            p.id, p.sku, p.barcode,
-            COALESCE(bpp.price, p.base_price) as price,
-            COALESCE(bpp.cost, p.cost) as cost
-          FROM products p
-          LEFT JOIN branch_product_pricing bpp ON p.id = bpp.product_id AND bpp.branch_id = $1
-          WHERE p.is_active = true AND p.barcode IS NOT NULL
-          ORDER BY p.name
-        `;
-        
-        const priceResult = await DatabaseManager.query(allProductsQuery, [branchId]);
-        totalChecked = priceResult.rows.length;
-        
-        updates = priceResult.rows.map((row: any) => ({
-          barcode: row.barcode,
-          sku: row.sku,
-          product_id: row.id,
-          price: parseFloat(row.price || 0),
-          cost: parseFloat(row.cost || 0),
-          effective_date: new Date().toISOString()
-        }));
-        
-        console.log(`🔄 [PRICE SYNC] Error fallback mode: Found ${updates.length} products to sync`);
-      }
-    }
-    
-    let result: any = { success: true, data: null, error: null };
-    let syncedCount = 0;
-    
-    if (updates.length > 0) {
-      console.log(`📤 [PRICE SYNC] Sending ${updates.length} price updates to branch ${branchId}:`);
-      
-      // Log the first few updates for debugging
-      const loggedUpdates = updates.slice(0, 5);
-      console.log(`📤 [PRICE SYNC] Sample updates:`, loggedUpdates);
-      
-      if (updates.length > 5) {
-        console.log(`📤 [PRICE SYNC] ... and ${updates.length - 5} more updates`);
-      }
-      
-      // Check for duplicates
-      const barcodes = updates.map(u => u.barcode);
-      const uniqueBarcodes = [...new Set(barcodes)];
-      if (barcodes.length !== uniqueBarcodes.length) {
-        console.warn(`⚠️  [PRICE SYNC] WARNING: Found duplicate barcodes! Total updates: ${barcodes.length}, Unique barcodes: ${uniqueBarcodes.length}`);
-        console.warn(`⚠️  [PRICE SYNC] Duplicate analysis:`, barcodes.filter((barcode, index) => barcodes.indexOf(barcode) !== index));
-      }
-      
-      // Send to branch
-      result = await BranchApiService.makeRequest({
-        branchId,
-        endpoint: 'chain-core/products/prices',
-        method: 'PUT',
-        data: { updates },
-        timeout: 60000
-      });
-      
-      console.log(`📤 [PRICE SYNC] Branch sync result:`, {
-        success: result.success,
-        error: result.error,
-        data: result.data
-      });
-      
-      // If sync was successful, mark products as synced
-      if (result.success) {
-        const productIds = updates.map(u => u.product_id);
-        const syncedCountResult = await DatabaseManager.query(
-          'SELECT mark_products_as_synced($1, $2)',
-          [branchId, productIds]
-        );
-        syncedCount = syncedCountResult.rows[0]?.mark_products_as_synced || 0;
-        
-        // Update the last_synced_price and last_synced_cost for tracking
-        for (const update of updates) {
-          await DatabaseManager.query(`
-            UPDATE branch_product_price_sync_status 
-            SET last_synced_price = $1, last_synced_cost = $2, updated_at = NOW()
-            WHERE branch_id = $3 AND product_id = $4
-          `, [update.price, update.cost, branchId, update.product_id]);
-        }
-      }
-    }
-    
-    res.json({
-      success: result.success,
-      data: {
-        sync_type: 'prices',
-        branch_id: branchId,
-        branch_name: branchCheck.rows[0].name,
-        total_products_checked: totalChecked,
-        products_needing_sync: updates.length,
-        products_synced: syncedCount,
-        force_all_enabled: force_all,
-        sync_result: result.success ? result.data : null,
-        error: result.error
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error syncing prices to branch:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to sync prices to branch',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-}));
-
-// POST /api/sync/promotions/branch/:branchId - Sync promotions to specific branch
-router.post('/promotions/branch/:branchId', asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const { branchId } = req.params;
-    
-    // Validate branch exists
-    const branchCheck = await DatabaseManager.query(
-      'SELECT id, name FROM branches WHERE id = $1 AND is_active = true',
-      [branchId]
-    );
-    
-    if (branchCheck.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Branch not found or inactive'
       });
     }
-    
-    // Get active promotions for this branch (both branch-specific and chain-wide)
-    const promotionsQuery = `
-      SELECT 
-        p.id, p.name, p.description, p.type, p.branch_id, p.product_id, p.category_id,
-        p.discount_percentage, p.discount_amount, p.min_quantity, p.buy_quantity, p.get_quantity,
-        p.start_date, p.end_date, p.is_active,
-        pr.barcode as product_barcode, pr.sku as product_sku,
-        c.key as category_key
-      FROM promotions p
-      LEFT JOIN products pr ON p.product_id = pr.id
-      LEFT JOIN categories c ON p.category_id = c.id
-      WHERE p.is_active = true 
-        AND p.start_date <= NOW() 
-        AND p.end_date >= NOW()
-        AND (p.branch_id = $1 OR p.branch_id IS NULL)
-      ORDER BY p.start_date DESC
-    `;
-    
-    const promotionsResult = await DatabaseManager.query(promotionsQuery, [branchId]);
-    
-    // Note: For this implementation, we'll log the promotions that would be synced
-    // Branch-core doesn't currently have a promotions sync endpoint, but this shows the data structure
-    const promotions = promotionsResult.rows.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      type: row.type,
-      product_barcode: row.product_barcode,
-      product_sku: row.product_sku,
-      category_key: row.category_key,
-      discount_percentage: row.discount_percentage,
-      discount_amount: row.discount_amount,
-      min_quantity: row.min_quantity,
-      buy_quantity: row.buy_quantity,
-      get_quantity: row.get_quantity,
-      start_date: row.start_date,
-      end_date: row.end_date,
-      is_active: row.is_active
-    }));
     
     // Send to branch
     const result = await BranchApiService.makeRequest({
       branchId,
-      endpoint: 'chain-core/promotions/sync',
+      endpoint: 'sync/products-complete',
       method: 'POST',
-      data: { promotions },
-      timeout: 60000
+      data: syncPayload,
+      timeout: 30000
     });
     
-    res.json({
-      success: result.success,
-      data: {
-        sync_type: 'promotions',
-        branch_id: branchId,
-        branch_name: branchCheck.rows[0].name,
-        total_promotions: promotions.length,
-        sync_result: result.success ? result.data : null,
-        error: result.error
+    if (result.success) {
+      // Mark price changes as synced
+      if (priceChanges.rows.length > 0) {
+        const productIds = priceChanges.rows.map((row: any) => row.product_id);
+        await DatabaseManager.query(
+          'SELECT mark_products_as_synced($1, $2)',
+          [branchId, productIds]
+        );
       }
-    });
+      
+      // Update branch last_sync_at
+      await DatabaseManager.query(
+        'UPDATE branches SET last_sync_at = NOW(), updated_at = NOW() WHERE id = $1',
+        [branchId]
+      );
+      
+      // Log successful sync
+      await DatabaseManager.query(`
+        INSERT INTO branch_sync_logs (branch_id, sync_type, direction, status, records_processed, completed_at)
+        VALUES ($1, 'products', 'to_branch', 'completed', $2, NOW())
+      `, [branchId, totalChanges]);
+      
+      console.log(`✅ [COMPLETE SYNC] Successfully synced ${totalChanges} changes to branch ${branchId}`);
+      
+      res.status(200).json({
+        success: true,
+        data: {
+          message: 'Complete sync successful',
+          results: syncResults,
+          total_synced: totalChanges
+        }
+      });
+    } else {
+      throw new Error(`Branch sync failed: ${result.error || 'Unknown error'}`);
+    }
     
-  } catch (error) {
-    console.error('Error syncing promotions to branch:', error);
+  } catch (error: any) {
+    console.error('❌ [COMPLETE SYNC] Error:', error);
+    
+    // Log failed sync
+    try {
+      await DatabaseManager.query(`
+        INSERT INTO branch_sync_logs (branch_id, sync_type, direction, status, error_message, completed_at)
+        VALUES ($1, 'products', 'to_branch', 'failed', $2, NOW())
+      `, [req.params.branchId, error.message]);
+    } catch (logError) {
+      console.error('Failed to log sync error:', logError);
+    }
+    
     res.status(500).json({
       success: false,
-      error: 'Failed to sync promotions to branch',
+      error: 'Failed to perform complete sync',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }));
 
-// POST /api/sync/products - Sync products to branches
-router.post('/products', asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const validatedData = SyncProductsSchema.parse(req.body);
-    
-    const result = await BranchApiService.makeMultiRequest(
-      (validatedData.branch_ids || await getAllActiveBranchIds()).map(branchId => ({
-        branchId,
-        endpoint: 'chain-core/products/sync',
-        method: 'POST' as const,
-        data: { products: validatedData.products },
-        timeout: 30000
-      }))
-    );
-    
-    const successful = result.filter(r => r.success);
-    const failed = result.filter(r => !r.success);
-    
-    res.json({
-      success: true,
-      data: {
-        sync_type: 'products',
-        total_branches: result.length,
-        successful_syncs: successful.length,
-        failed_syncs: failed.length,
-        results: result.map(r => ({
-          branch_id: r.branchId,
-          success: r.success,
-          error: r.error,
-          status: r.status,
-          synced_products: r.success ? r.data?.synced || 0 : 0
-        }))
-      }
-    });
-    
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation Error',
-        details: error.errors
-      });
-    }
-    
-    throw error;
-  }
-}));
 
 // POST /api/sync/employees - Sync employees to branches
 router.post('/employees', asyncHandler(async (req: Request, res: Response) => {

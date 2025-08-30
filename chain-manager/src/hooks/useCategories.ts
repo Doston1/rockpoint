@@ -7,6 +7,8 @@ interface UseCategoriesReturn {
   error: string | null;
   refetch: () => Promise<void>;
   createCategory: (data: Omit<Category, 'id'>) => Promise<Category | null>;
+  updateCategory: (id: string, data: Partial<Category>) => Promise<Category | null>;
+  deleteCategory: (id: string) => Promise<boolean>;
 }
 
 export const useCategories = (): UseCategoriesReturn => {
@@ -50,6 +52,40 @@ export const useCategories = (): UseCategoriesReturn => {
     }
   }, []);
 
+  const updateCategory = useCallback(async (id: string, data: Partial<Category>): Promise<Category | null> => {
+    try {
+      const response = await apiService.updateCategory(id, data);
+      
+      if (response.success && response.data) {
+        setCategories(prev => prev.map(cat => cat.id === id ? response.data! : cat));
+        return response.data;
+      } else {
+        setError(response.error || 'Failed to update category');
+        return null;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      return null;
+    }
+  }, []);
+
+  const deleteCategory = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const response = await apiService.deleteCategory(id);
+      
+      if (response.success) {
+        setCategories(prev => prev.filter(cat => cat.id !== id));
+        return true;
+      } else {
+        setError(response.error || 'Failed to delete category');
+        return false;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
@@ -60,5 +96,7 @@ export const useCategories = (): UseCategoriesReturn => {
     error,
     refetch: fetchCategories,
     createCategory,
+    updateCategory,
+    deleteCategory,
   };
 };

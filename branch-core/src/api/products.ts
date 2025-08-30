@@ -106,7 +106,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const params: any[] = [Number(limit), Number(offset)];
   
   if (category && category !== 'all') {
-    query += ` AND p.category = $3`;
+    query += ` AND LOWER(TRIM(p.category)) = LOWER(TRIM($3))`;
     params.push(category);
     query += ` ORDER BY p.name ASC LIMIT $1 OFFSET $2`;
   } else {
@@ -363,28 +363,34 @@ router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
   
   switch (language) {
     case 'ru':
-      categoryNameField = 'COALESCE(c.name_ru, c.name_en, p.category) as name';
-      orderByField = 'COALESCE(c.name_ru, c.name_en, p.category)';
+      categoryNameField = 'COALESCE(c.name_ru, c.name_en, p.normalized_category) as name';
+      orderByField = 'COALESCE(c.name_ru, c.name_en, p.normalized_category)';
       break;
     case 'uz':
-      categoryNameField = 'COALESCE(c.name_uz, c.name_en, p.category) as name';
-      orderByField = 'COALESCE(c.name_uz, c.name_en, p.category)';
+      categoryNameField = 'COALESCE(c.name_uz, c.name_en, p.normalized_category) as name';
+      orderByField = 'COALESCE(c.name_uz, c.name_en, p.normalized_category)';
       break;
     default:
-      categoryNameField = 'COALESCE(c.name_en, p.category) as name';
-      orderByField = 'COALESCE(c.name_en, p.category)';
+      categoryNameField = 'COALESCE(c.name_en, p.normalized_category) as name';
+      orderByField = 'COALESCE(c.name_en, p.normalized_category)';
       break;
   }
 
   const categoriesQuery = `
-    SELECT DISTINCT 
-      p.category as key,
+    WITH normalized_products AS (
+      SELECT 
+        TRIM(category) as normalized_category,
+        COUNT(*) as product_count
+      FROM products 
+      WHERE is_active = true AND category IS NOT NULL AND category != ''
+      GROUP BY TRIM(category)
+    )
+    SELECT 
+      p.normalized_category as key,
       ${categoryNameField},
-      COUNT(*) as product_count
-    FROM products p
-    LEFT JOIN categories c ON p.category = c.key
-    WHERE p.is_active = true AND p.category IS NOT NULL AND p.category != ''
-    GROUP BY p.category, c.name_en, c.name_ru, c.name_uz
+      p.product_count
+    FROM normalized_products p
+    LEFT JOIN categories c ON LOWER(TRIM(p.normalized_category)) = LOWER(TRIM(c.key))
     ORDER BY ${orderByField} ASC
   `;
 
@@ -507,8 +513,8 @@ router.get('/category/:category', asyncHandler(async (req: Request, res: Respons
       ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
-    LEFT JOIN categories c ON p.category = c.key
-    WHERE p.category = $1 AND p.is_active = true
+    LEFT JOIN categories c ON LOWER(TRIM(p.category)) = LOWER(TRIM(c.key))
+    WHERE LOWER(TRIM(p.category)) = LOWER(TRIM($1)) AND p.is_active = true
     ORDER BY p.name ASC
     LIMIT $2 OFFSET $3
   `;

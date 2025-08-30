@@ -115,12 +115,15 @@ export interface Product {
   sku: string;
   barcode?: string;
   name: string;
+  nameEn?: string;
   nameRu?: string;
   nameUz?: string;
   description?: string;
+  descriptionEn?: string;
   descriptionRu?: string;
   descriptionUz?: string;
   categoryId?: string;
+  categoryName?: string; // For frontend display and creation
   brand?: string;
   unitOfMeasure: string;
   basePrice: number;
@@ -143,6 +146,7 @@ export interface Category {
   id: string;
   key: string;
   name: string;
+  nameEn?: string;
   nameRu?: string;
   nameUz?: string;
   description?: string;
@@ -834,9 +838,43 @@ class ApiService {
     }
   }
 
-  async createProduct(productData: Partial<Product>): Promise<ApiResponse<Product>> {
+  async createProduct(productData: Partial<Product>, selectedBranches: string[] = []): Promise<ApiResponse<Product>> {
     try {
-      const response = await this.api.post('/products', productData);
+      // Map frontend fields to backend fields
+      const backendData = {
+        name: productData.name,
+        name_en: productData.nameEn,
+        name_ru: productData.nameRu,
+        name_uz: productData.nameUz,
+        sku: productData.sku,
+        barcode: productData.barcode,
+        // Send category name instead of ID - backend will resolve to ID
+        category_name: productData.categoryName,
+        base_price: Number(productData.basePrice) || 0, // Ensure it's a number
+        cost: Number(productData.cost) || 0,
+        description: productData.description,
+        description_en: productData.descriptionEn,
+        description_ru: productData.descriptionRu,
+        description_uz: productData.descriptionUz,
+        brand: productData.brand,
+        unit_of_measure: productData.unitOfMeasure || 'pcs',
+        tax_rate: Number(productData.taxRate) || 0,
+        image_url: productData.imageUrl,
+        attributes: productData.attributes,
+        is_active: productData.isActive !== false,
+        onec_id: productData.oneCId,
+        // Add selected branches for distribution
+        selected_branches: selectedBranches,
+      };
+
+      // Remove undefined values
+      Object.keys(backendData).forEach(key => {
+        if (backendData[key as keyof typeof backendData] === undefined) {
+          delete backendData[key as keyof typeof backendData];
+        }
+      });
+
+      const response = await this.api.post('/products', backendData);
       return response.data;
     } catch (error: any) {
       return {
@@ -849,7 +887,31 @@ class ApiService {
 
   async updateProduct(id: string, productData: Partial<Product>): Promise<ApiResponse<Product>> {
     try {
-      const response = await this.api.put(`/products/${id}`, productData);
+      // Map frontend fields to backend fields
+      const backendData: any = {};
+      
+      if (productData.name !== undefined) backendData.name = productData.name;
+      if (productData.nameEn !== undefined) backendData.name_en = productData.nameEn;
+      if (productData.nameRu !== undefined) backendData.name_ru = productData.nameRu;
+      if (productData.nameUz !== undefined) backendData.name_uz = productData.nameUz;
+      if (productData.sku !== undefined) backendData.sku = productData.sku;
+      if (productData.barcode !== undefined) backendData.barcode = productData.barcode;
+      if (productData.categoryName !== undefined) backendData.category_name = productData.categoryName;
+      if (productData.basePrice !== undefined) backendData.base_price = Number(productData.basePrice) || 0;
+      if (productData.cost !== undefined) backendData.cost = Number(productData.cost) || 0;
+      if (productData.description !== undefined) backendData.description = productData.description;
+      if (productData.descriptionEn !== undefined) backendData.description_en = productData.descriptionEn;
+      if (productData.descriptionRu !== undefined) backendData.description_ru = productData.descriptionRu;
+      if (productData.descriptionUz !== undefined) backendData.description_uz = productData.descriptionUz;
+      if (productData.brand !== undefined) backendData.brand = productData.brand;
+      if (productData.unitOfMeasure !== undefined) backendData.unit_of_measure = productData.unitOfMeasure;
+      if (productData.taxRate !== undefined) backendData.tax_rate = Number(productData.taxRate) || 0;
+      if (productData.imageUrl !== undefined) backendData.image_url = productData.imageUrl;
+      if (productData.attributes !== undefined) backendData.attributes = productData.attributes;
+      if (productData.isActive !== undefined) backendData.is_active = productData.isActive;
+      if (productData.oneCId !== undefined) backendData.onec_id = productData.oneCId;
+
+      const response = await this.api.put(`/products/${id}`, backendData);
       return response.data;
     } catch (error: any) {
       return {
@@ -908,6 +970,32 @@ class ApiService {
     }
   }
 
+  async updateCategory(id: string, categoryData: Partial<Category>): Promise<ApiResponse<Category>> {
+    try {
+      const response = await this.api.put(`/products/categories/${id}`, categoryData);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to update category',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async deleteCategory(id: string): Promise<ApiResponse<void>> {
+    try {
+      const response = await this.api.delete(`/products/categories/${id}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to delete category',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   // Inventory APIs
   async getGeneralInventory(): Promise<ApiResponse<{ inventory: BranchInventory[] }>> {
     try {
@@ -953,11 +1041,27 @@ class ApiService {
 
   async updateInventory(branchId: string, productId: string, data: Partial<BranchInventory>): Promise<ApiResponse<BranchInventory>> {
     try {
-      const response = await this.api.put(`/inventory/branch/${branchId}/product/${productId}`, data);
-      if (response.data.success && response.data.data) {
+      // Transform camelCase to snake_case for backend
+      const transformedData: any = {};
+      
+      if (data.quantityInStock !== undefined) {
+        transformedData.quantity_in_stock = data.quantityInStock;
+      }
+      if (data.minStockLevel !== undefined) {
+        transformedData.min_stock_level = data.minStockLevel;
+      }
+      if (data.maxStockLevel !== undefined) {
+        transformedData.max_stock_level = data.maxStockLevel;
+      }
+      if (data.reorderPoint !== undefined) {
+        transformedData.reorder_point = data.reorderPoint;
+      }
+      
+      const response = await this.api.put(`/inventory/branch/${branchId}/product/${productId}`, transformedData);
+      if (response.data.success && response.data.data?.inventory_item) {
         return {
           ...response.data,
-          data: transformInventory(response.data.data)
+          data: transformInventory(response.data.data.inventory_item)
         };
       }
       return response.data;
@@ -1024,42 +1128,28 @@ class ApiService {
   }
 
   // Sync to Branch APIs
-  async syncProductsToBranch(branchId: string): Promise<ApiResponse<{ synced: number }>> {
+  // NEW: Comprehensive product sync
+  async syncCompleteProductsToBranch(branchId: string, sinceTimestamp?: string): Promise<ApiResponse<{
+    results: {
+      products: { synced: number; checked: number };
+      prices: { synced: number; checked: number };
+      promotions: { synced: number; checked: number };
+      inventory_status: { synced: number; checked: number };
+    };
+    total_synced: number;
+  }>> {
     try {
-      const response = await this.api.post(`/sync/products/branch/${branchId}`);
+      const payload: any = {};
+      if (sinceTimestamp) {
+        payload.since_timestamp = sinceTimestamp;
+      }
+      
+      const response = await this.api.post(`/sync/products-complete/branch/${branchId}`, payload);
       return response.data;
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Failed to sync products to branch',
-        timestamp: new Date().toISOString(),
-      };
-    }
-  }
-
-  async syncPricesToBranch(branchId: string, forceAll: boolean = false): Promise<ApiResponse<{ synced: number }>> {
-    try {
-      const response = await this.api.post(`/sync/prices/branch/${branchId}`, {
-        force_all: forceAll
-      });
-      return response.data;
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Failed to sync prices to branch',
-        timestamp: new Date().toISOString(),
-      };
-    }
-  }
-
-  async syncPromotionsToBranch(branchId: string): Promise<ApiResponse<{ synced: number }>> {
-    try {
-      const response = await this.api.post(`/sync/promotions/branch/${branchId}`);
-      return response.data;
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Failed to sync promotions to branch',
+        error: error.response?.data?.error || 'Failed to perform complete product sync',
         timestamp: new Date().toISOString(),
       };
     }

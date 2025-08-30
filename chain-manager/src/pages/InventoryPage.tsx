@@ -3,8 +3,6 @@ import {
   Delete,
   Edit,
   Inventory,
-  LocalOffer,
-  MonetizationOn,
   PowerSettingsNew,
   Refresh,
   Search,
@@ -48,6 +46,7 @@ import { useTranslation } from 'react-i18next';
 
 // Import hooks and components
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { CategoryDialog } from '../components/inventory/CategoryDialog';
 import { InventoryDialog } from '../components/inventory/InventoryDialog';
 import { ProductDialog } from '../components/inventory/ProductDialog';
 import { PromotionDialog } from '../components/inventory/PromotionDialog';
@@ -60,7 +59,7 @@ import { BranchInventory, Product, Promotion } from '../services/api';
 const InventoryPage = () => {
   const { t } = useTranslation();
   const { branches, isLoading: branchesLoading } = useBranches();
-  const { categories } = useCategories();
+  const { categories, updateCategory, deleteCategory, createCategory } = useCategories();
   
   const {
     generalInventory,
@@ -85,14 +84,13 @@ const InventoryPage = () => {
     createPromotion,
     updatePromotion,
     deletePromotion,
-    syncProducts,
-    syncPrices,
-    syncPromotions,
+    syncCompleteProducts, // NEW
   } = useInventoryManagement();
 
   // Local state
   const [currentTab, setCurrentTab] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [page, setPage] = useState(0);
@@ -103,9 +101,11 @@ const InventoryPage = () => {
   const [promotionDialogOpen, setPromotionDialogOpen] = useState(false);
   const [inventoryDialogOpen, setInventoryDialogOpen] = useState(false);
   const [stockAdjustmentDialogOpen, setStockAdjustmentDialogOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
   const [editingPromotion, setEditingPromotion] = useState<Promotion | undefined>();
   const [editingInventory, setEditingInventory] = useState<(BranchInventory & { product?: Product }) | undefined>();
+  const [editingCategory, setEditingCategory] = useState<any | undefined>();
   
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{
@@ -128,6 +128,18 @@ const InventoryPage = () => {
   const safeProducts = products || [];
   const safePromotions = promotions || [];
   const safeCurrentInventory = currentInventory || [];
+
+  // Filter categories based on search
+  const filteredCategories = useMemo(() => {
+    const safeSearchTerm = (categorySearchTerm || '').toLowerCase();
+    return safeCategories.filter(category => {
+      const matchesSearch = (category.key || '').toLowerCase().includes(safeSearchTerm) ||
+                           (category.name || '').toLowerCase().includes(safeSearchTerm) ||
+                           (category.description || '').toLowerCase().includes(safeSearchTerm);
+      
+      return matchesSearch;
+    });
+  }, [safeCategories, categorySearchTerm]);
 
   // Filter products based on search and filters
   const filteredProducts = useMemo(() => {
@@ -201,8 +213,22 @@ const InventoryPage = () => {
 
   // Event handlers
   const handleBranchChange = (branchId: string) => {
+    const wasBranchSelected = !!selectedBranchId;
+    const isBranchSelected = !!branchId;
+    
     setSelectedBranchId(branchId || null);
     setPage(0);
+    
+    // Adjust tab when switching between branch/no-branch states
+    if (!wasBranchSelected && isBranchSelected) {
+      // Switching from no branch to branch: if on categories tab (1), go to products (0)
+      if (currentTab === 1) {
+        setCurrentTab(0);
+      }
+    } else if (wasBranchSelected && !isBranchSelected) {
+      // Switching from branch to no branch: if on promotions tab (2), go to inventory (2)
+      // No adjustment needed as tabs shift naturally
+    }
   };
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
@@ -212,6 +238,11 @@ const InventoryPage = () => {
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
+    setPage(0);
+  };
+
+  const handleCategorySearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setCategorySearchTerm(event.target.value);
     setPage(0);
   };
 
@@ -251,13 +282,14 @@ const InventoryPage = () => {
     });
   };
 
-  const handleSaveProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>, selectedBranches: string[]) => {
     try {
       let result;
       if (editingProduct) {
         result = await updateProduct(editingProduct.id, productData);
       } else {
-        result = await createProduct(productData);
+        // For new products, pass selected branches to the backend
+        result = await createProduct(productData, selectedBranches);
       }
       
       const success = result !== null;
@@ -340,7 +372,8 @@ const InventoryPage = () => {
     }
   };
 
-  const handleSync = async (type: 'products' | 'prices' | 'promotions') => {
+  // NEW: Unified sync function
+  const handleSyncProducts = async () => {
     if (!selectedBranchId) {
       setSnackbar({
         open: true,
@@ -352,88 +385,22 @@ const InventoryPage = () => {
 
     setSnackbar({
       open: true,
-      message: `Starting ${type} sync...`,
-      severity: 'info',
-    });
-
-    let success = false;
-    switch (type) {
-      case 'products':
-        success = await syncProducts(selectedBranchId);
-        break;
-      case 'prices':
-        success = await syncPrices(selectedBranchId);
-        break;
-      case 'promotions':
-        success = await syncPromotions(selectedBranchId);
-        break;
-    }
-
-    setSnackbar({
-      open: true,
-      message: success 
-        ? `${type.charAt(0).toUpperCase() + type.slice(1)} sync completed successfully` 
-        : `Failed to sync ${type}`,
-      severity: success ? 'success' : 'error',
-    });
-  };
-
-  const handleBulkSync = async () => {
-    if (!selectedBranchId) {
-      setSnackbar({
-        open: true,
-        message: t('inventory.selectBranchFirst'),
-        severity: 'warning',
-      });
-      return;
-    }
-
-    setSnackbar({
-      open: true,
-      message: 'Starting bulk synchronization...',
+      message: 'Starting comprehensive product sync...',
       severity: 'info',
     });
 
     try {
-      const results = await Promise.allSettled([
-        syncProducts(selectedBranchId),
-        syncPrices(selectedBranchId),
-        syncPromotions(selectedBranchId)
-      ]);
-
-      const successCount = results.filter(result => 
-        result.status === 'fulfilled' && result.value === true
-      ).length;
-
-      const operations = ['products', 'prices', 'promotions'];
-      const failedOperations = results
-        .map((result, index) => ({ result, operation: operations[index] }))
-        .filter(({ result }) => result.status === 'rejected' || result.value === false)
-        .map(({ operation }) => operation);
+      const result = await syncCompleteProducts(selectedBranchId);
       
-      if (successCount === 3) {
-        setSnackbar({
-          open: true,
-          message: 'All sync operations completed successfully!',
-          severity: 'success',
-        });
-      } else if (successCount > 0) {
-        setSnackbar({
-          open: true,
-          message: `Partial sync success: ${successCount}/3 operations completed. Failed: ${failedOperations.join(', ')}`,
-          severity: 'warning',
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: 'All sync operations failed. Please check your connection and try again.',
-          severity: 'error',
-        });
-      }
+      setSnackbar({
+        open: true,
+        message: result.message || (result.success ? 'Sync completed successfully' : 'Sync failed'),
+        severity: result.success ? 'success' : 'error',
+      });
     } catch (error) {
       setSnackbar({
         open: true,
-        message: 'Bulk sync failed with an unexpected error',
+        message: 'Sync failed with an unexpected error',
         severity: 'error',
       });
     }
@@ -536,6 +503,57 @@ const InventoryPage = () => {
     }
   };
 
+  const handleAddCategory = () => {
+    setEditingCategory(undefined);
+    setCategoryDialogOpen(true);
+  };
+
+  const handleEditCategory = (category: any) => {
+    setEditingCategory(category);
+    setCategoryDialogOpen(true);
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (window.confirm(t('inventory.confirmDeleteCategory'))) {
+      const success = await deleteCategory(categoryId);
+      setSnackbar({
+        open: true,
+        message: success ? t('inventory.categoryDeletedSuccessfully') : t('inventory.failedToDeleteCategory'),
+        severity: success ? 'success' : 'error',
+      });
+    }
+  };
+
+  const handleSaveCategory = async (categoryData: any) => {
+    try {
+      let result;
+      if (editingCategory) {
+        result = await updateCategory(editingCategory.id, categoryData);
+      } else {
+        result = await createCategory(categoryData);
+      }
+      
+      const success = result !== null;
+      
+      setSnackbar({
+        open: true,
+        message: success ? t('inventory.categorySavedSuccessfully') : t('inventory.failedToSaveCategory'),
+        severity: success ? 'success' : 'error',
+      });
+      
+      if (success) {
+        setCategoryDialogOpen(false);
+        setEditingCategory(undefined);
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: t('inventory.failedToSaveCategory'),
+        severity: 'error',
+      });
+    }
+  };
+
   const handleRefresh = () => {
     refetchProducts();
     refetchGeneral();
@@ -578,23 +596,33 @@ const InventoryPage = () => {
       type: 'actions',
       headerName: t('inventory.actions'),
       width: 180,
-      getActions: (params) => [
-        <GridActionsCellItem
-          icon={<Edit />}
-          label="Edit"
-          onClick={() => handleEditProduct(params.row)}
-        />,
-        <GridActionsCellItem
-          icon={<PowerSettingsNew />}
-          label={params.row.isActive ? "Deactivate" : "Activate"}
-          onClick={() => handleToggleProductStatus(params.row)}
-        />,
-        <GridActionsCellItem
-          icon={<Delete />}
-          label="Delete"
-          onClick={() => handleDeleteProduct(params.row.id)}
-        />,
-      ],
+      getActions: (params) => {
+        const actions = [
+          <GridActionsCellItem
+            icon={<Edit />}
+            label="Edit"
+            onClick={() => handleEditProduct(params.row)}
+          />,
+          <GridActionsCellItem
+            icon={<PowerSettingsNew />}
+            label={params.row.isActive ? "Deactivate" : "Activate"}
+            onClick={() => handleToggleProductStatus(params.row)}
+          />,
+        ];
+
+        // Only show delete option when no branch is selected (general inventory)
+        if (!selectedBranchId) {
+          actions.push(
+            <GridActionsCellItem
+              icon={<Delete />}
+              label="Delete"
+              onClick={() => handleDeleteProduct(params.row.id)}
+            />
+          );
+        }
+
+        return actions;
+      },
     },
   ];
 
@@ -682,37 +710,14 @@ const InventoryPage = () => {
           </Button>
           
           {selectedBranchId && (
-            <>
-              <Button
-                variant="outlined"
-                startIcon={<Sync />}
-                onClick={() => handleSync('products')}
-              >
-                {t('inventory.syncProducts')}
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<MonetizationOn />}
-                onClick={() => handleSync('prices')}
-              >
-                {t('inventory.syncPrices')}
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<LocalOffer />}
-                onClick={() => handleSync('promotions')}
-              >
-                {t('inventory.syncPromotions')}
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<Sync />}
-                onClick={() => handleBulkSync()}
-              >
-                {t('inventory.syncAll')}
-              </Button>
-            </>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Sync />}
+              onClick={handleSyncProducts}
+            >
+              {t('inventory.syncProducts')}
+            </Button>
           )}
         </Box>
       </Box>
@@ -808,6 +813,7 @@ const InventoryPage = () => {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs value={currentTab} onChange={handleTabChange}>
           <Tab label={t('inventory.products')} />
+          {!selectedBranchId && <Tab label={t('inventory.categories')} />}
           <Tab label={t('inventory.inventory')} />
           {selectedBranchId && <Tab label={t('inventory.promotions')} />}
         </Tabs>
@@ -817,22 +823,56 @@ const InventoryPage = () => {
       <Card sx={{ mb: 2 }}>
         <CardContent>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <TextField
-              placeholder={t('inventory.search')}
-              value={searchTerm}
-              onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ minWidth: 300 }}
-            />
+            {/* Products tab search */}
+            {(currentTab === 0 || (selectedBranchId && currentTab === 1)) && (
+              <TextField
+                placeholder={t('inventory.search')}
+                value={searchTerm}
+                onChange={handleSearchChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ minWidth: 300 }}
+              />
+            )}
             
-            {currentTab === 1 && (
+            {/* Categories tab search */}
+            {!selectedBranchId && currentTab === 1 && (
+              <TextField
+                placeholder={t('inventory.searchCategories')}
+                value={categorySearchTerm}
+                onChange={handleCategorySearchChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ minWidth: 300 }}
+              />
+            )}
+            
+            {/* Inventory tab filters */}
+            {((!selectedBranchId && currentTab === 2) || (selectedBranchId && currentTab === 1)) && (
               <>
+                <TextField
+                  placeholder={t('inventory.search')}
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ minWidth: 300 }}
+                />
                 <FormControlLabel
                   control={
                     <Switch
@@ -861,6 +901,7 @@ const InventoryPage = () => {
               </>
             )}
             
+            {/* Products tab active filter */}
             {currentTab === 0 && (
               <FormControlLabel
                 control={
@@ -874,9 +915,7 @@ const InventoryPage = () => {
             )}
           </Box>
         </CardContent>
-      </Card>
-
-      {/* Tab Content */}
+      </Card>      {/* Tab Content */}
       {currentTab === 0 && (
         <Card>
           <CardContent>
@@ -884,13 +923,16 @@ const InventoryPage = () => {
               <Typography variant="h6">
                 {t('inventory.products')} ({filteredProducts.length})
               </Typography>
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={handleAddProduct}
-              >
-                {t('inventory.addProduct')}
-              </Button>
+              {/* Only show Add Product button when in general inventory (no branch selected) */}
+              {!selectedBranchId && (
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={handleAddProduct}
+                >
+                  {t('inventory.addProduct')}
+                </Button>
+              )}
             </Box>
             
             <DataGrid
@@ -916,7 +958,70 @@ const InventoryPage = () => {
         </Card>
       )}
 
-      {currentTab === 1 && (
+      {!selectedBranchId && currentTab === 1 && (
+        <Card>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                {t('inventory.categories')} ({filteredCategories.length})
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={handleAddCategory}
+              >
+                {t('inventory.addCategory')}
+              </Button>
+            </Box>
+            
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('inventory.categoryKey')}</TableCell>
+                    <TableCell>{t('inventory.categoryName')}</TableCell>
+                    <TableCell>{t('inventory.description')}</TableCell>
+                    <TableCell>{t('inventory.sortOrder')}</TableCell>
+                    <TableCell>{t('inventory.status')}</TableCell>
+                    <TableCell>{t('inventory.actions')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredCategories.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell>{category.key}</TableCell>
+                      <TableCell>{category.name}</TableCell>
+                      <TableCell>{category.description || '-'}</TableCell>
+                      <TableCell>{category.sortOrder}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={category.isActive ? t('inventory.active') : t('inventory.inactive')}
+                          color={category.isActive ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title={t('inventory.editCategory')}>
+                          <IconButton onClick={() => handleEditCategory(category)}>
+                            <Edit />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('inventory.deleteCategory')}>
+                          <IconButton onClick={() => handleDeleteCategory(category.id)}>
+                            <Delete />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {((!selectedBranchId && currentTab === 2) || (selectedBranchId && currentTab === 1)) && (
         <Card>
           <CardContent>
             <Typography variant="h6" sx={{ mb: 2 }}>
@@ -946,7 +1051,7 @@ const InventoryPage = () => {
         </Card>
       )}
 
-      {currentTab === 2 && selectedBranchId && (
+      {selectedBranchId && currentTab === 2 && (
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -1028,6 +1133,7 @@ const InventoryPage = () => {
         onSave={handleSaveProduct}
         product={editingProduct}
         categories={safeCategories}
+        branches={branches}
         isLoading={isLoadingProducts}
         selectedBranchId={selectedBranchId}
       />
@@ -1060,6 +1166,15 @@ const InventoryPage = () => {
         onSave={handleStockAdjustment}
         inventoryItem={editingInventory}
         isLoading={isLoadingBranch || isLoadingGeneral}
+      />
+
+      <CategoryDialog
+        open={categoryDialogOpen}
+        onClose={() => setCategoryDialogOpen(false)}
+        onSave={handleSaveCategory}
+        category={editingCategory}
+        categories={safeCategories}
+        isLoading={false}
       />
 
       {/* Snackbar */}
