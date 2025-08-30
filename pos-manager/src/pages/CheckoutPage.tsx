@@ -513,7 +513,7 @@ const CheckoutPage = () => {
         >
           {/* Product Scanner & Search */}
           <Box sx={{ flex: { xs: 1, md: 2 } }}>
-            <Paper sx={{ p: 3, height: '100%' }}>
+            <Paper sx={{ p: 3, height: { xs: 'auto', md: '80vh' }, minHeight: 400, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h6" gutterBottom>
                 {t('checkout.productScanner')}
               </Typography>
@@ -686,14 +686,42 @@ const CheckoutPage = () => {
                         md: 'repeat(4, 1fr)',
                       },
                       gap: 2,
-                      maxHeight: 400,
-                      overflow: 'auto'
+                      maxHeight: {
+                        xs: '40vh',
+                        sm: '55vh',
+                        md: '62vh',
+                        lg: '70vh'
+                      },
+                      overflow: 'auto',
+                      padding: 1, // Add padding to contain card shadows
+                      // Custom scrollbar styling
+                      '&::-webkit-scrollbar': {
+                        width: '8px',
+                      },
+                      '&::-webkit-scrollbar-track': {
+                        backgroundColor: 'transparent',
+                      },
+                      '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: 'rgba(0,0,0,0.2)',
+                        borderRadius: '4px',
+                      },
+                      '&::-webkit-scrollbar-thumb:hover': {
+                        backgroundColor: 'rgba(0,0,0,0.3)',
+                      },
                     }}
                   >
                     {categories.map((category) => (
                       <Card 
                         key={category.key} 
-                        sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                        sx={{ 
+                          cursor: 'pointer', 
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': { 
+                            backgroundColor: 'action.hover',
+                            transform: 'translateY(-2px)',
+                            boxShadow: (theme) => theme.shadows[4]
+                          }
+                        }}
                         onClick={() => handleCategorySelect(category.key, category.name)}
                       >
                         <CardContent sx={{ textAlign: 'center', py: 3 }}>
@@ -734,8 +762,28 @@ const CheckoutPage = () => {
                         md: 'repeat(4, 1fr)',
                       },
                       gap: 2,
-                      maxHeight: 400,
-                      overflow: 'auto'
+                      maxHeight: {
+                        xs: 350,
+                        sm: 450,
+                        md: 500,
+                        lg: 600
+                      },
+                      overflow: 'auto',
+                      padding: 1, // Add padding to contain card shadows
+                      // Custom scrollbar styling
+                      '&::-webkit-scrollbar': {
+                        width: '8px',
+                      },
+                      '&::-webkit-scrollbar-track': {
+                        backgroundColor: 'transparent',
+                      },
+                      '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: 'rgba(0,0,0,0.2)',
+                        borderRadius: '4px',
+                      },
+                      '&::-webkit-scrollbar-thumb:hover': {
+                        backgroundColor: 'rgba(0,0,0,0.3)',
+                      },
                     }}
                   >
                     {products.length > 0 ? (
@@ -745,8 +793,11 @@ const CheckoutPage = () => {
                           sx={{ 
                             cursor: product.quantity_in_stock > 0 ? 'pointer' : 'not-allowed',
                             opacity: product.quantity_in_stock > 0 ? 1 : 0.6,
+                            transition: 'all 0.2s ease-in-out',
                             '&:hover': { 
-                              backgroundColor: product.quantity_in_stock > 0 ? 'action.hover' : 'transparent' 
+                              backgroundColor: product.quantity_in_stock > 0 ? 'action.hover' : 'transparent',
+                              transform: product.quantity_in_stock > 0 ? 'translateY(-2px)' : 'none',
+                              boxShadow: product.quantity_in_stock > 0 ? (theme) => theme.shadows[4] : 'none'
                             } 
                           }}
                           onClick={() => product.quantity_in_stock > 0 && addToCart(product)}

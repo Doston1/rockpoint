@@ -132,6 +132,300 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
   });
 }));
 
+// POST /api/sync/products-complete - Receive comprehensive product sync from chain-core
+router.post('/products-complete', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { sync_type, timestamp, last_sync_at, data } = req.body;
+    
+    if (sync_type !== 'complete_products') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid sync type. Expected complete_products'
+      });
+    }
+    
+    console.log(`🔄 [COMPLETE SYNC] Receiving comprehensive sync from chain-core`);
+    console.log(`📅 [COMPLETE SYNC] Last sync: ${last_sync_at}, Current: ${timestamp}`);
+    
+    const syncResults = {
+      products: { processed: 0, success: 0, failed: 0 },
+      price_updates: { processed: 0, success: 0, failed: 0 },
+      promotions: { processed: 0, success: 0, failed: 0 },
+      status_updates: { processed: 0, success: 0, failed: 0 }
+    };
+    
+    const errors: any[] = [];
+    
+    await DatabaseManager.query('BEGIN');
+    
+    try {
+      // 1. Process new/updated products
+      if (data.products && Array.isArray(data.products)) {
+        console.log(`📦 [COMPLETE SYNC] Processing ${data.products.length} product updates`);
+        
+        for (const product of data.products) {
+          syncResults.products.processed++;
+          try {
+            // Upsert product - branch-core uses simpler schema
+            const upsertQuery = `
+              INSERT INTO products (
+                sku, barcode, name, description, category, 
+                brand, price, cost, unit_of_measure, tax_rate, is_active, updated_at
+              )
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+              ON CONFLICT (barcode) 
+              DO UPDATE SET 
+                sku = EXCLUDED.sku,
+                name = EXCLUDED.name,
+                description = EXCLUDED.description,
+                category = EXCLUDED.category,
+                brand = EXCLUDED.brand,
+                price = EXCLUDED.price,
+                cost = EXCLUDED.cost,
+                unit_of_measure = EXCLUDED.unit_of_measure,
+                tax_rate = EXCLUDED.tax_rate,
+                is_active = EXCLUDED.is_active,
+                updated_at = NOW()
+              RETURNING id
+            `;
+
+            await DatabaseManager.query(upsertQuery, [
+              product.sku || null,
+              product.barcode,
+              product.name,
+              product.description || null,
+              product.category_key || null,
+              product.brand || null,
+              product.price,
+              product.cost || null,
+              product.unit_of_measure || 'pcs',
+              product.tax_rate || 0,
+              product.is_active !== false
+            ]);
+            
+            syncResults.products.success++;
+          } catch (error) {
+            syncResults.products.failed++;
+            errors.push({
+              type: 'product',
+              barcode: product.barcode,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+        }
+      }
+      
+      // 2. Process price updates
+      if (data.price_updates && Array.isArray(data.price_updates)) {
+        console.log(`💰 [COMPLETE SYNC] Processing ${data.price_updates.length} price updates`);
+        
+        for (const update of data.price_updates) {
+          syncResults.price_updates.processed++;
+          try {
+            const updateQuery = `
+              UPDATE products 
+              SET price = $1, cost = $2, updated_at = NOW()
+              WHERE barcode = $3
+            `;
+
+            const result = await DatabaseManager.query(updateQuery, [
+              update.price,
+              update.cost || null,
+              update.barcode
+            ]);
+
+            if (result.rowCount > 0) {
+              syncResults.price_updates.success++;
+            } else {
+              syncResults.price_updates.failed++;
+              errors.push({
+                type: 'price_update',
+                barcode: update.barcode,
+                error: 'Product not found'
+              });
+            }
+          } catch (error) {
+            syncResults.price_updates.failed++;
+            errors.push({
+              type: 'price_update',
+              barcode: update.barcode,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+        }
+      }
+      
+      // 3. Process promotions
+      if (data.promotions && Array.isArray(data.promotions)) {
+        console.log(`🎁 [COMPLETE SYNC] Processing ${data.promotions.length} promotions`);
+        
+        for (const promotion of data.promotions) {
+          syncResults.promotions.processed++;
+          try {
+            // Check if promotions table exists, if not create a simple one
+            await DatabaseManager.query(`
+              CREATE TABLE IF NOT EXISTS promotions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                chain_promotion_id VARCHAR(255) UNIQUE,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                promotion_type VARCHAR(50),
+                discount_value DECIMAL(10,2),
+                min_quantity INTEGER,
+                product_barcode VARCHAR(100),
+                category_key VARCHAR(100),
+                start_date TIMESTAMP WITH TIME ZONE,
+                end_date TIMESTAMP WITH TIME ZONE,
+                is_active BOOLEAN DEFAULT true,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+              )
+            `);
+            
+            const upsertQuery = `
+              INSERT INTO promotions (
+                chain_promotion_id, name, description, promotion_type, 
+                discount_value, min_quantity, product_barcode, category_key,
+                start_date, end_date, is_active
+              )
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+              ON CONFLICT (chain_promotion_id) 
+              DO UPDATE SET 
+                name = EXCLUDED.name,
+                description = EXCLUDED.description,
+                promotion_type = EXCLUDED.promotion_type,
+                discount_value = EXCLUDED.discount_value,
+                min_quantity = EXCLUDED.min_quantity,
+                product_barcode = EXCLUDED.product_barcode,
+                category_key = EXCLUDED.category_key,
+                start_date = EXCLUDED.start_date,
+                end_date = EXCLUDED.end_date,
+                is_active = EXCLUDED.is_active,
+                updated_at = NOW()
+            `;
+
+            const discountValue = promotion.discount_percentage || promotion.discount_amount || 0;
+
+            await DatabaseManager.query(upsertQuery, [
+              promotion.id,
+              promotion.name,
+              promotion.description || null,
+              promotion.type,
+              discountValue,
+              promotion.min_quantity || null,
+              promotion.product_barcode || null,
+              promotion.category_key || null,
+              promotion.start_date,
+              promotion.end_date,
+              promotion.is_active !== false
+            ]);
+            
+            syncResults.promotions.success++;
+          } catch (error) {
+            syncResults.promotions.failed++;
+            errors.push({
+              type: 'promotion',
+              id: promotion.id,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+        }
+      }
+      
+      // 4. Process status updates
+      if (data.status_updates && Array.isArray(data.status_updates)) {
+        console.log(`🔄 [COMPLETE SYNC] Processing ${data.status_updates.length} status updates`);
+        
+        for (const update of data.status_updates) {
+          syncResults.status_updates.processed++;
+          try {
+            const updateQuery = `
+              UPDATE products 
+              SET is_active = $1, updated_at = NOW()
+              WHERE barcode = $2
+            `;
+
+            const result = await DatabaseManager.query(updateQuery, [
+              update.is_active,
+              update.barcode
+            ]);
+
+            if (result.rowCount > 0) {
+              syncResults.status_updates.success++;
+            } else {
+              syncResults.status_updates.failed++;
+              errors.push({
+                type: 'status_update',
+                barcode: update.barcode,
+                error: 'Product not found'
+              });
+            }
+          } catch (error) {
+            syncResults.status_updates.failed++;
+            errors.push({
+              type: 'status_update',
+              barcode: update.barcode,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+        }
+      }
+      
+      await DatabaseManager.query('COMMIT');
+      
+      // Log successful sync
+      await DatabaseManager.query(`
+        INSERT INTO sync_logs (id, sync_type, status, started_at, records_synced, completed_at)
+        VALUES ($1, 'complete_products_received', 'completed', NOW(), $2, NOW())
+      `, [
+        `complete-sync-${Date.now()}`,
+        syncResults.products.success + syncResults.price_updates.success + 
+        syncResults.promotions.success + syncResults.status_updates.success
+      ]);
+      
+      const totalSuccess = syncResults.products.success + syncResults.price_updates.success + 
+                          syncResults.promotions.success + syncResults.status_updates.success;
+      const totalFailed = syncResults.products.failed + syncResults.price_updates.failed + 
+                         syncResults.promotions.failed + syncResults.status_updates.failed;
+      
+      console.log(`✅ [COMPLETE SYNC] Sync completed - Success: ${totalSuccess}, Failed: ${totalFailed}`);
+      
+      res.status(200).json({
+        success: true,
+        message: 'Complete sync processed successfully',
+        results: syncResults,
+        total_processed: totalSuccess + totalFailed,
+        total_success: totalSuccess,
+        total_failed: totalFailed,
+        errors: errors.length > 0 ? errors.slice(0, 10) : [] // Return first 10 errors
+      });
+      
+    } catch (error) {
+      await DatabaseManager.query('ROLLBACK');
+      throw error;
+    }
+    
+  } catch (error: any) {
+    console.error('❌ [COMPLETE SYNC] Error processing sync:', error);
+    
+    // Log failed sync
+    try {
+      await DatabaseManager.query(`
+        INSERT INTO sync_logs (id, sync_type, status, started_at, error_message, completed_at)
+        VALUES ($1, 'complete_products_received', 'failed', NOW(), $2, NOW())
+      `, [`complete-sync-failed-${Date.now()}`, error.message]);
+    } catch (logError) {
+      console.error('Failed to log sync error:', logError);
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process complete sync',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
 // Helper functions for sync operations
 async function recordSyncStart(syncType: string): Promise<string> {
   const syncId = `sync_${Date.now()}`;

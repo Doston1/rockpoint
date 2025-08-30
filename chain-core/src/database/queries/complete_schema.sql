@@ -10,8 +10,6 @@ DROP TABLE IF EXISTS network_settings CASCADE;
 DROP TABLE IF EXISTS branch_servers CASCADE;
 DROP TABLE IF EXISTS api_keys CASCADE;
 DROP TABLE IF EXISTS system_settings CASCADE;
-DROP TABLE IF EXISTS sync_history CASCADE;
-DROP TABLE IF EXISTS sync_tasks CASCADE;
 DROP TABLE IF EXISTS promotions CASCADE;
 DROP TABLE IF EXISTS payments CASCADE;
 DROP TABLE IF EXISTS transaction_items CASCADE;
@@ -134,9 +132,11 @@ CREATE TABLE categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     key VARCHAR(100) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
+    name_en VARCHAR(255),
     name_ru VARCHAR(255),
     name_uz VARCHAR(255),
     description TEXT,
+    description_en TEXT,
     description_ru TEXT,
     description_uz TEXT,
     parent_id UUID REFERENCES categories(id),
@@ -445,23 +445,6 @@ CREATE TABLE system_settings (
     is_encrypted BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Legacy support tables (placeholders to maintain count of 24 tables)
--- These maintain compatibility with existing code that might reference them
-
--- Sync history placeholder (removed automatic sync system)
-CREATE TABLE sync_history (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    legacy_note TEXT DEFAULT 'This table exists for compatibility. Use branch_sync_logs or onec_sync_logs instead.',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Sync tasks placeholder (removed automatic sync system)  
-CREATE TABLE sync_tasks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    legacy_note TEXT DEFAULT 'This table exists for compatibility. Use manual sync endpoints instead.',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- =================================================================
@@ -961,7 +944,5 @@ ANALYZE;
 -- 21. branch_sync_logs - Branch synchronization logs
 -- 22. onec_sync_logs - 1C integration logs
 -- 23. system_settings - System configuration
--- 24. sync_history - Legacy compatibility table
--- 25. sync_tasks - Legacy compatibility table
 
 COMMIT;

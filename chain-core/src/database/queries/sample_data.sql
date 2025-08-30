@@ -80,183 +80,183 @@ INSERT INTO users (username, email, password_hash, name, role, permissions) VALU
 -- =================================================================
 
 -- Insert sample categories with translations
-INSERT INTO categories (key, name, name_ru, name_uz, description, description_ru, description_uz, sort_order) VALUES
-('beverages', 'Beverages', 'Напитки', 'Ichimliklar', 'Soft drinks, juices, water', 'Безалкогольные напитки, соки, вода', 'Alkogolsiz ichimliklar, sharbatlar, suv', 1),
-('snacks', 'Snacks', 'Закуски', 'Gazaklar', 'Chips, cookies, nuts', 'Чипсы, печенье, орехи', 'Chiplar, pechene, yong''oqlar', 2),
-('dairy', 'Dairy', 'Молочные продукты', 'Sut mahsulotlari', 'Milk, cheese, yogurt', 'Молоко, сыр, йогурт', 'Sut, pishloq, yogurt', 3),
-('bakery', 'Bakery', 'Хлебобулочные', 'Non mahsulotlari', 'Bread, pastries, baked goods', 'Хлеб, выпечка, кондитерские изделия', 'Non, pishiriqlar, pishirilgan mahsulotlar', 4),
-('personal_care', 'Personal Care', 'Личная гигиена', 'Shaxsiy gigiyena', 'Toiletries, hygiene products', 'Туалетные принадлежности, средства гигиены', 'Hojatxona buyumlari, gigiyena vositalari', 5),
-('household', 'Household', 'Бытовые товары', 'Uy-ro''zg''or buyumlari', 'Cleaning supplies, paper products', 'Чистящие средства, бумажные изделия', 'Tozalash vositalari, qog''oz mahsulotlar', 6),
-('electronics', 'Electronics', 'Электроника', 'Elektronika', 'Small electronics, accessories', 'Мелкая электроника, аксессуары', 'Kichik elektronika, aksessuarlar', 7),
-('clothing', 'Clothing', 'Одежда', 'Kiyim-kechak', 'Basic clothing items', 'Основная одежда', 'Asosiy kiyim-kechak', 8),
-('frozen', 'Frozen Foods', 'Замороженные продукты', 'Muzlatilgan mahsulotlar', 'Frozen meals, ice cream', 'Замороженные блюда, мороженое', 'Muzlatilgan taomlar, muzqaymoq', 9),
-('health', 'Health & Beauty', 'Здоровье и красота', 'Salomatlik va go''zallik', 'Vitamins, cosmetics', 'Витамины, косметика', 'Vitaminlar, kosmetika', 10);
+INSERT INTO categories (key, name, name_en, name_ru, name_uz, description, description_en, description_ru, description_uz, sort_order) VALUES
+('beverages', 'Beverages', 'Beverages', 'Напитки', 'Ichimliklar', 'Soft drinks, juices, water', 'Soft drinks, juices, water', 'Безалкогольные напитки, соки, вода', 'Alkogolsiz ichimliklar, sharbatlar, suv', 1),
+('snacks', 'Snacks', 'Snacks', 'Закуски', 'Gazaklar', 'Chips, cookies, nuts', 'Chips, cookies, nuts', 'Чипсы, печенье, орехи', 'Chiplar, pechene, yong''oqlar', 2),
+('dairy', 'Dairy', 'Dairy', 'Молочные продукты', 'Sut mahsulotlari', 'Milk, cheese, yogurt', 'Milk, cheese, yogurt', 'Молоко, сыр, йогурт', 'Sut, pishloq, yogurt', 3),
+('bakery', 'Bakery', 'Bakery', 'Хлебобулочные', 'Non mahsulotlari', 'Bread, pastries, baked goods', 'Bread, pastries, baked goods', 'Хлеб, выпечка, кондитерские изделия', 'Non, pishiriqlar, pishirilgan mahsulotlar', 4),
+('personal_care', 'Personal Care', 'Personal Care', 'Личная гигиена', 'Shaxsiy gigiyena', 'Toiletries, hygiene products', 'Toiletries, hygiene products', 'Туалетные принадлежности, средства гигиены', 'Hojatxona buyumlari, gigiyena vositalari', 5),
+('household', 'Household', 'Household', 'Бытовые товары', 'Uy-ro''zg''or buyumlari', 'Cleaning supplies, paper products', 'Cleaning supplies, paper products', 'Чистящие средства, бумажные изделия', 'Tozalash vositalari, qog''oz mahsulotlar', 6),
+('electronics', 'Electronics', 'Electronics', 'Электроника', 'Elektronika', 'Small electronics, accessories', 'Small electronics, accessories', 'Мелкая электроника, аксессуары', 'Kichik elektronika, aksessuarlar', 7),
+('clothing', 'Clothing', 'Clothing', 'Одежда', 'Kiyim-kechak', 'Basic clothing items', 'Basic clothing items', 'Основная одежда', 'Asosiy kiyim-kechak', 8),
+('frozen', 'Frozen Foods', 'Frozen Foods', 'Замороженные продукты', 'Muzlatilgan mahsulotlar', 'Frozen meals, ice cream', 'Frozen meals, ice cream', 'Замороженные блюда, мороженое', 'Muzlatilgan taomlar, muzqaymoq', 9),
+('health', 'Health & Beauty', 'Health & Beauty', 'Здоровье и красота', 'Salomatlik va go''zallik', 'Vitamins, cosmetics', 'Vitamins, cosmetics', 'Витамины, косметика', 'Vitaminlar, kosmetika', 10);
 
 -- Insert comprehensive sample products
-INSERT INTO products (sku, barcode, name, name_ru, name_uz, description, description_ru, description_uz, category_id, brand, base_price, cost, image_url) 
+INSERT INTO products (sku, barcode, name, name_en, name_ru, name_uz, description, description_en, description_ru, description_uz, category_id, brand, base_price, cost, image_url) 
 SELECT * FROM (
     -- Beverages
-    SELECT 'COCA-500ML', '123456789012', 'Coca Cola 500ml', 'Кока-Кола 500мл', 'Koka-Kola 500ml', 
-           'Classic Coca Cola 500ml bottle', 'Классическая Кока-Кола 500мл бутылка', 'Klassik Koka-Kola 500ml shisha',
+    SELECT 'COCA-500ML', '123456789012', 'Coca Cola 500ml', 'Coca Cola 500ml', 'Кока-Кола 500мл', 'Koka-Kola 500ml', 
+           'Classic Coca Cola 500ml bottle', 'Classic Coca Cola 500ml bottle', 'Классическая Кока-Кола 500мл бутылка', 'Klassik Koka-Kola 500ml shisha',
            c.id, 'Coca Cola', 2.50, 1.20, 'https://example.com/coca-cola.jpg'
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
-    SELECT 'PEPSI-500ML', '123456789013', 'Pepsi 500ml', 'Пепси 500мл', 'Pepsi 500ml',
-           'Pepsi Cola 500ml bottle', 'Пепси-Кола 500мл бутылка', 'Pepsi-Kola 500ml shisha',
+    SELECT 'PEPSI-500ML', '123456789013', 'Pepsi 500ml', 'Pepsi 500ml', 'Пепси 500мл', 'Pepsi 500ml',
+           'Pepsi Cola 500ml bottle', 'Pepsi Cola 500ml bottle', 'Пепси-Кола 500мл бутылка', 'Pepsi-Kola 500ml shisha',
            c.id, 'Pepsi', 2.45, 1.18, 'https://example.com/pepsi.jpg'
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
-    SELECT 'WATER-1L', '123456789014', 'Water 1L', 'Вода 1л', 'Suv 1l',
-           'Pure drinking water 1 liter', 'Чистая питьевая вода 1 литр', 'Toza ichimlik suvi 1 litr',
+    SELECT 'WATER-1L', '123456789014', 'Water 1L', 'Water 1L', 'Вода 1л', 'Suv 1l',
+           'Pure drinking water 1 liter', 'Pure drinking water 1 liter', 'Чистая питьевая вода 1 литр', 'Toza ichimlik suvi 1 litr',
            c.id, 'Pure Life', 1.00, 0.40, 'https://example.com/water.jpg'
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
-    SELECT 'OJ-1L', '123456789015', 'Orange Juice 1L', 'Апельсиновый сок 1л', 'Apelsin sharbati 1l',
-           'Fresh orange juice 1 liter', 'Свежий апельсиновый сок 1 литр', 'Yangi apelsin sharbati 1 litr',
+    SELECT 'OJ-1L', '123456789015', 'Orange Juice 1L', 'Orange Juice 1L', 'Апельсиновый сок 1л', 'Apelsin sharbati 1l',
+           'Fresh orange juice 1 liter', 'Fresh orange juice 1 liter', 'Свежий апельсиновый сок 1 литр', 'Yangi apelsin sharbati 1 litr',
            c.id, 'Tropicana', 3.99, 2.10, 'https://example.com/orange-juice.jpg'
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
-    SELECT 'AJ-1L', '123456789016', 'Apple Juice 1L', 'Яблочный сок 1л', 'Olma sharbati 1l',
-           'Fresh apple juice 1 liter', 'Свежий яблочный сок 1 литр', 'Yangi olma sharbati 1 litr',
+    SELECT 'AJ-1L', '123456789016', 'Apple Juice 1L', 'Apple Juice 1L', 'Яблочный сок 1л', 'Olma sharbati 1l',
+           'Fresh apple juice 1 liter', 'Fresh apple juice 1 liter', 'Свежий яблочный сок 1 литр', 'Yangi olma sharbati 1 litr',
            c.id, 'Minute Maid', 3.75, 2.00, 'https://example.com/apple-juice.jpg'
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
-    SELECT 'ENERGY-250ML', '123456789017', 'Energy Drink 250ml', 'Энергетик 250мл', 'Energetik ichimlik 250ml',
-           'Energy drink 250ml can', 'Энергетический напиток 250мл банка', 'Energetik ichimlik 250ml banka',
+    SELECT 'ENERGY-250ML', '123456789017', 'Energy Drink 250ml', 'Energy Drink 250ml', 'Энергетик 250мл', 'Energetik ichimlik 250ml',
+           'Energy drink 250ml can', 'Energy drink 250ml can', 'Энергетический напиток 250мл банка', 'Energetik ichimlik 250ml banka',
            c.id, 'Red Bull', 2.99, 1.50, 'https://example.com/redbull.jpg'
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
     -- Snacks
-    SELECT 'CHIPS-ORG', '223456789012', 'Chips Original', 'Чипсы оригинальные', 'Chips original',
-           'Original flavor potato chips', 'Картофельные чипсы оригинальный вкус', 'Original ta''mli kartoshka chipslari',
+    SELECT 'CHIPS-ORG', '223456789012', 'Chips Original', 'Chips Original', 'Чипсы оригинальные', 'Chips original',
+           'Original flavor potato chips', 'Original flavor potato chips', 'Картофельные чипсы оригинальный вкус', 'Original ta''mli kartoshka chipslari',
            c.id, 'Lays', 3.50, 1.75, 'https://example.com/chips.jpg'
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
-    SELECT 'SNICKERS', '223456789013', 'Chocolate Bar', 'Шоколадный батончик', 'Shokolad',
-           'Milk chocolate with peanuts', 'Молочный шоколад с арахисом', 'Yeryong''oqli sut shokoladi',
+    SELECT 'SNICKERS', '223456789013', 'Chocolate Bar', 'Chocolate Bar', 'Шоколадный батончик', 'Shokolad',
+           'Milk chocolate with peanuts', 'Milk chocolate with peanuts', 'Молочный шоколад с арахисом', 'Yeryong''oqli sut shokoladi',
            c.id, 'Snickers', 2.99, 1.50, 'https://example.com/snickers.jpg'
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
-    SELECT 'OREO-PACK', '223456789014', 'Cookies Pack', 'Печенье упаковка', 'Pechene paketi',
-           'Chocolate sandwich cookies', 'Шоколадное печенье-сэндвич', 'Shokoladli sendvich pechene',
+    SELECT 'OREO-PACK', '223456789014', 'Cookies Pack', 'Cookies Pack', 'Печенье упаковка', 'Pechene paketi',
+           'Chocolate sandwich cookies', 'Chocolate sandwich cookies', 'Шоколадное печенье-сэндвич', 'Shokoladli sendvich pechene',
            c.id, 'Oreo', 4.50, 2.25, 'https://example.com/oreo.jpg'
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
-    SELECT 'PEANUTS', '223456789015', 'Peanuts Roasted', 'Арахис жареный', 'Yeryong''oq qovurilgan',
-           'Salted roasted peanuts', 'Соленый жареный арахис', 'Tuzlangan qovurilgan yeryong''oq',
+    SELECT 'PEANUTS', '223456789015', 'Peanuts Roasted', 'Peanuts Roasted', 'Арахис жареный', 'Yeryong''oq qovurilgan',
+           'Salted roasted peanuts', 'Salted roasted peanuts', 'Соленый жареный арахис', 'Tuzlangan qovurilgan yeryong''oq',
            c.id, 'Planters', 2.25, 1.10, 'https://example.com/peanuts.jpg'
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
-    SELECT 'POPCORN', '223456789016', 'Popcorn', 'Попкорн', 'Popkorn',
-           'Microwave popcorn butter flavor', 'Попкорн для микроволновки вкус масла', 'Mikroto''lqinli popkorn sariyog'' ta''mi',
+    SELECT 'POPCORN', '223456789016', 'Popcorn', 'Popcorn', 'Попкорн', 'Popkorn',
+           'Microwave popcorn butter flavor', 'Microwave popcorn butter flavor', 'Попкорн для микроволновки вкус масла', 'Mikroto''lqinli popkorn sariyog'' ta''mi',
            c.id, 'Pop Secret', 1.99, 0.90, 'https://example.com/popcorn.jpg'
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
-    SELECT 'GUMMY-BEARS', '223456789017', 'Gummy Bears', 'Желейные мишки', 'Jelatin ayiqchalar',
-           'Fruit gummy bears candy', 'Фруктовые желейные мишки', 'Mevali jelatin ayiqcha konfetlari',
+    SELECT 'GUMMY-BEARS', '223456789017', 'Gummy Bears', 'Gummy Bears', 'Желейные мишки', 'Jelatin ayiqchalar',
+           'Fruit gummy bears candy', 'Fruit gummy bears candy', 'Фруктовые желейные мишки', 'Mevali jelatin ayiqcha konfetlari',
            c.id, 'Haribo', 3.25, 1.60, 'https://example.com/gummy-bears.jpg'
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
     -- Dairy
-    SELECT 'MILK-1L', '323456789012', 'Milk 1L', 'Молоко 1л', 'Sut 1l',
-           'Whole milk 1 liter', 'Цельное молоко 1 литр', 'To''liq sut 1 litr',
+    SELECT 'MILK-1L', '323456789012', 'Milk 1L', 'Milk 1L', 'Молоко 1л', 'Sut 1l',
+           'Whole milk 1 liter', 'Whole milk 1 liter', 'Цельное молоко 1 литр', 'To''liq sut 1 litr',
            c.id, 'Farm Fresh', 3.25, 2.00, 'https://example.com/milk.jpg'
     FROM categories c WHERE c.key = 'dairy'
     
     UNION ALL
     
-    SELECT 'YOGURT-VAN', '323456789013', 'Yogurt Vanilla', 'Йогурт ванильный', 'Yogurt vanil',
-           'Vanilla flavored yogurt', 'Йогурт с ванильным вкусом', 'Vanil ta''mli yogurt',
+    SELECT 'YOGURT-VAN', '323456789013', 'Yogurt Vanilla', 'Yogurt Vanilla', 'Йогурт ванильный', 'Yogurt vanil',
+           'Vanilla flavored yogurt', 'Vanilla flavored yogurt', 'Йогурт с ванильным вкусом', 'Vanil ta''mli yogurt',
            c.id, 'Danone', 1.99, 0.95, 'https://example.com/yogurt.jpg'
     FROM categories c WHERE c.key = 'dairy'
     
     UNION ALL
     
-    SELECT 'CHEESE-SLICE', '323456789014', 'Cheese Slices', 'Сыр ломтиками', 'Pishloq bo''laklari',
-           'American cheese slices', 'Американский сыр ломтиками', 'Amerika pishlog''i bo''laklari',
+    SELECT 'CHEESE-SLICE', '323456789014', 'Cheese Slices', 'Cheese Slices', 'Сыр ломтиками', 'Pishloq bo''laklari',
+           'American cheese slices', 'American cheese slices', 'Американский сыр ломтиками', 'Amerika pishlog''i bo''laklari',
            c.id, 'Kraft', 4.99, 2.50, 'https://example.com/cheese.jpg'
     FROM categories c WHERE c.key = 'dairy'
     
     UNION ALL
     
-    SELECT 'BUTTER-500G', '323456789015', 'Butter 500g', 'Масло сливочное 500г', 'Sariyog'' 500g',
-           'Salted butter 500 grams', 'Соленое масло 500 грамм', 'Tuzlangan sariyog'' 500 gramm',
+    SELECT 'BUTTER-500G', '323456789015', 'Butter 500g', 'Butter 500g', 'Масло сливочное 500г', 'Sariyog'' 500g',
+           'Salted butter 500 grams', 'Salted butter 500 grams', 'Соленое масло 500 грамм', 'Tuzlangan sariyog'' 500 gramm',
            c.id, 'Land O Lakes', 5.50, 3.20, 'https://example.com/butter.jpg'
     FROM categories c WHERE c.key = 'dairy'
     
     UNION ALL
     
     -- Bakery
-    SELECT 'BREAD-WHITE', '423456789012', 'White Bread', 'Хлеб белый', 'Oq non',
-           'Sliced white bread loaf', 'Нарезанный белый хлеб', 'To''g''ralgan oq non',
+    SELECT 'BREAD-WHITE', '423456789012', 'White Bread', 'White Bread', 'Хлеб белый', 'Oq non',
+           'Sliced white bread loaf', 'Sliced white bread loaf', 'Нарезанный белый хлеб', 'To''g''ralgan oq non',
            c.id, 'Wonder', 2.75, 1.30, 'https://example.com/white-bread.jpg'
     FROM categories c WHERE c.key = 'bakery'
     
     UNION ALL
     
-    SELECT 'BREAD-WHEAT', '423456789013', 'Whole Wheat Bread', 'Хлеб цельнозерновой', 'Bug''doy noni',
-           'Whole wheat bread loaf', 'Цельнозерновой хлеб', 'To''liq bug''doy noni',
+    SELECT 'BREAD-WHEAT', '423456789013', 'Whole Wheat Bread', 'Whole Wheat Bread', 'Хлеб цельнозерновой', 'Bug''doy noni',
+           'Whole wheat bread loaf', 'Whole wheat bread loaf', 'Цельнозерновой хлеб', 'To''liq bug''doy noni',
            c.id, 'Pepperidge Farm', 3.25, 1.60, 'https://example.com/wheat-bread.jpg'
     FROM categories c WHERE c.key = 'bakery'
     
     UNION ALL
     
-    SELECT 'CROISSANT', '423456789014', 'Croissant', 'Круассан', 'Kruassan',
-           'Buttery croissant pastry', 'Масляный круассан', 'Sariyog''li kruassan',
+    SELECT 'CROISSANT', '423456789014', 'Croissant', 'Croissant', 'Круассан', 'Kruassan',
+           'Buttery croissant pastry', 'Buttery croissant pastry', 'Масляный круассан', 'Sariyog''li kruassan',
            c.id, 'Fresh Baked', 1.50, 0.75, 'https://example.com/croissant.jpg'
     FROM categories c WHERE c.key = 'bakery'
     
     UNION ALL
     
     -- Personal Care
-    SELECT 'TOOTHPASTE', '523456789012', 'Toothpaste', 'Зубная паста', 'Tish pastasi',
-           'Whitening toothpaste', 'Отбеливающая зубная паста', 'Oqartiruvchi tish pastasi',
+    SELECT 'TOOTHPASTE', '523456789012', 'Toothpaste', 'Toothpaste', 'Зубная паста', 'Tish pastasi',
+           'Whitening toothpaste', 'Whitening toothpaste', 'Отбеливающая зубная паста', 'Oqartiruvchi tish pastasi',
            c.id, 'Colgate', 3.99, 2.10, 'https://example.com/toothpaste.jpg'
     FROM categories c WHERE c.key = 'personal_care'
     
     UNION ALL
     
-    SELECT 'SHAMPOO-400ML', '523456789013', 'Shampoo 400ml', 'Шампунь 400мл', 'Shampun 400ml',
-           'Dandruff shampoo 400ml', 'Шампунь от перхоти 400мл', 'Kepakka qarshi shampun 400ml',
+    SELECT 'SHAMPOO-400ML', '523456789013', 'Shampoo 400ml', 'Shampoo 400ml', 'Шампунь 400мл', 'Shampun 400ml',
+           'Dandruff shampoo 400ml', 'Dandruff shampoo 400ml', 'Шампунь от перхоти 400мл', 'Kepakka qarshi shampun 400ml',
            c.id, 'Head & Shoulders', 6.99, 3.50, 'https://example.com/shampoo.jpg'
     FROM categories c WHERE c.key = 'personal_care'
     
     UNION ALL
     
     -- Electronics
-    SELECT 'CHARGER-USB', '723456789012', 'Phone Charger Cable', 'Кабель зарядки телефона', 'Telefon zaryadlash kabeli',
-           'USB charging cable', 'USB кабель для зарядки', 'USB zaryadlash kabeli',
+    SELECT 'CHARGER-USB', '723456789012', 'Phone Charger Cable', 'Phone Charger Cable', 'Кабель зарядки телефона', 'Telefon zaryadlash kabeli',
+           'USB charging cable', 'USB charging cable', 'USB кабель для зарядки', 'USB zaryadlash kabeli',
            c.id, 'Generic', 9.99, 4.00, 'https://example.com/charger.jpg'
     FROM categories c WHERE c.key = 'electronics'
     
     UNION ALL
     
-    SELECT 'BATTERIES-AA', '723456789013', 'Batteries AA 4-pack', 'Батарейки АА 4 шт', 'Batareyalar AA 4 dona',
-           'Alkaline AA batteries', 'Щелочные батарейки АА', 'Gidroksidli AA batareyalar',
+    SELECT 'BATTERIES-AA', '723456789013', 'Batteries AA 4-pack', 'Batteries AA 4-pack', 'Батарейки АА 4 шт', 'Batareyalar AA 4 dona',
+           'Alkaline AA batteries', 'Alkaline AA batteries', 'Щелочные батарейки АА', 'Gidroksidli AA batareyalar',
            c.id, 'Duracell', 4.99, 2.20, 'https://example.com/batteries.jpg'
     FROM categories c WHERE c.key = 'electronics'
 ) sub;

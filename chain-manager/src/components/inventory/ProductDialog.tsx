@@ -1,15 +1,13 @@
 import {
+  Autocomplete,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
   Switch,
   TextField,
@@ -17,14 +15,15 @@ import {
 } from '@mui/material';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Category, Product } from '../../services/api';
+import { Branch, Category, Product } from '../../services/api';
 
 interface ProductDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onSave: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>, selectedBranches: string[]) => Promise<void>;
   product?: Product;
   categories: Category[];
+  branches: Branch[];
   isLoading?: boolean;
   selectedBranchId?: string | null; // Add branch context
 }
@@ -35,20 +34,31 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
   onSave,
   product,
   categories,
+  branches,
   isLoading = false,
   selectedBranchId,
 }) => {
   const { t } = useTranslation();
+  
+  // Branch selection state (only for new products in general inventory)
+  const [selectedBranches, setSelectedBranches] = React.useState<string[]>([]);
+  
+  // Only show branch selection for new products when not viewing a specific branch
+  const showBranchSelection = !product && !selectedBranchId;
+  
   const [formData, setFormData] = React.useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>({
     sku: '',
     barcode: '',
     name: '',
+    nameEn: '',
     nameRu: '',
     nameUz: '',
     description: '',
+    descriptionEn: '',
     descriptionRu: '',
     descriptionUz: '',
     categoryId: '',
+    categoryName: '',
     brand: '',
     unitOfMeasure: 'pcs',
     basePrice: 0,
@@ -71,16 +81,22 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
         ? product.branch_cost 
         : (product.cost || 0);
 
+      // Find category name from categoryId
+      const selectedCategory = categories.find(cat => cat.id === product.categoryId);
+
       setFormData({
         sku: product.sku,
         barcode: product.barcode || '',
         name: product.name,
+        nameEn: product.nameEn || '',
         nameRu: product.nameRu || '',
         nameUz: product.nameUz || '',
         description: product.description || '',
+        descriptionEn: product.descriptionEn || '',
         descriptionRu: product.descriptionRu || '',
         descriptionUz: product.descriptionUz || '',
         categoryId: product.categoryId || '',
+        categoryName: selectedCategory?.name || '',
         brand: product.brand || '',
         unitOfMeasure: product.unitOfMeasure,
         basePrice: effectivePrice,
@@ -97,12 +113,15 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
         sku: '',
         barcode: '',
         name: '',
+        nameEn: '',
         nameRu: '',
         nameUz: '',
         description: '',
+        descriptionEn: '',
         descriptionRu: '',
         descriptionUz: '',
         categoryId: '',
+        categoryName: '',
         brand: '',
         unitOfMeasure: 'pcs',
         basePrice: 0,
@@ -115,15 +134,35 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
         oneCId: '',
       });
     }
-  }, [product, open, selectedBranchId]);
+  }, [product, open, selectedBranchId, categories]);
 
   const handleSave = async () => {
-    await onSave(formData);
+    // Validate required fields
+    if (!formData.name?.trim()) {
+      alert(t('inventory.nameRequired'));
+      return;
+    }
+    if (!formData.sku?.trim()) {
+      alert(t('inventory.skuRequired'));
+      return;
+    }
+    if (formData.basePrice <= 0) {
+      alert(t('inventory.priceRequired'));
+      return;
+    }
+
+    await onSave(formData, selectedBranches);
     onClose();
   };
 
   const handleChange = (field: keyof typeof formData) => (event: any) => {
-    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    let value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    
+    // Convert numeric fields to numbers
+    if (field === 'basePrice' || field === 'cost' || field === 'taxRate') {
+      value = parseFloat(value) || 0;
+    }
+    
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -175,53 +214,104 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
             />
           </Box>
           
+          {/* Product Names Section */}
+          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+            {t('inventory.productNames')}
+          </Typography>
+          
           <TextField
             fullWidth
-            label={t('inventory.productName')}
+            label={t('inventory.productName') + ' (' + t('inventory.primary') + ')'}
             value={formData.name}
             onChange={handleChange('name')}
             required
+            helperText={t('inventory.primaryNameHelper')}
           />
           
           <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              fullWidth
+              label={t('inventory.nameEnglish')}
+              value={formData.nameEn}
+              onChange={handleChange('nameEn')}
+              helperText={t('inventory.nameEnglishHelper')}
+            />
             <TextField
               fullWidth
               label={t('inventory.nameRussian')}
               value={formData.nameRu}
               onChange={handleChange('nameRu')}
-            />
-            <TextField
-              fullWidth
-              label={t('inventory.nameUzbek')}
-              value={formData.nameUz}
-              onChange={handleChange('nameUz')}
+              helperText={t('inventory.nameRussianHelper')}
             />
           </Box>
           
           <TextField
             fullWidth
-            label={t('inventory.description')}
+            label={t('inventory.nameUzbek')}
+            value={formData.nameUz}
+            onChange={handleChange('nameUz')}
+            helperText={t('inventory.nameUzbekHelper')}
+          />
+          
+          {/* Product Descriptions Section */}
+          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+            {t('inventory.productDescriptions')}
+          </Typography>
+          
+          <TextField
+            fullWidth
+            label={t('inventory.description') + ' (' + t('inventory.primary') + ')'}
             value={formData.description}
             onChange={handleChange('description')}
             multiline
-            rows={3}
+            rows={2}
+            helperText={t('inventory.primaryDescriptionHelper')}
+          />
+          
+          <TextField
+            fullWidth
+            label={t('inventory.descriptionEnglish')}
+            value={formData.descriptionEn}
+            onChange={handleChange('descriptionEn')}
+            multiline
+            rows={2}
+            helperText={t('inventory.descriptionEnglishHelper')}
           />
           
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel>{t('inventory.category')}</InputLabel>
-              <Select
-                value={formData.categoryId}
-                onChange={handleChange('categoryId')}
-                label={t('inventory.category')}
-              >
-                {categories.map(category => (
-                  <MenuItem key={category.id} value={category.id}>
-                    {category.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <TextField
+              fullWidth
+              label={t('inventory.descriptionRussian')}
+              value={formData.descriptionRu}
+              onChange={handleChange('descriptionRu')}
+              multiline
+              rows={2}
+              helperText={t('inventory.descriptionRussianHelper')}
+            />
+            <TextField
+              fullWidth
+              label={t('inventory.descriptionUzbek')}
+              value={formData.descriptionUz}
+              onChange={handleChange('descriptionUz')}
+              multiline
+              rows={2}
+              helperText={t('inventory.descriptionUzbekHelper')}
+            />
+          </Box>
+          
+          {/* Category and Brand Section */}
+          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+            {t('inventory.categoryAndBrand')}
+          </Typography>
+          
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              fullWidth
+              label={t('inventory.categoryName')}
+              value={formData.categoryName}
+              onChange={handleChange('categoryName')}
+              helperText={t('inventory.categoryNameHelper')}
+            />
             <TextField
               fullWidth
               label={t('inventory.brand')}
@@ -229,6 +319,11 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               onChange={handleChange('brand')}
             />
           </Box>
+          
+          {/* Pricing Section */}
+          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+            {t('inventory.pricingInformation')}
+          </Typography>
           
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
@@ -272,6 +367,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               type="number"
               value={formData.taxRate}
               onChange={handleChange('taxRate')}
+              helperText={t('inventory.taxRateHelper')}
             />
           </Box>
 
@@ -317,11 +413,61 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
             </Box>
           )}
           
+          {/* Branch Selection Section (only for new products in general inventory) */}
+          {showBranchSelection && (
+            <>
+              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                {t('inventory.branchDistribution')}
+              </Typography>
+              
+              <Autocomplete
+                multiple
+                options={branches}
+                getOptionLabel={(option) => option.name}
+                value={branches.filter(branch => selectedBranches.includes(branch.id))}
+                onChange={(_, newValue) => {
+                  setSelectedBranches(newValue.map(branch => branch.id));
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={t('inventory.selectBranches')}
+                    helperText={t('inventory.selectBranchesHelper')}
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      variant="outlined"
+                      label={option.name}
+                      {...getTagProps({ index })}
+                      key={option.id}
+                    />
+                  ))
+                }
+              />
+            </>
+          )}
+          
+          {/* Additional Information Section */}
+          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+            {t('inventory.additionalInformation')}
+          </Typography>
+          
           <TextField
             fullWidth
             label={t('inventory.imageUrl')}
             value={formData.imageUrl}
             onChange={handleChange('imageUrl')}
+            helperText={t('inventory.imageUrlHelper')}
+          />
+          
+          <TextField
+            fullWidth
+            label={t('inventory.oneCId')}
+            value={formData.oneCId}
+            onChange={handleChange('oneCId')}
+            helperText={t('inventory.oneCIdHelper')}
           />
           
           <FormControlLabel
