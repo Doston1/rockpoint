@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RockPoint - Download Your Software</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .container {
+        background: white;
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        max-width: 600px;
+        width: 90%;
+        text-align: center;
+      }
+
+      .logo {
+        font-size: 3em;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .subtitle {
+        color: #666;
+        margin-bottom: 40px;
+        font-size: 1.1em;
+      }
+
+      .license-input {
+        margin-bottom: 30px;
+      }
+
+      .license-input input {
+        width: 100%;
+        padding: 15px;
+        font-size: 1.1em;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        box-sizing: border-box;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        text-align: center;
+      }
+
+      .license-input input:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 30px;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1em;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+      }
+
+      .btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .downloads {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        display: none;
+      }
+
+      .download-section {
+        margin-bottom: 25px;
+      }
+
+      .download-section h3 {
+        color: #333;
+        margin-bottom: 15px;
+      }
+
+      .download-links {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .download-links a {
+        background: #28a745;
+        color: white;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 5px;
+        transition: background 0.2s;
+      }
+
+      .download-links a:hover {
+        background: #218838;
+      }
+
+      .error {
+        color: #dc3545;
+        margin-top: 15px;
+        padding: 10px;
+        background: #f8d7da;
+        border-radius: 5px;
+        display: none;
+      }
+
+      .loading {
+        display: none;
+        margin-top: 15px;
+      }
+
+      .loading::after {
+        content: "";
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">🏪 RockPoint</div>
+      <div class="subtitle">Supermarket Management System</div>
+
+      <div class="license-input">
+        <input
+          type="text"
+          id="licenseKey"
+          placeholder="Enter your license key (XXXX-XXXX-XXXX-XXXX)"
+          maxlength="19"
+        />
+        <button class="btn" onclick="validateAndDownload()">
+          Validate License
+        </button>
+        <div class="loading" id="loading">Validating...</div>
+        <div class="error" id="error"></div>
+      </div>
+
+      <div class="downloads" id="downloadSection">
+        <h2>📥 Available Downloads</h2>
+
+        <div class="download-section">
+          <h3>🏢 Chain Manager (Main Office)</h3>
+          <div class="download-links">
+            <a href="#" onclick="downloadApp('chain-manager', 'windows')"
+              >Windows</a
+            >
+            <a href="#" onclick="downloadApp('chain-manager', 'mac')">macOS</a>
+            <a href="#" onclick="downloadApp('chain-manager', 'linux')"
+              >Linux</a
+            >
+          </div>
+        </div>
+
+        <div class="download-section">
+          <h3>💳 POS Manager (Branch Terminals)</h3>
+          <div class="download-links">
+            <a href="#" onclick="downloadApp('pos-manager', 'windows')"
+              >Windows</a
+            >
+            <a href="#" onclick="downloadApp('pos-manager', 'mac')">macOS</a>
+            <a href="#" onclick="downloadApp('pos-manager', 'linux')">Linux</a>
+          </div>
+        </div>
+
+        <div class="download-section">
+          <h3>📋 Installation Guide</h3>
+          <div class="download-links">
+            <a href="#" onclick="downloadGuide()">Download PDF Guide</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // API Configuration - Update this for production
+      const API_BASE_URL =
+        window.location.hostname === "localhost"
+          ? "http://localhost:3002"
+          : "https://your-api-server.railway.app"; // Update this URL for production
+
+      // Format license key input
+      document
+        .getElementById("licenseKey")
+        .addEventListener("input", function (e) {
+          let value = e.target.value.replace(/[^A-Z0-9]/g, "");
+          let formattedValue = value.match(/.{1,4}/g)?.join("-") || value;
+          if (formattedValue.length > 19)
+            formattedValue = formattedValue.substring(0, 19);
+          e.target.value = formattedValue;
+        });
+
+      // Handle Enter key
+      document
+        .getElementById("licenseKey")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter") {
+            validateAndDownload();
+          }
+        });
+
+      async function validateAndDownload() {
+        const licenseKey = document.getElementById("licenseKey").value.trim();
+        const errorDiv = document.getElementById("error");
+        const loadingDiv = document.getElementById("loading");
+        const downloadSection = document.getElementById("downloadSection");
+
+        // Reset states
+        errorDiv.style.display = "none";
+        downloadSection.style.display = "none";
+
+        if (!licenseKey) {
+          showError("Please enter your license key");
+          return;
+        }
+
+        if (licenseKey.length !== 19) {
+          showError(
+            "Please enter a valid license key format (XXXX-XXXX-XXXX-XXXX)"
+          );
+          return;
+        }
+
+        loadingDiv.style.display = "block";
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/license/validate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ licenseKey }),
+          });
+
+          const result = await response.json();
+
+          if (result.success && result.valid) {
+            downloadSection.style.display = "block";
+            trackLicenseUsage(licenseKey, "download_page_accessed");
+          } else {
+            showError(
+              result.reason || "Invalid license key. Please contact support."
+            );
+          }
+        } catch (error) {
+          showError(
+            "Cannot validate license. Please check your internet connection."
+          );
+        } finally {
+          loadingDiv.style.display = "none";
+        }
+      }
+
+      function showError(message) {
+        const errorDiv = document.getElementById("error");
+        errorDiv.textContent = message;
+        errorDiv.style.display = "block";
+      }
+
+      async function downloadApp(appType, platform) {
+        const licenseKey = document.getElementById("licenseKey").value.trim();
+
+        // Track download attempt
+        await trackLicenseUsage(licenseKey, `download_${appType}_${platform}`);
+
+        // In a real implementation, this would download the actual file
+        alert(
+          `Downloading ${appType} for ${platform}...\\n\\nThis would normally start the download of your licensed software.`
+        );
+
+        // Generate secure download URL (mock)
+        const downloadUrl = `https://downloads.rockpoint.com/${appType}/${platform}/latest?license=${licenseKey}`;
+        console.log("Download URL:", downloadUrl);
+      }
+
+      function downloadGuide() {
+        alert(
+          "Downloading installation guide...\\n\\nThis would download the PDF installation guide."
+        );
+      }
+
+      async function trackLicenseUsage(licenseKey, action) {
+        try {
+          await fetch(`${API_BASE_URL}/api/license/track-usage`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              licenseKey,
+              action,
+              timestamp: new Date().toISOString(),
+              userAgent: navigator.userAgent,
+              platform: navigator.platform,
+            }),
+          });
+        } catch (error) {
+          console.log("Usage tracking failed:", error);
+        }
+      }
+    </script>
+  </body>
+</html>
