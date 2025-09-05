@@ -24,7 +24,7 @@ const createProductSchema = z.object({
   cost: z.number().min(0, 'Cost must be positive').optional(),
   quantity_in_stock: z.number().min(0, 'Stock quantity must be positive').optional(),
   low_stock_threshold: z.number().min(0, 'Low stock threshold must be positive').optional(),
-  category: z.string().optional(),
+  category_id: z.string().uuid().optional(),
   brand: z.string().optional(),
   description: z.string().optional(),
   image_url: z.string().optional(),
@@ -43,7 +43,7 @@ const updateProductSchema = z.object({
   cost: z.number().min(0, 'Cost must be positive').optional(),
   quantity_in_stock: z.number().min(0, 'Stock quantity must be positive').optional(),
   low_stock_threshold: z.number().min(0, 'Low stock threshold must be positive').optional(),
-  category: z.string().optional(),
+  category_id: z.string().uuid().optional(),
   brand: z.string().optional(),
   description: z.string().optional(),
   image_url: z.string().optional(),
@@ -77,11 +77,11 @@ const getLocalizedFields = (language: string = 'en') => {
 const getLocalizedCategoryField = (language: string = 'en') => {
   switch (language) {
     case 'ru':
-      return 'COALESCE(c.name_ru, c.name_en, p.category) as category';
+      return 'COALESCE(c.name_ru, c.name_en) as category_name, c.key as category_key';
     case 'uz':
-      return 'COALESCE(c.name_uz, c.name_en, p.category) as category';
+      return 'COALESCE(c.name_uz, c.name_en) as category_name, c.key as category_key';
     default:
-      return 'COALESCE(c.name_en, p.category) as category';
+      return 'c.name_en as category_name, c.key as category_key';
   }
 };
 
@@ -91,22 +91,22 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const language = (req.query.language as string) || 'en';
   
   const { nameField, descField } = getLocalizedFields(language);
-  const categoryField = getLocalizedCategoryField(language);
+  const categoryFields = getLocalizedCategoryField(language);
   
   let query = `
     SELECT 
       p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
-      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      ${categoryFields}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
-    LEFT JOIN categories c ON p.category = c.key
+    LEFT JOIN categories c ON p.category_id = c.id
     WHERE p.is_active = true
   `;
   
   const params: any[] = [Number(limit), Number(offset)];
   
   if (category && category !== 'all') {
-    query += ` AND LOWER(TRIM(p.category)) = LOWER(TRIM($3))`;
+    query += ` AND c.key = $3`;
     params.push(category);
     query += ` ORDER BY p.name ASC LIMIT $1 OFFSET $2`;
   } else {
@@ -132,15 +132,15 @@ router.get('/search', asyncHandler(async (req: Request, res: Response) => {
   const language = (req.query.language as string) || 'en';
   
   const { nameField, descField } = getLocalizedFields(language);
-  const categoryField = getLocalizedCategoryField(language);
+  const categoryFields = getLocalizedCategoryField(language);
   
   const searchQuery = `
     SELECT 
       p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
-      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      ${categoryFields}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
-    LEFT JOIN categories c ON p.category = c.key
+    LEFT JOIN categories c ON p.category_id = c.id
     WHERE 
       p.is_active = true 
       AND (
@@ -149,7 +149,9 @@ router.get('/search', asyncHandler(async (req: Request, res: Response) => {
         OR p.barcode ILIKE $1 
         OR p.description ILIKE $1
         OR p.brand ILIKE $1
-        OR p.category ILIKE $1
+        OR c.name_en ILIKE $1
+        OR c.name_ru ILIKE $1
+        OR c.name_uz ILIKE $1
       )
     ORDER BY p.name ASC
     LIMIT $2 OFFSET $3
@@ -176,7 +178,7 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
   const language = (req.query.language as string) || 'en';
   
   const { nameField } = getLocalizedFields(language);
-  const categoryField = getLocalizedCategoryField(language);
+  const categoryFields = getLocalizedCategoryField(language);
 
   if (!query || query.length < 2) {
     return res.json({
@@ -189,9 +191,9 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
   const exactQuery = `
     SELECT 
       p.id, p.sku, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
-      ${categoryField}, p.brand, p.low_stock_threshold
+      ${categoryFields}, p.brand, p.low_stock_threshold
     FROM products p
-    LEFT JOIN categories c ON p.category = c.key
+    LEFT JOIN categories c ON p.category_id = c.id
     WHERE 
       p.is_active = true 
       AND (p.name ILIKE $1 OR p.sku ILIKE $1)
@@ -223,9 +225,9 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
       partialQuery = `
         SELECT 
           p.id, p.sku, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
-          ${categoryField}, p.brand, p.low_stock_threshold
+          ${categoryFields}, p.brand, p.low_stock_threshold
         FROM products p
-        LEFT JOIN categories c ON p.category = c.key
+        LEFT JOIN categories c ON p.category_id = c.id
         WHERE 
           p.is_active = true 
           AND (
@@ -244,9 +246,9 @@ router.get('/autocomplete', asyncHandler(async (req: Request, res: Response) => 
       partialQuery = `
         SELECT 
           p.id, p.sku, ${nameField}, p.barcode, p.price, p.quantity_in_stock, 
-          ${categoryField}, p.brand, p.low_stock_threshold
+          ${categoryFields}, p.brand, p.low_stock_threshold
         FROM products p
-        LEFT JOIN categories c ON p.category = c.key
+        LEFT JOIN categories c ON p.category_id = c.id
         WHERE 
           p.is_active = true 
           AND (
@@ -284,15 +286,15 @@ router.get('/barcode/:barcode', asyncHandler(async (req: Request, res: Response)
   const language = (req.query.language as string) || 'en';
   
   const { nameField, descField } = getLocalizedFields(language);
-  const categoryField = getLocalizedCategoryField(language);
+  const categoryFields = getLocalizedCategoryField(language);
   
   const productQuery = `
     SELECT 
       p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
-      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      ${categoryFields}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
-    LEFT JOIN categories c ON p.category = c.key
+    LEFT JOIN categories c ON p.category_id = c.id
     WHERE p.barcode = $1 AND p.is_active = true
   `;
 
@@ -329,7 +331,7 @@ router.get('/by-ids', asyncHandler(async (req: Request, res: Response) => {
   }
   
   const { nameField, descField } = getLocalizedFields(language);
-  const categoryField = getLocalizedCategoryField(language);
+  const categoryFields = getLocalizedCategoryField(language);
   
   // Create placeholders for the IN clause
   const placeholders = productIds.map((_, index) => `$${index + 1}`).join(',');
@@ -337,10 +339,10 @@ router.get('/by-ids', asyncHandler(async (req: Request, res: Response) => {
   const productQuery = `
     SELECT 
       p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
-      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      ${categoryFields}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
-    LEFT JOIN categories c ON p.category = c.key
+    LEFT JOIN categories c ON p.category_id = c.id
     WHERE p.id IN (${placeholders}) AND p.is_active = true
     ORDER BY p.name_en
   `;
@@ -363,34 +365,28 @@ router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
   
   switch (language) {
     case 'ru':
-      categoryNameField = 'COALESCE(c.name_ru, c.name_en, p.normalized_category) as name';
-      orderByField = 'COALESCE(c.name_ru, c.name_en, p.normalized_category)';
+      categoryNameField = 'COALESCE(c.name_ru, c.name_en) as name';
+      orderByField = 'COALESCE(c.name_ru, c.name_en)';
       break;
     case 'uz':
-      categoryNameField = 'COALESCE(c.name_uz, c.name_en, p.normalized_category) as name';
-      orderByField = 'COALESCE(c.name_uz, c.name_en, p.normalized_category)';
+      categoryNameField = 'COALESCE(c.name_uz, c.name_en) as name';
+      orderByField = 'COALESCE(c.name_uz, c.name_en)';
       break;
     default:
-      categoryNameField = 'COALESCE(c.name_en, p.normalized_category) as name';
-      orderByField = 'COALESCE(c.name_en, p.normalized_category)';
+      categoryNameField = 'c.name_en as name';
+      orderByField = 'c.name_en';
       break;
   }
 
   const categoriesQuery = `
-    WITH normalized_products AS (
-      SELECT 
-        TRIM(category) as normalized_category,
-        COUNT(*) as product_count
-      FROM products 
-      WHERE is_active = true AND category IS NOT NULL AND category != ''
-      GROUP BY TRIM(category)
-    )
     SELECT 
-      p.normalized_category as key,
+      c.id,
+      c.key,
       ${categoryNameField},
-      p.product_count
-    FROM normalized_products p
-    LEFT JOIN categories c ON LOWER(TRIM(p.normalized_category)) = LOWER(TRIM(c.key))
+      COUNT(p.id) as product_count
+    FROM categories c
+    LEFT JOIN products p ON c.id = p.category_id AND p.is_active = true
+    GROUP BY c.id, c.key, c.name_en, c.name_ru, c.name_uz
     ORDER BY ${orderByField} ASC
   `;
 
@@ -441,15 +437,15 @@ router.get('/low-stock', asyncHandler(async (req: Request, res: Response) => {
   const language = (req.query.language as string) || 'en';
   
   const { nameField, descField } = getLocalizedFields(language);
-  const categoryField = getLocalizedCategoryField(language);
+  const categoryFields = getLocalizedCategoryField(language);
 
   const lowStockQuery = `
     SELECT 
       p.id, p.sku, ${nameField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
-      p.low_stock_threshold, ${categoryField}, p.brand, ${descField}, p.image_url,
+      p.low_stock_threshold, ${categoryFields}, p.brand, ${descField}, p.image_url,
       p.is_active, p.created_at, p.updated_at
     FROM products p
-    LEFT JOIN categories c ON p.category = c.key
+    LEFT JOIN categories c ON p.category_id = c.id
     WHERE 
       p.is_active = true 
       AND p.quantity_in_stock <= COALESCE(p.low_stock_threshold, $1)
@@ -471,17 +467,19 @@ router.get('/popular', asyncHandler(async (req: Request, res: Response) => {
 
   const popularQuery = `
     SELECT 
-      p.id, p.name, p.barcode, p.price, p.category,
+      p.id, p.name, p.barcode, p.price, 
+      c.name_en as category_name, c.key as category_key,
       SUM(ti.quantity) as total_sold,
       COUNT(DISTINCT ti.transaction_id) as transaction_count
     FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
     JOIN transaction_items ti ON p.id = ti.product_id
     JOIN transactions t ON ti.transaction_id = t.id
     WHERE 
       t.created_at >= NOW() - INTERVAL '${days} days'
       AND t.status = 'completed'
       AND p.is_active = true
-    GROUP BY p.id, p.name, p.barcode, p.price, p.category
+    GROUP BY p.id, p.name, p.barcode, p.price, c.name_en, c.key
     ORDER BY total_sold DESC
     LIMIT $1
   `;
@@ -505,16 +503,16 @@ router.get('/category/:category', asyncHandler(async (req: Request, res: Respons
   const language = (req.query.language as string) || 'en';
   
   const { nameField, descField } = getLocalizedFields(language);
-  const categoryField = getLocalizedCategoryField(language);
+  const categoryFields = getLocalizedCategoryField(language);
   
   const query = `
     SELECT 
       p.id, p.sku, ${nameField}, ${descField}, p.barcode, p.price, p.cost, p.quantity_in_stock, 
-      ${categoryField}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
+      ${categoryFields}, p.brand, p.image_url, p.is_active, p.created_at, p.updated_at,
       p.low_stock_threshold
     FROM products p
-    LEFT JOIN categories c ON LOWER(TRIM(p.category)) = LOWER(TRIM(c.key))
-    WHERE LOWER(TRIM(p.category)) = LOWER(TRIM($1)) AND p.is_active = true
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE c.key = $1 AND p.is_active = true
     ORDER BY p.name ASC
     LIMIT $2 OFFSET $3
   `;
@@ -539,12 +537,12 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const createQuery = `
     INSERT INTO products (
       name, barcode, price, cost, quantity_in_stock, 
-      low_stock_threshold, category, brand, description, 
+      low_stock_threshold, category_id, brand, description, 
       image_url, is_active, name_ru, name_uz, description_ru, description_uz,
       created_at, updated_at
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
     RETURNING id, name, barcode, price, cost, quantity_in_stock, 
-             low_stock_threshold, category, brand, description, 
+             low_stock_threshold, category_id, brand, description, 
              image_url, is_active, name_ru, name_uz, description_ru, description_uz,
              created_at, updated_at
   `;
@@ -556,7 +554,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     validatedData.cost || 0,
     validatedData.quantity_in_stock || 0,
     validatedData.low_stock_threshold || 10,
-    validatedData.category || null,
+    validatedData.category_id || null,
     validatedData.brand || null,
     validatedData.description || null,
     validatedData.image_url || null,
@@ -613,7 +611,7 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
     SET ${updateFields.join(', ')}
     WHERE id = $${paramCount}
     RETURNING id, name, barcode, price, cost, quantity_in_stock, 
-             low_stock_threshold, category, brand, description, 
+             low_stock_threshold, category_id, brand, description, 
              image_url, is_active, created_at, updated_at
   `;
 
