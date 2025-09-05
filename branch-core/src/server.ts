@@ -17,8 +17,11 @@ import { WebSocketManager } from './services/websocket';
 import adminRoutes from './api/admin';
 import authRoutes from './api/auth';
 import chainCoreRoutes from './api/chain-core';
+import clickPassRoutes from './api/click-pass/click-pass';
 import employeesRoutes from './api/employees';
 import networkRoutes from './api/network';
+import paymeQRRoutes from './api/payme-qr/payme-qr';
+import paymentMethodsRoutes from './api/payment-methods';
 import productsRoutes from './api/products';
 import reportsRoutes from './api/reports';
 import syncRoutes from './api/sync';
@@ -111,7 +114,10 @@ class BranchServer {
     this.app.use('/api/reports', reportsRoutes);
     this.app.use('/api/sync', syncRoutes);
     this.app.use('/api/network', networkRoutes);
+    this.app.use('/api/payment-methods', paymentMethodsRoutes);
     this.app.use('/api/payments/fastpay', fastpayRoutes);
+    this.app.use('/api/payments/click-pass', clickPassRoutes);
+    this.app.use('/api/payments/payme-qr', paymeQRRoutes);
 
     // Serve static files (receipts, images, etc.)
     this.app.use('/static', express.static('uploads'));

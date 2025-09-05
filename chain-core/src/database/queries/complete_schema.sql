@@ -448,6 +448,108 @@ CREATE TABLE system_settings (
 );
 
 -- =================================================================
+-- PAYMENT METHODS MANAGEMENT TABLES
+-- =================================================================
+
+-- Payment methods definition table (Click, Uzum FastPay, Payme)
+CREATE TABLE payment_methods (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    method_code VARCHAR(50) UNIQUE NOT NULL, -- 'click', 'uzum_fastpay', 'payme'
+    method_name VARCHAR(255) NOT NULL,
+    method_name_ru VARCHAR(255),
+    method_name_uz VARCHAR(255),
+    description TEXT,
+    description_ru TEXT,
+    description_uz TEXT,
+    is_active BOOLEAN DEFAULT true,
+    requires_qr BOOLEAN DEFAULT false, -- true for Click Pass and Payme QR
+    requires_fiscal_receipt BOOLEAN DEFAULT false,
+    api_documentation_url VARCHAR(500),
+    logo_url VARCHAR(500),
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Branch payment method configurations (which methods are enabled per branch)
+CREATE TABLE branch_payment_methods (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
+    payment_method_id UUID REFERENCES payment_methods(id) ON DELETE CASCADE,
+    is_enabled BOOLEAN DEFAULT true,
+    priority INTEGER DEFAULT 0, -- Display order priority
+    daily_limit DECIMAL(15,2), -- Optional daily transaction limit
+    transaction_limit DECIMAL(15,2), -- Optional per-transaction limit
+    enabled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    enabled_by UUID REFERENCES users(id),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(branch_id, payment_method_id)
+);
+
+-- Branch payment credentials (encrypted credentials for each payment method per branch)
+CREATE TABLE branch_payment_credentials (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
+    payment_method_id UUID REFERENCES payment_methods(id) ON DELETE CASCADE,
+    credential_key VARCHAR(100) NOT NULL, -- e.g., 'merchant_id', 'service_id', 'secret_key', etc.
+    credential_value TEXT NOT NULL, -- Encrypted credential value
+    is_encrypted BOOLEAN DEFAULT true,
+    is_test_environment BOOLEAN DEFAULT false,
+    description TEXT,
+    last_updated_by UUID REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(branch_id, payment_method_id, credential_key)
+);
+
+-- Payment transactions tracking (aggregated from all branches)
+CREATE TABLE payment_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
+    payment_method_id UUID REFERENCES payment_methods(id),
+    pos_transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
+    external_transaction_id VARCHAR(255), -- ID from payment provider
+    external_order_id VARCHAR(255), -- Order ID from payment provider
+    amount DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'UZS',
+    status VARCHAR(50) NOT NULL CHECK (status IN ('initiated', 'pending', 'completed', 'failed', 'cancelled', 'refunded')),
+    payment_request_data JSONB, -- Original payment request
+    payment_response_data JSONB, -- Response from payment provider
+    error_code VARCHAR(100),
+    error_message TEXT,
+    employee_id UUID REFERENCES employees(id),
+    terminal_id VARCHAR(100),
+    qr_code_data TEXT, -- QR code content if applicable
+    receipt_url VARCHAR(500), -- Link to receipt if provided by payment system
+    fiscal_receipt_sent BOOLEAN DEFAULT false,
+    initiated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Payment method audit log for security and compliance
+CREATE TABLE payment_audit_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
+    payment_method_id UUID REFERENCES payment_methods(id),
+    payment_transaction_id UUID REFERENCES payment_transactions(id) ON DELETE CASCADE,
+    action VARCHAR(100) NOT NULL, -- 'credentials_updated', 'payment_initiated', 'payment_completed', etc.
+    actor_type VARCHAR(50) NOT NULL CHECK (actor_type IN ('user', 'employee', 'system', 'api')),
+    actor_id UUID, -- User ID or Employee ID
+    actor_name VARCHAR(255),
+    ip_address INET,
+    user_agent TEXT,
+    request_data JSONB,
+    response_data JSONB,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =================================================================
 -- INDEXES FOR PERFORMANCE
 -- =================================================================
 
@@ -586,6 +688,55 @@ CREATE INDEX idx_onec_sync_logs_started_at ON onec_sync_logs(started_at);
 CREATE INDEX idx_system_settings_key ON system_settings(key);
 
 -- =================================================================
+-- PAYMENT METHODS INDEXES
+-- =================================================================
+
+-- Payment methods indexes
+CREATE INDEX idx_payment_methods_code ON payment_methods(method_code);
+CREATE INDEX idx_payment_methods_active ON payment_methods(is_active);
+CREATE INDEX idx_payment_methods_sort_order ON payment_methods(sort_order);
+
+-- Branch payment methods indexes
+CREATE INDEX idx_branch_payment_methods_branch_id ON branch_payment_methods(branch_id);
+CREATE INDEX idx_branch_payment_methods_payment_method_id ON branch_payment_methods(payment_method_id);
+CREATE INDEX idx_branch_payment_methods_enabled ON branch_payment_methods(is_enabled);
+CREATE INDEX idx_branch_payment_methods_priority ON branch_payment_methods(priority);
+CREATE INDEX idx_branch_payment_methods_branch_enabled ON branch_payment_methods(branch_id, is_enabled);
+
+-- Branch payment credentials indexes
+CREATE INDEX idx_branch_payment_credentials_branch_id ON branch_payment_credentials(branch_id);
+CREATE INDEX idx_branch_payment_credentials_payment_method_id ON branch_payment_credentials(payment_method_id);
+CREATE INDEX idx_branch_payment_credentials_credential_key ON branch_payment_credentials(credential_key);
+CREATE INDEX idx_branch_payment_credentials_test_env ON branch_payment_credentials(is_test_environment);
+CREATE INDEX idx_branch_payment_credentials_branch_method ON branch_payment_credentials(branch_id, payment_method_id);
+
+-- Payment transactions indexes
+CREATE INDEX idx_payment_transactions_branch_id ON payment_transactions(branch_id);
+CREATE INDEX idx_payment_transactions_payment_method_id ON payment_transactions(payment_method_id);
+CREATE INDEX idx_payment_transactions_pos_transaction_id ON payment_transactions(pos_transaction_id);
+CREATE INDEX idx_payment_transactions_external_id ON payment_transactions(external_transaction_id);
+CREATE INDEX idx_payment_transactions_external_order_id ON payment_transactions(external_order_id);
+CREATE INDEX idx_payment_transactions_status ON payment_transactions(status);
+CREATE INDEX idx_payment_transactions_employee_id ON payment_transactions(employee_id);
+CREATE INDEX idx_payment_transactions_terminal_id ON payment_transactions(terminal_id);
+CREATE INDEX idx_payment_transactions_initiated_at ON payment_transactions(initiated_at);
+CREATE INDEX idx_payment_transactions_completed_at ON payment_transactions(completed_at);
+CREATE INDEX idx_payment_transactions_expires_at ON payment_transactions(expires_at);
+CREATE INDEX idx_payment_transactions_branch_status ON payment_transactions(branch_id, status);
+CREATE INDEX idx_payment_transactions_method_status ON payment_transactions(payment_method_id, status);
+
+-- Payment audit log indexes
+CREATE INDEX idx_payment_audit_log_branch_id ON payment_audit_log(branch_id);
+CREATE INDEX idx_payment_audit_log_payment_method_id ON payment_audit_log(payment_method_id);
+CREATE INDEX idx_payment_audit_log_payment_transaction_id ON payment_audit_log(payment_transaction_id);
+CREATE INDEX idx_payment_audit_log_action ON payment_audit_log(action);
+CREATE INDEX idx_payment_audit_log_actor_type ON payment_audit_log(actor_type);
+CREATE INDEX idx_payment_audit_log_actor_id ON payment_audit_log(actor_id);
+CREATE INDEX idx_payment_audit_log_created_at ON payment_audit_log(created_at);
+CREATE INDEX idx_payment_audit_log_ip_address ON payment_audit_log(ip_address);
+CREATE INDEX idx_payment_audit_log_branch_action ON payment_audit_log(branch_id, action);
+
+-- =================================================================
 -- FUNCTIONS AND TRIGGERS
 -- =================================================================
 
@@ -663,6 +814,19 @@ CREATE TRIGGER update_network_settings_updated_at BEFORE UPDATE ON network_setti
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON system_settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Payment methods triggers
+CREATE TRIGGER update_payment_methods_updated_at BEFORE UPDATE ON payment_methods
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_branch_payment_methods_updated_at BEFORE UPDATE ON branch_payment_methods
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_branch_payment_credentials_updated_at BEFORE UPDATE ON branch_payment_credentials
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_payment_transactions_updated_at BEFORE UPDATE ON payment_transactions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- API keys updated_at trigger
@@ -754,6 +918,69 @@ WHERE t.status = 'completed'
 AND t.completed_at >= CURRENT_DATE - INTERVAL '30 days'
 GROUP BY b.id, b.name, b.code, DATE(t.completed_at)
 ORDER BY sale_date DESC, b.name;
+
+-- Branch payment methods overview view
+CREATE OR REPLACE VIEW branch_payment_methods_overview AS
+SELECT 
+    b.id as branch_id,
+    b.name as branch_name,
+    b.code as branch_code,
+    pm.id as payment_method_id,
+    pm.method_code,
+    pm.method_name,
+    pm.method_name_ru,
+    pm.method_name_uz,
+    bpm.is_enabled,
+    bpm.priority,
+    bpm.daily_limit,
+    bpm.transaction_limit,
+    bpm.enabled_at,
+    bpm.notes,
+    COUNT(pt.id) as transaction_count_30d,
+    COALESCE(SUM(pt.amount), 0) as total_amount_30d,
+    COUNT(CASE WHEN pt.status = 'completed' THEN 1 END) as successful_transactions_30d,
+    COUNT(CASE WHEN pt.status = 'failed' THEN 1 END) as failed_transactions_30d
+FROM branches b
+CROSS JOIN payment_methods pm
+LEFT JOIN branch_payment_methods bpm ON b.id = bpm.branch_id AND pm.id = bpm.payment_method_id
+LEFT JOIN payment_transactions pt ON b.id = pt.branch_id AND pm.id = pt.payment_method_id 
+    AND pt.initiated_at >= CURRENT_DATE - INTERVAL '30 days'
+WHERE b.is_active = true AND pm.is_active = true
+GROUP BY b.id, b.name, b.code, pm.id, pm.method_code, pm.method_name, pm.method_name_ru, pm.method_name_uz,
+         bpm.is_enabled, bpm.priority, bpm.daily_limit, bpm.transaction_limit, bpm.enabled_at, bpm.notes
+ORDER BY b.name, bpm.priority NULLS LAST, pm.sort_order;
+
+-- Payment transactions summary view
+CREATE OR REPLACE VIEW payment_transactions_summary AS
+SELECT 
+    pt.id,
+    b.name as branch_name,
+    b.code as branch_code,
+    pm.method_name,
+    pm.method_code,
+    pt.external_transaction_id,
+    pt.external_order_id,
+    pt.amount,
+    pt.currency,
+    pt.status,
+    pt.error_code,
+    pt.error_message,
+    e.name as employee_name,
+    pt.terminal_id,
+    pt.initiated_at,
+    pt.completed_at,
+    pt.expires_at,
+    CASE 
+        WHEN pt.completed_at IS NOT NULL THEN 
+            EXTRACT(EPOCH FROM (pt.completed_at - pt.initiated_at))
+        ELSE NULL 
+    END as processing_time_seconds,
+    pt.fiscal_receipt_sent
+FROM payment_transactions pt
+JOIN branches b ON pt.branch_id = b.id
+JOIN payment_methods pm ON pt.payment_method_id = pm.id
+LEFT JOIN employees e ON pt.employee_id = e.id
+ORDER BY pt.initiated_at DESC;
 
 -- =================================================================
 -- UTILITY FUNCTIONS
@@ -920,7 +1147,8 @@ ANALYZE;
 -- SUMMARY
 -- =================================================================
 
--- This schema includes 25 tables:
+-- This schema includes 30 tables:
+-- CORE BUSINESS TABLES:
 -- 1. chains - Top-level chain organization
 -- 2. branches - Individual store locations
 -- 3. users - Main office/administrative users
@@ -937,12 +1165,25 @@ ANALYZE;
 -- 14. transaction_items - Transaction line items
 -- 15. payments - Payment information
 -- 16. promotions - Sales promotions
+
+-- NETWORK AND INFRASTRUCTURE TABLES:
 -- 17. branch_servers - Network server information
 -- 18. network_settings - Network configuration
 -- 19. connection_health_logs - Network health monitoring
+
+-- AUTHENTICATION AND SECURITY TABLES:
 -- 20. api_keys - Authentication system
+
+-- SYNC AND LOGGING TABLES:
 -- 21. branch_sync_logs - Branch synchronization logs
 -- 22. onec_sync_logs - 1C integration logs
 -- 23. system_settings - System configuration
+
+-- PAYMENT METHODS MANAGEMENT TABLES:
+-- 24. payment_methods - Payment method definitions (Click, Uzum FastPay, Payme)
+-- 25. branch_payment_methods - Branch-specific payment method configurations
+-- 26. branch_payment_credentials - Encrypted payment credentials per branch
+-- 27. payment_transactions - Payment transaction tracking (aggregated from branches)
+-- 28. payment_audit_log - Payment system audit trail
 
 COMMIT;

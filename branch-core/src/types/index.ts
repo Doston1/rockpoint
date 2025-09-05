@@ -20,7 +20,7 @@ export interface Product {
   cost: number;
   quantity_in_stock: number;
   low_stock_threshold: number;
-  category?: string;
+  category_id?: string; // UUID foreign key to categories table
   brand?: string;
   description?: string;
   image_url?: string;
@@ -187,7 +187,8 @@ export interface HourlyBreakdown {
 export interface TopSellingProduct {
   id: string;
   name: string;
-  category: string;
+  category_name: string; // Display name from categories table
+  category_key: string; // Key from categories table
   price: number;
   quantity_sold: number;
   total_revenue: number;

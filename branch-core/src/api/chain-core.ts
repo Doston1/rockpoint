@@ -79,13 +79,15 @@ router.get('/inventory', authenticateApiKey, requirePermission('inventory:read')
       bi.last_updated,
       p.price as current_price,
       p.cost,
-      p.category,
+      c.key as category_key,
+      c.name as category_name,
       CASE 
         WHEN bi.quantity_in_stock <= bi.min_stock_level THEN true 
         ELSE false 
       END as is_low_stock
     FROM branch_inventory bi
     JOIN products p ON bi.product_id = p.id
+    LEFT JOIN categories c ON p.category_id = c.id
     WHERE 1=1
   `;
   
@@ -120,6 +122,7 @@ router.get('/inventory', authenticateApiKey, requirePermission('inventory:read')
     SELECT COUNT(*) as total
     FROM branch_inventory bi
     JOIN products p ON bi.product_id = p.id
+    LEFT JOIN categories c ON p.category_id = c.id
     WHERE 1=1
   `;
   
@@ -133,7 +136,7 @@ router.get('/inventory', authenticateApiKey, requirePermission('inventory:read')
   }
 
   if (category) {
-    countQuery += ` AND p.category = $${countParamIndex}`;
+    countQuery += ` AND c.key = $${countParamIndex}`;
     countParams.push(category);
     countParamIndex++;
   }    if (low_stock_only === 'true') {
@@ -345,7 +348,7 @@ router.get('/products', authenticateApiKey, requirePermission('products:read'), 
     }
 
   if (category) {
-    query += ` AND p.category = $${paramIndex}`;
+    query += ` AND c.key = $${paramIndex}`;
     params.push(category);
     paramIndex++;
   }    query += ` ORDER BY p.name`;
@@ -500,13 +503,22 @@ router.post('/products/sync', authenticateApiKey, requirePermission('products:wr
 
     for (const product of validatedData.products) {
       try {
-        // Handle category - in branch-core we'll store category as a simple string
-        const categoryValue = product.category_key || null;
+        // Handle category - lookup category_id by key
+        let categoryId = null;
+        if (product.category_key) {
+          const categoryResult = await DatabaseManager.query(
+            'SELECT id FROM categories WHERE key = $1',
+            [product.category_key]
+          );
+          if (categoryResult.rows.length > 0) {
+            categoryId = categoryResult.rows[0].id;
+          }
+        }
         
-        // Upsert product - branch-core uses simpler schema
+        // Upsert product - using category_id foreign key
         const upsertQuery = `
           INSERT INTO products (
-            sku, barcode, name, description, category, 
+            sku, barcode, name, description, category_id, 
             brand, price, cost, is_active
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -515,7 +527,7 @@ router.post('/products/sync', authenticateApiKey, requirePermission('products:wr
             sku = $1,
             name = $3,
             description = $4,
-            category = $5,
+            category_id = $5,
             brand = $6,
             price = $7,
             cost = $8,
@@ -529,7 +541,7 @@ router.post('/products/sync', authenticateApiKey, requirePermission('products:wr
           product.barcode, // Use barcode as unique identifier
           product.name,
           product.description || null,
-          categoryValue,
+          categoryId,
           product.brand || null,
           product.price,
           product.cost || null,

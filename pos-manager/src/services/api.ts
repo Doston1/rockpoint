@@ -96,6 +96,92 @@ export interface UzumBankConfig {
   enable_logging: string;
 }
 
+export interface PaymentMethodStatus {
+  payment_method_code: string;
+  payment_method_name: string;
+  is_enabled: boolean;
+  priority: number;
+  daily_limit?: number;
+  transaction_limit?: number;
+  credentials_configured: boolean;
+  last_sync_at?: string;
+  sync_status: 'pending' | 'synced' | 'error';
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentMethodStatusUpdate {
+  is_enabled: boolean;
+  daily_limit?: number;
+  transaction_limit?: number;
+  priority?: number;
+}
+
+export interface PaymentMethodCredentials {
+  payment_method_code: string;
+  credentials: Record<string, {
+    value: string;
+    is_encrypted: boolean;
+    last_updated: string;
+  }>;
+  is_test_environment: boolean;
+  last_sync_at?: string;
+}
+
+export interface PaymentMethodCredentialsUpdate {
+  credentials: Record<string, string>;
+  is_test_environment?: boolean;
+}
+
+export interface ClickPassRequest {
+  amount_uzs: number;
+  otp_data: string;
+  employee_id: string;
+  terminal_id: string;
+  pos_transaction_id?: string;
+  cashbox_code?: string;
+}
+
+export interface ClickPassResponse {
+  success: boolean;
+  data: {
+    click_transaction_id: string;
+    order_id: string;
+    click_trans_id?: number;
+    status: string;
+    payment_status?: number;
+    card_type?: string;
+    masked_card_number?: string;
+    requires_confirmation?: boolean;
+    confirmation_code?: string;
+  };
+  error?: string;
+}
+
+export interface PaymeQRRequest {
+  amount_uzs: number;
+  employee_id: string;
+  terminal_id: string;
+  pos_transaction_id?: string;
+  description?: string;
+  account_data?: Record<string, any>;
+}
+
+export interface PaymeQRResponse {
+  success: boolean;
+  data: {
+    payme_receipt_id: string;
+    order_id: string;
+    receipt_id?: string;
+    status: string;
+    payme_state?: number;
+    qr_code_data?: string;
+    payment_url?: string;
+  };
+  error?: string;
+}
+
 class ApiService {
   private baseUrl: string;
   private token: string | null = null;
@@ -581,6 +667,87 @@ class ApiService {
   async checkHealth(): Promise<ApiResponse<{ status: string; timestamp: string }>> {
     return this.request('/health', {
       method: 'GET',
+    });
+  }
+
+  // Payment Methods Management endpoints
+  async getPaymentMethodsStatus(): Promise<ApiResponse<{ payment_methods: PaymentMethodStatus[] }>> {
+    return this.request('/payment-methods/status');
+  }
+
+  async getActivePaymentMethods(): Promise<ApiResponse<{ payment_methods: PaymentMethodStatus[] }>> {
+    return this.request('/payment-methods/active');
+  }
+
+  async updatePaymentMethodStatus(
+    code: string, 
+    status: Partial<PaymentMethodStatusUpdate>
+  ): Promise<ApiResponse<{ payment_method: PaymentMethodStatus; updated_by: string }>> {
+    return this.request(`/payment-methods/${code}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(status),
+    });
+  }
+
+  async getPaymentMethodCredentials(code: string): Promise<ApiResponse<PaymentMethodCredentials>> {
+    return this.request(`/payment-methods/${code}/credentials`);
+  }
+
+  async updatePaymentMethodCredentials(
+    code: string, 
+    credentials: PaymentMethodCredentialsUpdate
+  ): Promise<ApiResponse<{ payment_method_code: string; credentials_count: number }>> {
+    return this.request(`/payment-methods/${code}/credentials`, {
+      method: 'PUT',
+      body: JSON.stringify(credentials),
+    });
+  }
+
+  async testPaymentMethodConnection(code: string): Promise<ApiResponse<{ 
+    payment_method_code: string; 
+    payment_method_name: string; 
+    connection_test: any; 
+  }>> {
+    return this.request(`/payment-methods/${code}/test-connection`, {
+      method: 'POST',
+    });
+  }
+
+  // Click Pass Payment endpoints
+  async processClickPassPayment(request: ClickPassRequest): Promise<ApiResponse<ClickPassResponse>> {
+    return this.request('/payments/click-pass', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async getClickPassStatus(transactionId: string): Promise<ApiResponse<any>> {
+    return this.request(`/payments/click-pass/${transactionId}/status`);
+  }
+
+  async reverseClickPassPayment(orderId: string, reason: string, requestedBy: string): Promise<ApiResponse<any>> {
+    return this.request(`/payments/click-pass/${orderId}/reverse`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason, requested_by: requestedBy }),
+    });
+  }
+
+  // Payme QR Payment endpoints
+  async createPaymeQRReceipt(request: PaymeQRRequest): Promise<ApiResponse<PaymeQRResponse>> {
+    return this.request('/payments/payme-qr', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async getPaymeQRStatus(receiptId: string): Promise<ApiResponse<any>> {
+    return this.request(`/payments/payme-qr/${receiptId}/status`);
+  }
+
+  async cancelPaymeQRReceipt(receiptId: string, reason: string, requestedBy: string): Promise<ApiResponse<any>> {
+    return this.request(`/payments/payme-qr/${receiptId}/cancel`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason, requested_by: requestedBy }),
     });
   }
 }

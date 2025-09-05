@@ -860,11 +860,11 @@ const CheckoutPage = () => {
                     <ListItemText
                       primary={item.product.name}
                       secondary={
-                        <Box>
-                          <Typography variant="body2">
+                        <Box component="span">
+                          <Typography component="span" variant="body2" display="block">
                             ${item.unit_price.toFixed(2)} {t('checkout.each')}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography component="span" variant="caption" color="text.secondary" display="block">
                             {t('checkout.stockLabel')} {item.product.quantity_in_stock}
                           </Typography>
                         </Box>

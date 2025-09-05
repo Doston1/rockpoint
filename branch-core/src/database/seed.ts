@@ -31,34 +31,34 @@ async function seedDatabase(): Promise<void> {
     // Seed product categories and products
     console.log('📦 Seeding products...');
     await DatabaseManager.query(`
-      INSERT INTO products (name, barcode, price, cost, quantity_in_stock, category, brand, description, is_active) VALUES
+      INSERT INTO products (name, barcode, price, cost, quantity_in_stock, category_id, brand, description, is_active) VALUES
       -- Beverages
-      ('Coca Cola 500ml', '1234567890123', 2.50, 1.50, 100, 'Beverages', 'Coca Cola', 'Refreshing cola drink 500ml bottle', true),
-      ('Pepsi 500ml', '1234567890124', 2.50, 1.50, 80, 'Beverages', 'Pepsi', 'Pepsi cola 500ml bottle', true),
-      ('Water 1L', '1234567890125', 1.00, 0.60, 200, 'Beverages', 'AquaPure', 'Pure drinking water 1 liter', true),
-      ('Orange Juice 1L', '1234567890126', 4.99, 3.00, 50, 'Beverages', 'Tropicana', 'Fresh orange juice 1 liter', true),
+      ('Coca Cola 500ml', '1234567890123', 2.50, 1.50, 100, (SELECT id FROM categories WHERE key = 'beverages'), 'Coca Cola', 'Refreshing cola drink 500ml bottle', true),
+      ('Pepsi 500ml', '1234567890124', 2.50, 1.50, 80, (SELECT id FROM categories WHERE key = 'beverages'), 'Pepsi', 'Pepsi cola 500ml bottle', true),
+      ('Water 1L', '1234567890125', 1.00, 0.60, 200, (SELECT id FROM categories WHERE key = 'beverages'), 'AquaPure', 'Pure drinking water 1 liter', true),
+      ('Orange Juice 1L', '1234567890126', 4.99, 3.00, 50, (SELECT id FROM categories WHERE key = 'beverages'), 'Tropicana', 'Fresh orange juice 1 liter', true),
       
       -- Snacks
-      ('Lays Chips Classic', '2234567890123', 3.99, 2.50, 75, 'Snacks', 'Lays', 'Classic potato chips 150g', true),
-      ('Oreo Cookies', '2234567890124', 2.99, 1.80, 60, 'Snacks', 'Oreo', 'Chocolate sandwich cookies', true),
-      ('Pringles Original', '2234567890125', 4.50, 2.80, 40, 'Snacks', 'Pringles', 'Original flavored chips', true),
+      ('Lays Chips Classic', '2234567890123', 3.99, 2.50, 75, (SELECT id FROM categories WHERE key = 'snacks'), 'Lays', 'Classic potato chips 150g', true),
+      ('Oreo Cookies', '2234567890124', 2.99, 1.80, 60, (SELECT id FROM categories WHERE key = 'snacks'), 'Oreo', 'Chocolate sandwich cookies', true),
+      ('Pringles Original', '2234567890125', 4.50, 2.80, 40, (SELECT id FROM categories WHERE key = 'snacks'), 'Pringles', 'Original flavored chips', true),
       
       -- Dairy
-      ('Milk 1L', '3234567890123', 3.50, 2.20, 30, 'Dairy', 'Fresh Farm', 'Fresh whole milk 1 liter', true),
-      ('Cheese Slices', '3234567890124', 5.99, 3.50, 25, 'Dairy', 'Kraft', 'Processed cheese slices 200g', true),
-      ('Yogurt Strawberry', '3234567890125', 1.99, 1.20, 45, 'Dairy', 'Danone', 'Strawberry flavored yogurt 150g', true),
+      ('Milk 1L', '3234567890123', 3.50, 2.20, 30, (SELECT id FROM categories WHERE key = 'dairy'), 'Fresh Farm', 'Fresh whole milk 1 liter', true),
+      ('Cheese Slices', '3234567890124', 5.99, 3.50, 25, (SELECT id FROM categories WHERE key = 'dairy'), 'Kraft', 'Processed cheese slices 200g', true),
+      ('Yogurt Strawberry', '3234567890125', 1.99, 1.20, 45, (SELECT id FROM categories WHERE key = 'dairy'), 'Danone', 'Strawberry flavored yogurt 150g', true),
       
       -- Bakery
-      ('White Bread', '4234567890123', 2.50, 1.50, 20, 'Bakery', 'Wonder', 'Sliced white bread loaf', true),
-      ('Croissant', '4234567890124', 1.50, 0.80, 15, 'Bakery', 'Fresh Bake', 'Butter croissant', true),
+      ('White Bread', '4234567890123', 2.50, 1.50, 20, (SELECT id FROM categories WHERE key = 'bakery'), 'Wonder', 'Sliced white bread loaf', true),
+      ('Croissant', '4234567890124', 1.50, 0.80, 15, (SELECT id FROM categories WHERE key = 'bakery'), 'Fresh Bake', 'Butter croissant', true),
       
       -- Cleaning
-      ('Dish Soap', '5234567890123', 3.99, 2.40, 35, 'Cleaning', 'Dawn', 'Liquid dish soap 500ml', true),
-      ('Paper Towels', '5234567890124', 6.99, 4.20, 28, 'Cleaning', 'Bounty', 'Paper towel rolls pack of 4', true),
+      ('Dish Soap', '5234567890123', 3.99, 2.40, 35, (SELECT id FROM categories WHERE key = 'cleaning'), 'Dawn', 'Liquid dish soap 500ml', true),
+      ('Paper Towels', '5234567890124', 6.99, 4.20, 28, (SELECT id FROM categories WHERE key = 'cleaning'), 'Bounty', 'Paper towel rolls pack of 4', true),
       
       -- Electronics
-      ('Phone Charger USB-C', '6234567890123', 19.99, 12.00, 12, 'Electronics', 'Anker', 'Fast charging USB-C cable', true),
-      ('Bluetooth Earbuds', '6234567890124', 59.99, 35.00, 8, 'Electronics', 'JBL', 'Wireless bluetooth earbuds', true)
+      ('Phone Charger USB-C', '6234567890123', 19.99, 12.00, 12, (SELECT id FROM categories WHERE key = 'electronics'), 'Anker', 'Fast charging USB-C cable', true),
+      ('Bluetooth Earbuds', '6234567890124', 59.99, 35.00, 8, (SELECT id FROM categories WHERE key = 'electronics'), 'JBL', 'Wireless bluetooth earbuds', true)
     `);
     
     // Seed some sample customers
