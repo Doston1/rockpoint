@@ -9,6 +9,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Sidebar } from './components/Sidebar';
 
 // Import pages
+import BranchDetailsPageNew from './pages/BranchDetailsPageNew';
 import BranchesPage from './pages/BranchesPage';
 import CustomersPage from './pages/CustomersPage';
 import DashboardPage from './pages/DashboardPage';
@@ -62,87 +63,95 @@ function App() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <NavigationBar 
+      <NavigationBar
         onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
       />
-      
+
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar open={sidebarOpen} />
-        
-        <Box 
-          component="main" 
-          sx={{ 
-            flexGrow: 1, 
-            p: 3, 
+
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            p: 3,
             overflow: 'auto',
             backgroundColor: (theme) => theme.palette.grey[50]
           }}
         >
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route 
-              path="/dashboard" 
+            <Route
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <DashboardPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/branches/*" 
+            <Route
+              path="/branches"
               element={
                 <ProtectedRoute permissions={['branches.read']}>
                   <BranchesPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/employees/*" 
+            <Route
+              path="/branches/:id"
+              element={
+                <ProtectedRoute permissions={['branches.read']}>
+                  <BranchDetailsPageNew />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/employees/*"
               element={
                 <ProtectedRoute permissions={['employees.read']}>
                   <EmployeesPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/customers/*" 
+            <Route
+              path="/customers/*"
               element={
                 <ProtectedRoute permissions={['customers.read']}>
                   <CustomersPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/inventory/*" 
+            <Route
+              path="/inventory/*"
               element={
                 <ProtectedRoute permissions={['inventory.read']}>
                   <InventoryPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/reports/*" 
+            <Route
+              path="/reports/*"
               element={
                 <ProtectedRoute permissions={['reports.read']}>
                   <ReportsPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/network" 
+            <Route
+              path="/network"
               element={
                 <ProtectedRoute permissions={['admin']}>
                   <NetworkManagementPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/settings/*" 
+            <Route
+              path="/settings/*"
               element={
                 <ProtectedRoute permissions={['settings.read']}>
                   <SettingsPage />
                 </ProtectedRoute>
-              } 
+              }
             />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

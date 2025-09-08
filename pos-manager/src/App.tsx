@@ -11,9 +11,9 @@ import EmployeesPage from './pages/EmployeesPage';
 import InventoryPage from './pages/InventoryPage';
 import LoginPage from './pages/LoginPage';
 import NetworkSettingsPage from './pages/NetworkSettingsPage';
+import PaymentMethodsSettingsPage from './pages/PaymentMethodsSettingsPage';
 import POSTerminalManagementPage from './pages/POSTerminalManagementPage';
 import SettingsPage from './pages/SettingsPage';
-import UzumBankSettingsPage from './pages/UzumBankSettingsPage';
 import NetworkService from './services/networkService';
 import { theme } from './theme';
 import './utils/i18next'; // Import i18n configuration
@@ -127,10 +127,10 @@ function App() {
               } 
             />
             <Route 
-              path="/settings/uzum-bank" 
+              path="/settings/payment-methods" 
               element={
                 <ProtectedRoute requiredRoles={['admin']}>
-                  <UzumBankSettingsPage />
+                  <PaymentMethodsSettingsPage />
                 </ProtectedRoute>
               } 
             />

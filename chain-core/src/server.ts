@@ -28,6 +28,7 @@ import dashboardRoutes from './api/dashboard';
 import employeesRoutes from './api/employees';
 import inventoryRoutes from './api/inventory';
 import networkRoutes from './api/network';
+import paymentMethodsRoutes from './api/payment-methods';
 import productsRoutes from './api/products';
 import promotionsRoutes from './api/promotions';
 import reportsRoutes from './api/reports';
@@ -122,6 +123,7 @@ class ChainServer {
     this.app.use('/api/branch-pricing', branchPricingRoutes);
     this.app.use('/api/customers', customersRoutes);
     this.app.use('/api/employees', employeesRoutes);
+    this.app.use('/api/payment-methods', paymentMethodsRoutes);
     this.app.use('/api/products', productsRoutes);
     this.app.use('/api/inventory', inventoryRoutes);
     this.app.use('/api/promotions', promotionsRoutes);

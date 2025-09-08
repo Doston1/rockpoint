@@ -63,9 +63,7 @@ router.post('/products-complete/branch/:branchId', asyncHandler(async (req: Requ
     
     const branch = branchCheck.rows[0];
     const lastSyncAt = since_timestamp || branch.last_sync_at || '1970-01-01';
-    
-    console.log(`🔄 [COMPLETE SYNC] Starting comprehensive sync for branch ${branchId} since ${lastSyncAt}`);
-    
+        
     const syncResults = {
       products: { synced: 0, checked: 0 },
       prices: { synced: 0, checked: 0 },
@@ -214,7 +212,6 @@ router.post('/products-complete/branch/:branchId', asyncHandler(async (req: Requ
                         syncResults.promotions.synced + syncResults.inventory_status.synced;
     
     if (totalChanges === 0) {
-      console.log(`✅ [COMPLETE SYNC] No changes found for branch ${branchId}`);
       return res.status(200).json({
         success: true,
         data: {
@@ -256,7 +253,6 @@ router.post('/products-complete/branch/:branchId', asyncHandler(async (req: Requ
         VALUES ($1, 'products', 'to_branch', 'completed', $2, NOW())
       `, [branchId, totalChanges]);
       
-      console.log(`✅ [COMPLETE SYNC] Successfully synced ${totalChanges} changes to branch ${branchId}`);
       
       res.status(200).json({
         success: true,
@@ -271,7 +267,6 @@ router.post('/products-complete/branch/:branchId', asyncHandler(async (req: Requ
     }
     
   } catch (error: any) {
-    console.error('❌ [COMPLETE SYNC] Error:', error);
     
     // Log failed sync
     try {

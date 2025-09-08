@@ -775,9 +775,11 @@ END $$;
 
 -- Insert payment methods
 INSERT INTO payment_methods (method_code, method_name, method_name_ru, method_name_uz, description, description_ru, description_uz, is_active, requires_qr, requires_fiscal_receipt, api_documentation_url, sort_order) VALUES
-('click', 'Click Pass', 'Click Pass', 'Click Pass', 'Click Pass QR payment system', 'Система QR-оплаты Click Pass', 'Click Pass QR to''lov tizimi', true, true, false, 'https://docs.click.uz/click-pass', 1),
+('cash', 'Cash', 'Наличные', 'Naqd pul', 'Cash payment method', 'Оплата наличными', 'Naqd pul to''lovi', true, false, false, null, 1),
 ('uzum_fastpay', 'Uzum Bank FastPay', 'Uzum Bank FastPay', 'Uzum Bank FastPay', 'Uzum Bank FastPay QR payment system', 'Система QR-оплаты Uzum Bank FastPay', 'Uzum Bank FastPay QR to''lov tizimi', true, true, true, 'https://uzumbank.uz/api-docs', 2),
-('payme', 'Payme QR', 'Payme QR', 'Payme QR', 'Payme QR code payment system', 'Система QR-оплаты Payme', 'Payme QR to''lov tizimi', true, true, true, 'https://developer.payme.uz', 3);
+('click', 'Click Pass', 'Click Pass', 'Click Pass', 'Click Pass QR payment system', 'Система QR-оплаты Click Pass', 'Click Pass QR to''lov tizimi', true, true, false, 'https://docs.click.uz/click-pass', 3),
+('payme', 'Payme QR', 'Payme QR', 'Payme QR', 'Payme QR code payment system', 'Система QR-оплаты Payme', 'Payme QR to''lov tizimi', true, true, true, 'https://developer.payme.uz', 4)
+ON CONFLICT (method_code) DO NOTHING;
 
 -- Configure payment methods for branches (some branches support different methods)
 DO $$
@@ -795,34 +797,58 @@ BEGIN
     SELECT id INTO payme_id FROM payment_methods WHERE method_code = 'payme';
     SELECT id INTO admin_user_id FROM users WHERE username = 'admin';
 
+    -- Configure payment methods for branches (some branches support different methods)
+DO $$
+DECLARE
+    branch_record RECORD;
+    payment_method_record RECORD;
+    cash_id UUID;
+    click_id UUID;
+    uzum_id UUID;
+    payme_id UUID;
+    admin_user_id UUID;
+BEGIN
+    -- Get payment method IDs
+    SELECT id INTO cash_id FROM payment_methods WHERE method_code = 'cash';
+    SELECT id INTO click_id FROM payment_methods WHERE method_code = 'click';
+    SELECT id INTO uzum_id FROM payment_methods WHERE method_code = 'uzum_fastpay';
+    SELECT id INTO payme_id FROM payment_methods WHERE method_code = 'payme';
+    SELECT id INTO admin_user_id FROM users WHERE username = 'admin';
+
     -- Enable payment methods for branches
     FOR branch_record IN SELECT id, code FROM branches LOOP
         CASE branch_record.code
             WHEN 'DT001' THEN -- Downtown Store: All methods
                 INSERT INTO branch_payment_methods (branch_id, payment_method_id, is_enabled, priority, daily_limit, transaction_limit, enabled_by) VALUES
-                (branch_record.id, click_id, true, 1, 1000000.00, 50000.00, admin_user_id),
+                (branch_record.id, cash_id, true, 1, NULL, NULL, admin_user_id),
                 (branch_record.id, uzum_id, true, 2, 2000000.00, 100000.00, admin_user_id),
-                (branch_record.id, payme_id, true, 3, 1500000.00, 75000.00, admin_user_id);
+                (branch_record.id, click_id, true, 3, 1000000.00, 50000.00, admin_user_id),
+                (branch_record.id, payme_id, true, 4, 1500000.00, 75000.00, admin_user_id)
+                ON CONFLICT (branch_id, payment_method_id) DO NOTHING;
             
-            WHEN 'ML002' THEN -- Mall Location: Click and Payme only
+            WHEN 'ML002' THEN -- Mall Location: Cash, Uzum, Click only
                 INSERT INTO branch_payment_methods (branch_id, payment_method_id, is_enabled, priority, daily_limit, transaction_limit, enabled_by) VALUES
-                (branch_record.id, click_id, true, 1, 800000.00, 40000.00, admin_user_id),
-                (branch_record.id, payme_id, true, 2, 1200000.00, 60000.00, admin_user_id);
+                (branch_record.id, cash_id, true, 1, NULL, NULL, admin_user_id),
+                (branch_record.id, uzum_id, true, 2, 1500000.00, 80000.00, admin_user_id),
+                (branch_record.id, click_id, true, 3, 800000.00, 40000.00, admin_user_id),
+                (branch_record.id, payme_id, false, 4, NULL, NULL, admin_user_id)
+                ON CONFLICT (branch_id, payment_method_id) DO NOTHING;
             
-            WHEN 'AP003' THEN -- Airport Terminal: Uzum FastPay only (offline branch)
+            WHEN 'AP003' THEN -- Airport Terminal: Cash and Uzum only
                 INSERT INTO branch_payment_methods (branch_id, payment_method_id, is_enabled, priority, daily_limit, transaction_limit, enabled_by) VALUES
-                (branch_record.id, uzum_id, true, 1, 500000.00, 25000.00, admin_user_id);
+                (branch_record.id, cash_id, true, 1, NULL, NULL, admin_user_id),
+                (branch_record.id, uzum_id, true, 2, 500000.00, 25000.00, admin_user_id),
+                (branch_record.id, click_id, false, 3, NULL, NULL, admin_user_id),
+                (branch_record.id, payme_id, false, 4, NULL, NULL, admin_user_id)
+                ON CONFLICT (branch_id, payment_method_id) DO NOTHING;
             
-            WHEN 'SP004' THEN -- Suburban Plaza: Click and Uzum FastPay
+            ELSE -- Other branches: Cash, Uzum, Click
                 INSERT INTO branch_payment_methods (branch_id, payment_method_id, is_enabled, priority, daily_limit, transaction_limit, enabled_by) VALUES
-                (branch_record.id, click_id, true, 1, 600000.00, 30000.00, admin_user_id),
-                (branch_record.id, uzum_id, true, 2, 1000000.00, 50000.00, admin_user_id);
-            
-            WHEN 'CC005' THEN -- City Center: All methods
-                INSERT INTO branch_payment_methods (branch_id, payment_method_id, is_enabled, priority, daily_limit, transaction_limit, enabled_by) VALUES
-                (branch_record.id, click_id, true, 1, 1200000.00, 60000.00, admin_user_id),
-                (branch_record.id, uzum_id, true, 2, 2500000.00, 125000.00, admin_user_id),
-                (branch_record.id, payme_id, true, 3, 1800000.00, 90000.00, admin_user_id);
+                (branch_record.id, cash_id, true, 1, NULL, NULL, admin_user_id),
+                (branch_record.id, uzum_id, true, 2, 1000000.00, 50000.00, admin_user_id),
+                (branch_record.id, click_id, true, 3, 600000.00, 30000.00, admin_user_id),
+                (branch_record.id, payme_id, false, 4, NULL, NULL, admin_user_id)
+                ON CONFLICT (branch_id, payment_method_id) DO NOTHING;
         END CASE;
     END LOOP;
 END $$;
@@ -842,6 +868,23 @@ BEGIN
     SELECT id INTO payme_id FROM payment_methods WHERE method_code = 'payme';
     SELECT id INTO admin_user_id FROM users WHERE username = 'admin';
 
+-- Insert sample payment credentials (placeholder values for demo)
+DO $$
+DECLARE
+    branch_record RECORD;
+    cash_id UUID;
+    click_id UUID;
+    uzum_id UUID;
+    payme_id UUID;
+    admin_user_id UUID;
+BEGIN
+    -- Get payment method IDs
+    SELECT id INTO cash_id FROM payment_methods WHERE method_code = 'cash';
+    SELECT id INTO click_id FROM payment_methods WHERE method_code = 'click';
+    SELECT id INTO uzum_id FROM payment_methods WHERE method_code = 'uzum_fastpay';
+    SELECT id INTO payme_id FROM payment_methods WHERE method_code = 'payme';
+    SELECT id INTO admin_user_id FROM users WHERE username = 'admin';
+
     -- Add credentials for each branch that has payment methods enabled
     FOR branch_record IN 
         SELECT DISTINCT b.id, b.code 
@@ -849,31 +892,32 @@ BEGIN
         JOIN branch_payment_methods bpm ON b.id = bpm.branch_id 
         WHERE bpm.is_enabled = true 
     LOOP
-        -- Click credentials (if branch supports Click)
-        IF EXISTS (SELECT 1 FROM branch_payment_methods WHERE branch_id = branch_record.id AND payment_method_id = click_id AND is_enabled = true) THEN
-            INSERT INTO branch_payment_credentials (branch_id, payment_method_id, credential_key, credential_value, is_encrypted, is_test_environment, description, last_updated_by) VALUES
-            (branch_record.id, click_id, 'merchant_id', 'PLACEHOLDER_MERCHANT_ID_' || branch_record.code, false, true, 'Click merchant ID for branch ' || branch_record.code, admin_user_id),
-            (branch_record.id, click_id, 'service_id', 'PLACEHOLDER_SERVICE_ID_' || branch_record.code, false, true, 'Click service ID for branch ' || branch_record.code, admin_user_id),
-            (branch_record.id, click_id, 'merchant_user_id', 'PLACEHOLDER_USER_ID_' || branch_record.code, false, true, 'Click merchant user ID for branch ' || branch_record.code, admin_user_id),
-            (branch_record.id, click_id, 'secret_key', 'PLACEHOLDER_SECRET_KEY_' || branch_record.code, true, true, 'Click secret key for branch ' || branch_record.code, admin_user_id),
-            (branch_record.id, click_id, 'cashbox_code', 'CASHBOX_' || branch_record.code, false, true, 'Click cashbox code for branch ' || branch_record.code, admin_user_id);
-        END IF;
-
         -- Uzum FastPay credentials (if branch supports Uzum)
         IF EXISTS (SELECT 1 FROM branch_payment_methods WHERE branch_id = branch_record.id AND payment_method_id = uzum_id AND is_enabled = true) THEN
             INSERT INTO branch_payment_credentials (branch_id, payment_method_id, credential_key, credential_value, is_encrypted, is_test_environment, description, last_updated_by) VALUES
-            (branch_record.id, uzum_id, 'merchant_service_user_id', 'UZUM_MERCHANT_' || branch_record.code, false, true, 'Uzum Bank merchant service user ID for branch ' || branch_record.code, admin_user_id),
-            (branch_record.id, uzum_id, 'secret_key', 'UZUM_SECRET_KEY_' || branch_record.code, true, true, 'Uzum Bank secret key for branch ' || branch_record.code, admin_user_id),
-            (branch_record.id, uzum_id, 'service_id', 'UZUM_SERVICE_' || branch_record.code, false, true, 'Uzum Bank service ID for branch ' || branch_record.code, admin_user_id),
-            (branch_record.id, uzum_id, 'cashbox_code_prefix', 'RockPoint_' || branch_record.code, false, true, 'Uzum Bank cashbox code prefix for branch ' || branch_record.code, admin_user_id);
+            (branch_record.id, uzum_id, 'merchant_service_user_id', 'DEMO_UZUM_MERCHANT_' || branch_record.code, false, true, 'Uzum Bank merchant service user ID for branch ' || branch_record.code, admin_user_id),
+            (branch_record.id, uzum_id, 'secret_key', 'DEMO_UZUM_SECRET_' || branch_record.code, true, true, 'Uzum Bank secret key for branch ' || branch_record.code, admin_user_id),
+            (branch_record.id, uzum_id, 'service_id', 'DEMO_UZUM_SERVICE_' || branch_record.code, false, true, 'Uzum Bank service ID for branch ' || branch_record.code, admin_user_id),
+            (branch_record.id, uzum_id, 'cashbox_code_prefix', 'RockPoint_' || branch_record.code, false, true, 'Uzum Bank cashbox code prefix for branch ' || branch_record.code, admin_user_id)
+            ON CONFLICT (branch_id, payment_method_id, credential_key) DO NOTHING;
         END IF;
 
-        -- Payme credentials (if branch supports Payme)
-        IF EXISTS (SELECT 1 FROM branch_payment_methods WHERE branch_id = branch_record.id AND payment_method_id = payme_id AND is_enabled = true) THEN
+        -- Click credentials (if branch supports Click)
+        IF EXISTS (SELECT 1 FROM branch_payment_methods WHERE branch_id = branch_record.id AND payment_method_id = click_id AND is_enabled = true) THEN
             INSERT INTO branch_payment_credentials (branch_id, payment_method_id, credential_key, credential_value, is_encrypted, is_test_environment, description, last_updated_by) VALUES
-            (branch_record.id, payme_id, 'cashbox_id', 'PAYME_CASHBOX_' || branch_record.code, false, true, 'Payme cashbox ID for branch ' || branch_record.code, admin_user_id),
-            (branch_record.id, payme_id, 'key_password', 'PAYME_KEY_PASSWORD_' || branch_record.code, true, true, 'Payme key password for branch ' || branch_record.code, admin_user_id);
+            (branch_record.id, click_id, 'merchant_id', 'DEMO_CLICK_MERCHANT_' || branch_record.code, false, true, 'Click merchant ID for branch ' || branch_record.code, admin_user_id),
+            (branch_record.id, click_id, 'service_id', 'DEMO_CLICK_SERVICE_' || branch_record.code, false, true, 'Click service ID for branch ' || branch_record.code, admin_user_id),
+            (branch_record.id, click_id, 'merchant_user_id', 'DEMO_CLICK_USER_' || branch_record.code, false, true, 'Click merchant user ID for branch ' || branch_record.code, admin_user_id),
+            (branch_record.id, click_id, 'secret_key', 'DEMO_CLICK_SECRET_' || branch_record.code, true, true, 'Click secret key for branch ' || branch_record.code, admin_user_id),
+            (branch_record.id, click_id, 'cashbox_code', 'CASHBOX_' || branch_record.code, false, true, 'Click cashbox code for branch ' || branch_record.code, admin_user_id)
+            ON CONFLICT (branch_id, payment_method_id, credential_key) DO NOTHING;
         END IF;
+
+        -- Payme credentials (even if disabled, credentials can be configured)
+        INSERT INTO branch_payment_credentials (branch_id, payment_method_id, credential_key, credential_value, is_encrypted, is_test_environment, description, last_updated_by) VALUES
+        (branch_record.id, payme_id, 'cashbox_id', 'DEMO_PAYME_CASHBOX_' || branch_record.code, false, true, 'Payme cashbox ID for branch ' || branch_record.code, admin_user_id),
+        (branch_record.id, payme_id, 'key_password', 'DEMO_PAYME_PASSWORD_' || branch_record.code, true, true, 'Payme key password for branch ' || branch_record.code, admin_user_id)
+        ON CONFLICT (branch_id, payment_method_id, credential_key) DO NOTHING;
     END LOOP;
 END $$;
 
