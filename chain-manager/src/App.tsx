@@ -9,7 +9,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Sidebar } from './components/Sidebar';
 
 // Import pages
-import BranchDetailsPageNew from './pages/BranchDetailsPageNew';
+import BranchDetailsPage from './pages/BranchDetailsPage';
 import BranchesPage from './pages/BranchesPage';
 import CustomersPage from './pages/CustomersPage';
 import DashboardPage from './pages/DashboardPage';
@@ -101,7 +101,7 @@ function App() {
               path="/branches/:id"
               element={
                 <ProtectedRoute permissions={['branches.read']}>
-                  <BranchDetailsPageNew />
+                  <BranchDetailsPage />
                 </ProtectedRoute>
               }
             />
