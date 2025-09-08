@@ -410,7 +410,7 @@ CREATE TABLE api_keys (
 CREATE TABLE branch_sync_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
-    sync_type VARCHAR(50) NOT NULL CHECK (sync_type IN ('products', 'inventory', 'transactions', 'employees', 'full_sync')),
+    sync_type VARCHAR(50) NOT NULL CHECK (sync_type IN ('products', 'inventory', 'transactions', 'employees', 'payment_methods', 'full_sync')),
     direction VARCHAR(20) NOT NULL CHECK (direction IN ('to_branch', 'from_branch')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('started', 'in_progress', 'completed', 'failed')),
     records_processed INTEGER DEFAULT 0,
@@ -451,10 +451,10 @@ CREATE TABLE system_settings (
 -- PAYMENT METHODS MANAGEMENT TABLES
 -- =================================================================
 
--- Payment methods definition table (Click, Uzum FastPay, Payme)
+-- Payment methods definition table (Cash, Click, Uzum FastPay, Payme)
 CREATE TABLE payment_methods (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    method_code VARCHAR(50) UNIQUE NOT NULL, -- 'click', 'uzum_fastpay', 'payme'
+    method_code VARCHAR(50) UNIQUE NOT NULL, -- 'cash', 'click', 'uzum_fastpay', 'payme'
     method_name VARCHAR(255) NOT NULL,
     method_name_ru VARCHAR(255),
     method_name_uz VARCHAR(255),

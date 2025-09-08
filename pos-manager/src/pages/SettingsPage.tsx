@@ -29,10 +29,10 @@ interface SettingsOption {
 
 const SETTINGS_OPTIONS: SettingsOption[] = [
   {
-    title: 'settings.uzumBankSettings',
-    description: 'settings.uzumBankDescription',
+    title: 'settings.paymentMethodsSettings',
+    description: 'settings.paymentMethodsDescription',
     icon: <AccountBalance sx={{ fontSize: 48 }} />,
-    path: '/settings/uzum-bank',
+    path: '/settings/payment-methods',
     color: 'primary',
     requiredRole: 'admin',
   },

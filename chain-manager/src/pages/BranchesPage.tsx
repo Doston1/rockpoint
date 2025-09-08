@@ -1,50 +1,51 @@
 import {
-    Add,
-    AttachMoney,
-    BarChart,
-    Business,
-    Cancel,
-    CheckCircle,
-    Delete,
-    Edit,
-    Group,
-    LocationOn,
-    MoreVert,
-    Phone,
-    Refresh,
-    Search,
-    Store,
+  Add,
+  AttachMoney,
+  BarChart,
+  Business,
+  Cancel,
+  CheckCircle,
+  Delete,
+  Edit,
+  Group,
+  LocationOn,
+  MoreVert,
+  Phone,
+  Refresh,
+  Search,
+  Store,
 } from '@mui/icons-material';
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    Container,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
-    DialogTitle,
-    FormControl,
-    IconButton,
-    InputAdornment,
-    InputLabel,
-    LinearProgress,
-    Menu,
-    MenuItem,
-    MenuItem as MenuListItem,
-    Paper,
-    Select,
-    Snackbar,
-    Stack,
-    TextField,
-    Typography,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  LinearProgress,
+  Menu,
+  MenuItem,
+  MenuItem as MenuListItem,
+  Paper,
+  Select,
+  Snackbar,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import BranchDialog from '../components/common/BranchDialog';
 import BranchStatsDialog from '../components/common/BranchStatsDialog';
 import { useBranches } from '../hooks/useBranches';
@@ -60,14 +61,20 @@ interface BranchCardProps {
 
 const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onDelete, onViewStats }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleMenuClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     setAnchorEl(event.currentTarget);
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleCardClick = () => {
+    navigate(`/branches/${branch.id}`);
   };
 
   const getStatusChip = (isActive: boolean) => {
@@ -92,7 +99,19 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, onEdit, onDelete, onVie
   };
 
   return (
-    <Card sx={{ height: '100%', position: 'relative' }}>
+    <Card 
+      sx={{ 
+        height: '100%', 
+        position: 'relative',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: (theme) => theme.shadows[8],
+        }
+      }}
+      onClick={handleCardClick}
+    >
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="h6" fontWeight="bold" noWrap>

@@ -66,6 +66,7 @@ const timezones = [
   { value: 'Asia/Tashkent', label: 'Asia/Tashkent (GMT+5)' },
   { value: 'Asia/Almaty', label: 'Asia/Almaty (GMT+6)' },
   { value: 'Europe/Moscow', label: 'Europe/Moscow (GMT+3)' },
+  { value: 'America/New_York', label: 'America/New_York (GMT-5)' },
 ];
 
 const currencies = [

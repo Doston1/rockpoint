@@ -61,6 +61,55 @@ export interface Branch {
   updatedAt?: string;
 }
 
+export interface PaymentMethod {
+  id: string;
+  methodCode: string;
+  methodName: string;
+  methodNameRu?: string;
+  methodNameUz?: string;
+  description?: string;
+  descriptionRu?: string;
+  descriptionUz?: string;
+  isActive: boolean;
+  requiresQr: boolean;
+  requiresFiscalReceipt: boolean;
+  apiDocumentationUrl?: string;
+  logoUrl?: string;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BranchPaymentMethod {
+  id: string;
+  branchId: string;
+  paymentMethodId: string;
+  paymentMethod: PaymentMethod;
+  isEnabled: boolean;
+  priority: number;
+  dailyLimit?: number;
+  transactionLimit?: number;
+  enabledAt?: string;
+  enabledBy?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PaymentMethodCredential {
+  id: string;
+  branchId: string;
+  paymentMethodId: string;
+  credentialKey: string;
+  credentialValue: string;
+  isEncrypted: boolean;
+  isTestEnvironment: boolean;
+  description?: string;
+  lastUpdatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Employee {
   id: string;
   employeeId: string;
@@ -422,6 +471,12 @@ class ApiService {
   async getBranch(id: string): Promise<ApiResponse<Branch>> {
     try {
       const response = await this.api.get(`/branches/${id}`);
+      if (response.data.success && response.data.data && response.data.data.branch) {
+        return {
+          ...response.data,
+          data: transformBranch(response.data.data.branch)
+        };
+      }
       return response.data;
     } catch (error: any) {
       return {
@@ -435,6 +490,12 @@ class ApiService {
   async createBranch(branchData: Partial<Branch>): Promise<ApiResponse<Branch>> {
     try {
       const response = await this.api.post('/branches', branchData);
+      if (response.data.success && response.data.data && response.data.data.branch) {
+        return {
+          ...response.data,
+          data: transformBranch(response.data.data.branch)
+        };
+      }
       return response.data;
     } catch (error: any) {
       return {
@@ -448,6 +509,12 @@ class ApiService {
   async updateBranch(id: string, branchData: Partial<Branch>): Promise<ApiResponse<Branch>> {
     try {
       const response = await this.api.put(`/branches/${id}`, branchData);
+      if (response.data.success && response.data.data && response.data.data.branch) {
+        return {
+          ...response.data,
+          data: transformBranch(response.data.data.branch)
+        };
+      }
       return response.data;
     } catch (error: any) {
       return {
@@ -1587,6 +1654,101 @@ class ApiService {
       return {
         success: false,
         error: error.response?.data?.error || `Failed to ${method} ${endpoint}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // ==============================
+  // PAYMENT METHODS API
+  // ==============================
+
+  async getPaymentMethods(): Promise<ApiResponse<PaymentMethod[]>> {
+    try {
+      const response = await this.api.get('/payment-methods');
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch payment methods',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getBranchPaymentMethods(branchId: string): Promise<ApiResponse<BranchPaymentMethod[]>> {
+    try {
+      const response = await this.api.get(`/payment-methods/branches/${branchId}/payment-methods`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch branch payment methods',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async updateBranchPaymentMethod(branchId: string, paymentMethodId: string, data: {
+    is_enabled: boolean;
+    priority?: number;
+    daily_limit?: number;
+    transaction_limit?: number;
+    notes?: string;
+  }): Promise<ApiResponse<BranchPaymentMethod>> {
+    try {
+      const response = await this.api.put(`/payment-methods/branches/${branchId}/payment-methods/${paymentMethodId}`, data);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to update branch payment method',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async getBranchPaymentCredentials(branchId: string, paymentMethodId: string): Promise<ApiResponse<PaymentMethodCredential[]>> {
+    try {
+      const response = await this.api.get(`/payment-methods/branches/${branchId}/payment-methods/${paymentMethodId}/credentials`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to fetch payment method credentials',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async updateBranchPaymentCredentials(branchId: string, paymentMethodId: string, credentials: Array<{
+    credential_key: string;
+    credential_value: string;
+    is_test_environment?: boolean;
+    description?: string;
+  }>): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.put(`/payment-methods/branches/${branchId}/payment-methods/${paymentMethodId}/credentials`, {
+        credentials
+      });
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to update payment method credentials',
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  async syncPaymentMethodsConfig(branchId: string): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.api.post(`/payment-methods/sync/${branchId}`);
+      return response.data;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to sync payment methods configuration',
         timestamp: new Date().toISOString(),
       };
     }

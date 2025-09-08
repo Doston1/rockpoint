@@ -525,4 +525,128 @@ function getNextSyncTime(): string {
   return nextSync.toISOString();
 }
 
+// POST /api/sync/payment-methods-config
+router.post('/payment-methods-config', asyncHandler(async (req: Request, res: Response) => {
+  const { sync_type, timestamp, data } = req.body;
+
+  if (sync_type !== 'payment_methods_config') {
+    throw createError('Invalid sync type. Expected payment_methods_config', 400);
+  }
+
+  if (!data || !data.payment_methods) {
+    throw createError('Missing payment methods data', 400);
+  }
+
+  try {
+    const paymentMethods = data.payment_methods;
+    console.log(`🔄 Syncing ${paymentMethods.length} payment methods configuration...`);
+
+    // Store payment methods configuration in database
+    for (const method of paymentMethods) {
+      // Upsert payment method status
+      const upsertStatusQuery = `
+        INSERT INTO branch_payment_methods_status (
+          payment_method_code, payment_method_name, is_enabled, priority,
+          credentials_configured, last_sync_at, sync_status, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, NOW(), 'synced', NOW())
+        ON CONFLICT (payment_method_code) 
+        DO UPDATE SET
+          payment_method_name = EXCLUDED.payment_method_name,
+          is_enabled = EXCLUDED.is_enabled,
+          priority = EXCLUDED.priority,
+          credentials_configured = EXCLUDED.credentials_configured,
+          last_sync_at = NOW(),
+          sync_status = 'synced',
+          updated_at = NOW()
+      `;
+
+      await DatabaseManager.query(upsertStatusQuery, [
+        method.method_code,
+        method.method_name,
+        method.is_enabled,
+        method.priority_order || 0,
+        method.credentials && method.credentials.length > 0
+      ]);
+
+      // Clear existing credentials for this payment method
+      await DatabaseManager.query(
+        'DELETE FROM payment_method_credentials WHERE payment_method_code = $1',
+        [method.method_code]
+      );
+
+      // Insert new credentials
+      for (const credential of method.credentials || []) {
+        const insertCredentialQuery = `
+          INSERT INTO payment_method_credentials (
+            payment_method_code, credential_key, credential_value, 
+            is_encrypted, is_test_environment, last_sync_at
+          ) VALUES ($1, $2, $3, $4, $5, NOW())
+        `;
+
+        await DatabaseManager.query(insertCredentialQuery, [
+          method.method_code,
+          credential.key,
+          credential.value,
+          credential.isEncrypted !== false, // Default to true if not specified
+          credential.isTestEnvironment || false
+        ]);
+      }
+    }
+
+    // Disable payment methods that were not included in the sync
+    const enabledMethodCodes = paymentMethods.map((m: any) => m.method_code);
+    if (enabledMethodCodes.length > 0) {
+      const disableQuery = `
+        UPDATE branch_payment_methods_status 
+        SET is_enabled = false, last_sync_at = NOW(), updated_at = NOW()
+        WHERE payment_method_code NOT IN (${enabledMethodCodes.map((_: any, i: number) => `$${i + 1}`).join(', ')})
+        AND is_enabled = true
+      `;
+      await DatabaseManager.query(disableQuery, enabledMethodCodes);
+    }
+
+    // Log successful sync
+    const syncLogQuery = `
+      INSERT INTO sync_logs (id, sync_type, status, records_synced, last_sync_at, started_at, completed_at)
+      VALUES ($1, $2, 'completed', $3, NOW(), NOW(), NOW())
+    `;
+    await DatabaseManager.query(syncLogQuery, [
+      `payment_methods_sync_${Date.now()}`,
+      'payment_methods_config', 
+      paymentMethods.length
+    ]);
+
+    console.log(`✅ Successfully synced ${paymentMethods.length} payment methods`);
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Payment methods configuration synced successfully',
+        syncedMethods: paymentMethods.length,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ Payment methods sync failed:', error);
+
+    // Log failed sync
+    try {
+      const syncLogQuery = `
+        INSERT INTO sync_logs (id, sync_type, status, error_message, last_sync_at, started_at)
+        VALUES ($1, $2, 'failed', $3, NOW(), NOW())
+      `;
+      await DatabaseManager.query(syncLogQuery, [
+        `payment_methods_sync_failed_${Date.now()}`,
+        'payment_methods_config',
+        error.message
+      ]);
+    } catch (logError) {
+      console.error('Failed to log sync error:', logError);
+    }
+
+    throw createError('Failed to sync payment methods configuration: ' + error.message, 500);
+  }
+}));
+
 export default router;

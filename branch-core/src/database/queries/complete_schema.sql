@@ -807,7 +807,7 @@ CREATE TABLE IF NOT EXISTS payme_audit_log (
 -- Sync logs table
 CREATE TABLE IF NOT EXISTS sync_logs (
     id VARCHAR(255) PRIMARY KEY,
-    sync_type VARCHAR(50) NOT NULL CHECK (sync_type IN ('full', 'incremental', 'transactions-only', 'complete_products_received')),
+    sync_type VARCHAR(50) NOT NULL CHECK (sync_type IN ('full', 'incremental', 'transactions-only', 'complete_products_received', 'payment_methods_config')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('in_progress', 'completed', 'failed')),
     started_at TIMESTAMP WITH TIME ZONE NOT NULL,
     completed_at TIMESTAMP WITH TIME ZONE,
