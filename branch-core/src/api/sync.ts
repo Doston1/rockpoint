@@ -166,10 +166,23 @@ router.post('/products-complete', asyncHandler(async (req: Request, res: Respons
         for (const product of data.products) {
           syncResults.products.processed++;
           try {
-            // Upsert product - branch-core uses simpler schema
+            // First, ensure category exists and get category_id
+            let categoryId = null;
+            if (product.category_key) {
+              const categoryQuery = `
+                INSERT INTO categories (key, name_en)
+                VALUES ($1, $1)
+                ON CONFLICT (key) DO UPDATE SET key = EXCLUDED.key
+                RETURNING id
+              `;
+              const categoryResult = await DatabaseManager.query(categoryQuery, [product.category_key]);
+              categoryId = categoryResult.rows[0]?.id || null;
+            }
+
+            // Upsert product - branch-core uses category_id reference
             const upsertQuery = `
               INSERT INTO products (
-                sku, barcode, name, description, category, 
+                sku, barcode, name, description, category_id, 
                 brand, price, cost, unit_of_measure, tax_rate, is_active, updated_at
               )
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
@@ -178,7 +191,7 @@ router.post('/products-complete', asyncHandler(async (req: Request, res: Respons
                 sku = EXCLUDED.sku,
                 name = EXCLUDED.name,
                 description = EXCLUDED.description,
-                category = EXCLUDED.category,
+                category_id = EXCLUDED.category_id,
                 brand = EXCLUDED.brand,
                 price = EXCLUDED.price,
                 cost = EXCLUDED.cost,
@@ -194,7 +207,7 @@ router.post('/products-complete', asyncHandler(async (req: Request, res: Respons
               product.barcode,
               product.name,
               product.description || null,
-              product.category_key || null,
+              categoryId,
               product.brand || null,
               product.price,
               product.cost || null,

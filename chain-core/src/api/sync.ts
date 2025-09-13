@@ -232,7 +232,59 @@ router.post('/products-complete/branch/:branchId', asyncHandler(async (req: Requ
     });
     
     if (result.success) {
-      // Mark price changes as synced
+      // Check if branch-core actually processed the sync successfully
+      const branchResponse = result.data;
+      
+      if (!branchResponse?.success) {
+        throw new Error(`Branch-core reported sync failure: ${branchResponse?.message || 'Unknown error'}`);
+      }
+      
+      // Check if there were any failures in the sync processing
+      const totalFailed = (branchResponse?.total_failed || 0);
+      const totalSuccess = (branchResponse?.total_success || 0);
+      
+      if (totalFailed > 0) {
+        // Log the partial failure but don't mark as fully successful
+        console.warn(`⚠️  Partial sync failure: ${totalSuccess} succeeded, ${totalFailed} failed`);
+        
+        // Only mark successfully synced items as synced, not the failed ones
+        if (totalSuccess > 0 && branchResponse?.results) {
+          // Mark only the successful price changes as synced
+          if (priceChanges.rows.length > 0 && branchResponse.results.price_updates?.success > 0) {
+            const successfulPriceUpdates = Math.min(branchResponse.results.price_updates.success, priceChanges.rows.length);
+            const productIds = priceChanges.rows.slice(0, successfulPriceUpdates).map((row: any) => row.product_id);
+            await DatabaseManager.query(
+              'SELECT mark_products_as_synced($1, $2)',
+              [branchId, productIds]
+            );
+          }
+          
+          // Partial update of last_sync_at only if some items succeeded
+          await DatabaseManager.query(
+            'UPDATE branches SET last_sync_at = NOW(), updated_at = NOW() WHERE id = $1',
+            [branchId]
+          );
+        }
+        
+        // Log partial sync
+        await DatabaseManager.query(`
+          INSERT INTO branch_sync_logs (branch_id, sync_type, direction, status, records_processed, error_message, completed_at)
+          VALUES ($1, 'products', 'to_branch', 'partial', $2, $3, NOW())
+        `, [branchId, totalSuccess, `${totalFailed} items failed to sync`]);
+        
+        return res.status(207).json({ // 207 Multi-Status for partial success
+          success: false,
+          data: {
+            message: `Partial sync completed: ${totalSuccess} succeeded, ${totalFailed} failed`,
+            results: syncResults,
+            total_synced: totalSuccess,
+            total_failed: totalFailed,
+            branch_errors: branchResponse?.errors || []
+          }
+        });
+      }
+      
+      // Full success - mark all items as synced
       if (priceChanges.rows.length > 0) {
         const productIds = priceChanges.rows.map((row: any) => row.product_id);
         await DatabaseManager.query(
@@ -263,7 +315,8 @@ router.post('/products-complete/branch/:branchId', asyncHandler(async (req: Requ
         }
       });
     } else {
-      throw new Error(`Branch sync failed: ${result.error || 'Unknown error'}`);
+      // HTTP request failed - branch-core is unreachable or returned HTTP error
+      throw new Error(`Branch communication failed: ${result.error || 'Network error'} (HTTP ${result.status})`);
     }
     
   } catch (error: any) {

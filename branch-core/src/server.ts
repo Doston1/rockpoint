@@ -121,6 +121,7 @@ class BranchServer {
 
     // Serve static files (receipts, images, etc.)
     this.app.use('/static', express.static('uploads'));
+    this.app.use('/uploads', express.static('uploads')); // Direct access to uploaded images
 
     // 404 handler for API routes
     this.app.use('/api/*', (req: Request, res: Response) => {

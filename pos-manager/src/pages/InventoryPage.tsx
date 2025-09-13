@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   Card,
@@ -98,7 +99,7 @@ const InventoryPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
-  
+
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -163,6 +164,17 @@ const InventoryPage = () => {
           getAllProducts(),
           getCategories(),
         ]);
+
+        // Debug logging to check received data
+        console.log('Products loaded:', products.length);
+        if (products.length > 0) {
+          console.log('First product sample:', {
+            name: products[0].name,
+            category: products[0].category,
+            category_key: products[0].category_key,
+            category_name: products[0].category_name
+          });
+        }
       } catch (error) {
         console.error('Failed to load inventory data:', error);
       }
@@ -198,10 +210,11 @@ const InventoryPage = () => {
 
   // Filter products based on category and search
   const filteredProducts = products.filter((product) => {
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+    const productCategoryKey = product.category_key || product.category;
+    const matchesCategory = selectedCategory === 'all' || productCategoryKey === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.barcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.brand?.toLowerCase().includes(searchQuery.toLowerCase());
+      product.barcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.brand?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -226,7 +239,7 @@ const InventoryPage = () => {
       cost: product.cost || 0,
       quantity_in_stock: product.quantity_in_stock,
       low_stock_threshold: product.low_stock_threshold || 10,
-      category: product.category || '',
+      category: product.category_key || product.category || '',
       brand: product.brand || '',
       description: product.description || '',
       image_url: product.image_url || '',
@@ -320,19 +333,19 @@ const InventoryPage = () => {
   // Validation functions
   const isAddProductFormValid = () => {
     return addProductFormData.name.trim() !== '' &&
-           addProductFormData.name_ru?.trim() !== '' &&
-           addProductFormData.name_uz?.trim() !== '' &&
-           addProductFormData.description.trim() !== '' &&
-           addProductFormData.description_ru?.trim() !== '' &&
-           addProductFormData.description_uz?.trim() !== '' &&
-           addProductFormData.category !== '' &&
-           addProductFormData.price > 0;
+      addProductFormData.name_ru?.trim() !== '' &&
+      addProductFormData.name_uz?.trim() !== '' &&
+      addProductFormData.description.trim() !== '' &&
+      addProductFormData.description_ru?.trim() !== '' &&
+      addProductFormData.description_uz?.trim() !== '' &&
+      addProductFormData.category !== '' &&
+      addProductFormData.price > 0;
   };
 
   const isAddCategoryFormValid = () => {
     return addCategoryFormData.name_en.trim() !== '' &&
-           addCategoryFormData.name_ru.trim() !== '' &&
-           addCategoryFormData.name_uz.trim() !== '';
+      addCategoryFormData.name_ru.trim() !== '' &&
+      addCategoryFormData.name_uz.trim() !== '';
   };
 
   // Add product handler
@@ -425,8 +438,8 @@ const InventoryPage = () => {
   return (
     <>
       <NavigationBar />
-      
-      <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
+
+      <Container maxWidth={false} sx={{ mt: 2, mb: 2, px: 3 }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
           <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -436,7 +449,7 @@ const InventoryPage = () => {
                 {t('inventory.inventoryManagement')}
               </Typography>
             </Box>
-            
+
             <Box display="flex" gap={2}>
               {editMode && (
                 <>
@@ -470,7 +483,7 @@ const InventoryPage = () => {
           </Box>
 
           {/* Stats Cards - Using Box instead of Grid */}
-          <Box 
+          <Box
             sx={{
               display: 'grid',
               gridTemplateColumns: {
@@ -492,7 +505,7 @@ const InventoryPage = () => {
                 </Typography>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
@@ -503,7 +516,7 @@ const InventoryPage = () => {
                 </Typography>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
@@ -514,7 +527,7 @@ const InventoryPage = () => {
                 </Typography>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
@@ -539,20 +552,20 @@ const InventoryPage = () => {
         <Paper sx={{ mb: 2 }}>
           <Tabs value={tabValue} onChange={handleTabChange}>
             <Tab label={t('inventory.allProducts')} />
-            <Tab 
+            <Tab
               label={
                 <Box display="flex" alignItems="center">
                   {t('inventory.lowStockProducts')}
                   {lowStockProducts.length > 0 && (
-                    <Chip 
-                      label={lowStockProducts.length} 
-                      size="small" 
-                      color="warning" 
+                    <Chip
+                      label={lowStockProducts.length}
+                      size="small"
+                      color="warning"
                       sx={{ ml: 1 }}
                     />
                   )}
                 </Box>
-              } 
+              }
             />
           </Tabs>
         </Paper>
@@ -561,32 +574,32 @@ const InventoryPage = () => {
         {tabValue === 0 && (
           <Paper sx={{ p: 2, mb: 2 }}>
             <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-            <TextField
-              label={t('inventory.searchProducts')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              size="small"
-              sx={{ minWidth: 200 }}
-              InputProps={{
-                startAdornment: <Search sx={{ mr: 1, color: 'action.active' }} />,
-              }}
-            />
-            
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>{t('inventory.category')}</InputLabel>
-              <Select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                label={t('inventory.category')}
-              >
-                <MenuItem value="all">{t('inventory.allCategories')}</MenuItem>
-                {categories.map((category) => (
-                  <MenuItem key={category.key} value={category.key}>
-                    {category.name} ({category.product_count})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>              <Box display="flex" alignItems="center" gap={1}>
+              <TextField
+                label={t('inventory.searchProducts')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                size="small"
+                sx={{ minWidth: 200 }}
+                InputProps={{
+                  startAdornment: <Search sx={{ mr: 1, color: 'action.active' }} />,
+                }}
+              />
+
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>{t('inventory.category')}</InputLabel>
+                <Select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  label={t('inventory.category')}
+                >
+                  <MenuItem value="all">{t('inventory.allCategories')}</MenuItem>
+                  {categories.map((category) => (
+                    <MenuItem key={category.key} value={category.key}>
+                      {category.name} ({category.product_count})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>              <Box display="flex" alignItems="center" gap={1}>
                 <FilterList />
                 <Typography variant="body2">
                   {t('inventory.showingProducts', { count: currentProducts.length })}
@@ -622,19 +635,47 @@ const InventoryPage = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Box>
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        {product.name}
-                      </Typography>
-                      {product.brand && (
-                        <Typography variant="caption" color="text.secondary">
-                          {product.brand}
-                        </Typography>
+                    <Box display="flex" alignItems="center" gap={2}>
+                      {/* Product Thumbnail */}
+                      {product.has_image && product.image_paths?.thumbnail ? (
+                        <Avatar
+                          src={`http://localhost:3000${product.image_paths.thumbnail}`}
+                          alt={product.name}
+                          sx={{ width: 40, height: 40 }}
+                          variant="rounded"
+                        />
+                      ) : (
+                        <Avatar
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            bgcolor: 'grey.300',
+                            color: 'grey.600'
+                          }}
+                          variant="rounded"
+                        >
+                          {product.name.charAt(0).toUpperCase()}
+                        </Avatar>
                       )}
+
+                      {/* Product Details */}
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          {product.name}
+                        </Typography>
+                        {product.brand && (
+                          <Typography variant="caption" color="text.secondary">
+                            {product.brand}
+                          </Typography>
+                        )}
+                      </Box>
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Chip label={product.category || t('inventory.uncategorized')} size="small" />
+                    <Chip
+                      label={product.category_name || product.category || t('inventory.uncategorized')}
+                      size="small"
+                    />
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" fontFamily="monospace">
@@ -706,7 +747,7 @@ const InventoryPage = () => {
               ))}
             </TableBody>
           </Table>
-          
+
           <TablePagination
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
@@ -725,7 +766,7 @@ const InventoryPage = () => {
         <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle>{t('inventory.editProduct')}</DialogTitle>
           <DialogContent>
-            <Box 
+            <Box
               sx={{
                 display: 'grid',
                 gridTemplateColumns: {
@@ -742,21 +783,21 @@ const InventoryPage = () => {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
-              
+
               <TextField
                 fullWidth
                 label={t('inventory.barcode')}
                 value={formData.barcode}
                 onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
               />
-              
+
               <TextField
                 fullWidth
                 label={t('inventory.category')}
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               />
-              
+
               <TextField
                 fullWidth
                 label={t('inventory.brand')}
@@ -764,8 +805,8 @@ const InventoryPage = () => {
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
               />
             </Box>
-            
-            <Box 
+
+            <Box
               sx={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(3, 1fr)',
@@ -781,7 +822,7 @@ const InventoryPage = () => {
                 onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
                 inputProps={{ step: 0.01 }}
               />
-              
+
               <TextField
                 fullWidth
                 label={t('inventory.cost')}
@@ -790,7 +831,7 @@ const InventoryPage = () => {
                 onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
                 inputProps={{ step: 0.01 }}
               />
-              
+
               <TextField
                 fullWidth
                 label={t('inventory.stockQuantity')}
@@ -800,7 +841,7 @@ const InventoryPage = () => {
               />
             </Box>
 
-            <Box 
+            <Box
               sx={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
@@ -815,7 +856,7 @@ const InventoryPage = () => {
                 value={formData.low_stock_threshold}
                 onChange={(e) => setFormData({ ...formData, low_stock_threshold: parseInt(e.target.value) })}
               />
-              
+
               <Box display="flex" alignItems="center" gap={2}>
                 <Typography>{t('inventory.activeProduct')}:</Typography>
                 <Switch
@@ -834,7 +875,7 @@ const InventoryPage = () => {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               sx={{ mt: 2 }}
             />
-            
+
             <TextField
               fullWidth
               label={t('inventory.imageUrl')}
@@ -876,7 +917,7 @@ const InventoryPage = () => {
               <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
                 {t('inventory.englishRequired')}
               </Typography>
-              <Box 
+              <Box
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(2, 1fr)',
@@ -898,7 +939,7 @@ const InventoryPage = () => {
                   onChange={(e) => setAddProductFormData({ ...addProductFormData, barcode: e.target.value })}
                 />
               </Box>
-              
+
               <TextField
                 fullWidth
                 label={`${t('inventory.descriptionEnglish')} *`}
@@ -914,7 +955,7 @@ const InventoryPage = () => {
               <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
                 {t('inventory.russianRequired')}
               </Typography>
-              <Box 
+              <Box
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(2, 1fr)',
@@ -936,7 +977,7 @@ const InventoryPage = () => {
                   onChange={(e) => setAddProductFormData({ ...addProductFormData, brand: e.target.value })}
                 />
               </Box>
-              
+
               <TextField
                 fullWidth
                 label={`${t('inventory.descriptionRussian')} *`}
@@ -952,7 +993,7 @@ const InventoryPage = () => {
               <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
                 {t('inventory.uzbekRequired')}
               </Typography>
-              <Box 
+              <Box
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(2, 1fr)',
@@ -982,7 +1023,7 @@ const InventoryPage = () => {
                   </Select>
                 </FormControl>
               </Box>
-              
+
               <TextField
                 fullWidth
                 label={`${t('inventory.descriptionUzbek')} *`}
@@ -998,7 +1039,7 @@ const InventoryPage = () => {
               <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
                 {t('inventory.pricingAndStock')}
               </Typography>
-              <Box 
+              <Box
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(4, 1fr)',
@@ -1051,8 +1092,8 @@ const InventoryPage = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setAddProductDialogOpen(false)}>{t('inventory.cancel')}</Button>
-            <Button 
-              onClick={handleAddProduct} 
+            <Button
+              onClick={handleAddProduct}
               variant="contained"
               disabled={!isAddProductFormValid()}
             >
@@ -1093,8 +1134,8 @@ const InventoryPage = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setAddCategoryDialogOpen(false)}>{t('inventory.cancel')}</Button>
-            <Button 
-              onClick={handleAddCategory} 
+            <Button
+              onClick={handleAddCategory}
               variant="contained"
               disabled={!isAddCategoryFormValid()}
             >

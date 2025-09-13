@@ -1,7 +1,7 @@
 import { CssBaseline } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import { useEffect } from 'react';
-import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import { Navigate, Route, HashRouter as Router, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './hooks/useAuth';
 import ApiKeyManagementPage from './pages/ApiKeyManagementPage';
@@ -38,101 +38,101 @@ function App() {
           <Routes>
             <Route path="/" element={<LoginPage />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
-            <Route 
-              path="/dashboard" 
+            <Route
+              path="/dashboard"
               element={
                 <ProtectedRoute requiredRoles={['admin', 'manager']}>
                   <DashboardPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/inventory" 
+            <Route
+              path="/inventory"
               element={
                 <ProtectedRoute requiredRoles={['admin', 'manager']}>
                   <InventoryPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/checkout" 
+            <Route
+              path="/checkout"
               element={
                 <ProtectedRoute>
                   <CheckoutPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/employees" 
+            <Route
+              path="/employees"
               element={
                 <ProtectedRoute>
                   <EmployeesPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/network-settings" 
+            <Route
+              path="/network-settings"
               element={
                 <ProtectedRoute requiredRoles={['admin', 'manager']}>
                   <NetworkSettingsPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/settings/network" 
+            <Route
+              path="/settings/network"
               element={
                 <ProtectedRoute requiredRoles={['admin', 'manager']}>
                   <NetworkSettingsPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/api-keys" 
+            <Route
+              path="/api-keys"
               element={
                 <ProtectedRoute requiredRoles={['admin']}>
                   <ApiKeyManagementPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/settings/api-keys" 
+            <Route
+              path="/settings/api-keys"
               element={
                 <ProtectedRoute requiredRoles={['admin']}>
                   <ApiKeyManagementPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/terminals" 
+            <Route
+              path="/terminals"
               element={
                 <ProtectedRoute requiredRoles={['admin', 'manager']}>
                   <POSTerminalManagementPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/settings/terminals" 
+            <Route
+              path="/settings/terminals"
               element={
                 <ProtectedRoute requiredRoles={['admin', 'manager']}>
                   <POSTerminalManagementPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/settings" 
+            <Route
+              path="/settings"
               element={
                 <ProtectedRoute requiredRoles={['admin']}>
                   <SettingsPage />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/settings/payment-methods" 
+            <Route
+              path="/settings/payment-methods"
               element={
                 <ProtectedRoute requiredRoles={['admin']}>
                   <PaymentMethodsSettingsPage />
                 </ProtectedRoute>
-              } 
+              }
             />
 
           </Routes>

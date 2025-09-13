@@ -1,4 +1,7 @@
 import { Request, Response, Router } from 'express';
+import fs from 'fs/promises';
+import multer from 'multer';
+import path from 'path';
 import { z } from 'zod';
 import { DatabaseManager } from '../database/manager';
 import { authenticateApiKey, requirePermission } from '../middleware/auth';
@@ -56,6 +59,23 @@ const EmployeeSyncSchema = z.object({
     email: z.string().optional(),
     status: z.enum(['active', 'inactive', 'terminated']).default('active')
   })).min(1)
+});
+
+// Configure multer for image sync from chain-core
+const upload = multer({
+  storage: multer.memoryStorage(), // Store in memory for processing
+  limits: { 
+    fileSize: 50 * 1024 * 1024, // 50MB limit for images
+    files: 10 // Multiple files (thumbnail, medium, original)
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
 });
 
 // ============================================================================
@@ -595,6 +615,95 @@ router.post('/products/sync', authenticateApiKey, requirePermission('products:wr
     });
   }
 });
+
+// POST /api/chain-core/products/images/sync - Sync product images from chain-core
+router.post('/products/images/sync', 
+  authenticateApiKey, 
+  requirePermission('products:write'),
+  upload.fields([
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'medium', maxCount: 1 },
+    { name: 'original', maxCount: 1 }
+  ]),
+  async (req: Request, res: Response) => {
+    const { product_id } = req.body;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+    if (!product_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Product ID is required'
+      });
+    }
+
+    if (!files || Object.keys(files).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No image files provided'
+      });
+    }
+
+    try {
+      console.log(`📥 Receiving image sync for product ${product_id}`);
+      
+      // Create directory on branch-core server's computer
+      const baseDir = path.join(process.cwd(), 'uploads', 'products', product_id);
+      await fs.mkdir(baseDir, { recursive: true });
+
+      const imagePaths: any = {};
+
+      // Save each image size on branch server's disk
+      for (const [size, fileArray] of Object.entries(files)) {
+        if (fileArray && fileArray.length > 0) {
+          const file = fileArray[0];
+          const filePath = path.join(baseDir, `${size}.jpg`);
+          
+          // Write image file to branch server's disk
+          await fs.writeFile(filePath, file.buffer);
+          imagePaths[size] = `uploads/products/${product_id}/${size}.jpg`;
+          
+          console.log(`💾 Saved ${size} image (${Math.round(file.size / 1024)}KB) to: ${filePath}`);
+        }
+      }
+
+      // Update branch database
+      const updateResult = await DatabaseManager.query(
+        'UPDATE products SET image_paths = $1, has_image = true WHERE id::text = $2 OR barcode = $2 OR sku = $2',
+        [JSON.stringify(imagePaths), product_id]
+      );
+
+      if (updateResult.rowCount === 0) {
+        console.warn(`⚠️  No product found with ID/barcode/sku: ${product_id}`);
+        return res.status(404).json({
+          success: false,
+          error: `Product not found: ${product_id}`
+        });
+      }
+
+      console.log(`✅ Images synced successfully for product ${product_id} on branch server`);
+      console.log(`📊 Updated ${updateResult.rowCount} product record(s)`);
+
+      res.json({
+        success: true,
+        data: {
+          message: 'Images synced successfully',
+          product_id,
+          image_paths: imagePaths,
+          files_received: Object.keys(files).length,
+          database_updated: updateResult.rowCount
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error syncing images:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to sync images',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
 
 // Sync promotions from chain-core
 router.post('/promotions/sync', authenticateApiKey, requirePermission('promotions:write'), async (req: Request, res: Response) => {

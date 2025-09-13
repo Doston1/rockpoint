@@ -40,7 +40,7 @@ export const useDashboard = (branchId?: string): UseDashboardReturn => {
       
       // Fetch both regular dashboard stats and comprehensive stats
       const [dashboardResponse, comprehensiveResponse] = await Promise.all([
-        apiService.getDashboardStats(branchId),
+        apiService.getDashboardStats(branchId ? { branchId } : undefined),
         apiService.getComprehensiveDashboardStats()
       ]);
       

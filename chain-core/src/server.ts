@@ -135,6 +135,7 @@ class ChainServer {
 
     // Serve static files (uploads, exports, etc.)
     this.app.use('/static', express.static('uploads'));
+    this.app.use('/uploads', express.static('uploads')); // Direct access to uploaded images
     this.app.use('/exports', express.static('exports'));
 
     // 404 handler for API routes

@@ -28,10 +28,14 @@ export interface Product {
   cost: number;
   quantity_in_stock: number;
   low_stock_threshold: number;
-  category?: string;
+  category?: string; // Legacy field - kept for backward compatibility
+  category_key?: string; // New field from API
+  category_name?: string; // New field from API  
   brand?: string;
   description?: string;
   image_url?: string;
+  image_paths?: Record<string, string>; // New field for processed images
+  has_image?: boolean; // New field to track if product has images
   is_active: boolean;
 }
 

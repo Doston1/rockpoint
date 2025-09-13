@@ -100,47 +100,47 @@ INSERT INTO categories (key, name, name_en, name_ru, name_uz, description, descr
 ('health', 'Health & Beauty', 'Health & Beauty', 'Здоровье и красота', 'Salomatlik va go''zallik', 'Vitamins, cosmetics', 'Vitamins, cosmetics', 'Витамины, косметика', 'Vitaminlar, kosmetika', 10);
 
 -- Insert comprehensive sample products
-INSERT INTO products (sku, barcode, name, name_en, name_ru, name_uz, description, description_en, description_ru, description_uz, category_id, brand, base_price, cost, image_url) 
+INSERT INTO products (sku, barcode, name, name_en, name_ru, name_uz, description, description_en, description_ru, description_uz, category_id, brand, base_price, cost, image_paths, has_image) 
 SELECT * FROM (
     -- Beverages
     SELECT 'COCA-500ML', '123456789012', 'Coca Cola 500ml', 'Coca Cola 500ml', 'Кока-Кола 500мл', 'Koka-Kola 500ml', 
            'Classic Coca Cola 500ml bottle', 'Classic Coca Cola 500ml bottle', 'Классическая Кока-Кола 500мл бутылка', 'Klassik Koka-Kola 500ml shisha',
-           c.id, 'Coca Cola', 2.50, 1.20, 'https://example.com/coca-cola.jpg'
+           c.id, 'Coca Cola', 2.50, 1.20, '{"thumbnail": "/images/products/coca-500ml-thumb.jpg", "medium": "/images/products/coca-500ml-med.jpg", "large": "/images/products/coca-500ml-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
     SELECT 'PEPSI-500ML', '123456789013', 'Pepsi 500ml', 'Pepsi 500ml', 'Пепси 500мл', 'Pepsi 500ml',
            'Pepsi Cola 500ml bottle', 'Pepsi Cola 500ml bottle', 'Пепси-Кола 500мл бутылка', 'Pepsi-Kola 500ml shisha',
-           c.id, 'Pepsi', 2.45, 1.18, 'https://example.com/pepsi.jpg'
+           c.id, 'Pepsi', 2.45, 1.18, '{"thumbnail": "/images/products/pepsi-500ml-thumb.jpg", "medium": "/images/products/pepsi-500ml-med.jpg", "large": "/images/products/pepsi-500ml-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
     SELECT 'WATER-1L', '123456789014', 'Water 1L', 'Water 1L', 'Вода 1л', 'Suv 1l',
            'Pure drinking water 1 liter', 'Pure drinking water 1 liter', 'Чистая питьевая вода 1 литр', 'Toza ichimlik suvi 1 litr',
-           c.id, 'Pure Life', 1.00, 0.40, 'https://example.com/water.jpg'
+           c.id, 'Pure Life', 1.00, 0.40, NULL, false
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
     SELECT 'OJ-1L', '123456789015', 'Orange Juice 1L', 'Orange Juice 1L', 'Апельсиновый сок 1л', 'Apelsin sharbati 1l',
            'Fresh orange juice 1 liter', 'Fresh orange juice 1 liter', 'Свежий апельсиновый сок 1 литр', 'Yangi apelsin sharbati 1 litr',
-           c.id, 'Tropicana', 3.99, 2.10, 'https://example.com/orange-juice.jpg'
+           c.id, 'Tropicana', 3.99, 2.10, '{"thumbnail": "/images/products/orange-juice-thumb.jpg", "medium": "/images/products/orange-juice-med.jpg", "large": "/images/products/orange-juice-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
     SELECT 'AJ-1L', '123456789016', 'Apple Juice 1L', 'Apple Juice 1L', 'Яблочный сок 1л', 'Olma sharbati 1l',
            'Fresh apple juice 1 liter', 'Fresh apple juice 1 liter', 'Свежий яблочный сок 1 литр', 'Yangi olma sharbati 1 litr',
-           c.id, 'Minute Maid', 3.75, 2.00, 'https://example.com/apple-juice.jpg'
+           c.id, 'Minute Maid', 3.75, 2.00, '{"thumbnail": "/images/products/apple-juice-thumb.jpg", "medium": "/images/products/apple-juice-med.jpg", "large": "/images/products/apple-juice-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
     
     SELECT 'ENERGY-250ML', '123456789017', 'Energy Drink 250ml', 'Energy Drink 250ml', 'Энергетик 250мл', 'Energetik ichimlik 250ml',
            'Energy drink 250ml can', 'Energy drink 250ml can', 'Энергетический напиток 250мл банка', 'Energetik ichimlik 250ml banka',
-           c.id, 'Red Bull', 2.99, 1.50, 'https://example.com/redbull.jpg'
+           c.id, 'Red Bull', 2.99, 1.50, '{"thumbnail": "/images/products/energy-drink-thumb.jpg", "medium": "/images/products/energy-drink-med.jpg", "large": "/images/products/energy-drink-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'beverages'
     
     UNION ALL
@@ -148,42 +148,42 @@ SELECT * FROM (
     -- Snacks
     SELECT 'CHIPS-ORG', '223456789012', 'Chips Original', 'Chips Original', 'Чипсы оригинальные', 'Chips original',
            'Original flavor potato chips', 'Original flavor potato chips', 'Картофельные чипсы оригинальный вкус', 'Original ta''mli kartoshka chipslari',
-           c.id, 'Lays', 3.50, 1.75, 'https://example.com/chips.jpg'
+           c.id, 'Lays', 3.50, 1.75, '{"thumbnail": "/images/products/chips-thumb.jpg", "medium": "/images/products/chips-med.jpg", "large": "/images/products/chips-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
     SELECT 'SNICKERS', '223456789013', 'Chocolate Bar', 'Chocolate Bar', 'Шоколадный батончик', 'Shokolad',
            'Milk chocolate with peanuts', 'Milk chocolate with peanuts', 'Молочный шоколад с арахисом', 'Yeryong''oqli sut shokoladi',
-           c.id, 'Snickers', 2.99, 1.50, 'https://example.com/snickers.jpg'
+           c.id, 'Snickers', 2.99, 1.50, '{"thumbnail": "/images/products/snickers-thumb.jpg", "medium": "/images/products/snickers-med.jpg", "large": "/images/products/snickers-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
     SELECT 'OREO-PACK', '223456789014', 'Cookies Pack', 'Cookies Pack', 'Печенье упаковка', 'Pechene paketi',
            'Chocolate sandwich cookies', 'Chocolate sandwich cookies', 'Шоколадное печенье-сэндвич', 'Shokoladli sendvich pechene',
-           c.id, 'Oreo', 4.50, 2.25, 'https://example.com/oreo.jpg'
+           c.id, 'Oreo', 4.50, 2.25, '{"thumbnail": "/images/products/oreo-thumb.jpg", "medium": "/images/products/oreo-med.jpg", "large": "/images/products/oreo-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
     SELECT 'PEANUTS', '223456789015', 'Peanuts Roasted', 'Peanuts Roasted', 'Арахис жареный', 'Yeryong''oq qovurilgan',
            'Salted roasted peanuts', 'Salted roasted peanuts', 'Соленый жареный арахис', 'Tuzlangan qovurilgan yeryong''oq',
-           c.id, 'Planters', 2.25, 1.10, 'https://example.com/peanuts.jpg'
+           c.id, 'Planters', 2.25, 1.10, '{"thumbnail": "/images/products/peanuts-thumb.jpg", "medium": "/images/products/peanuts-med.jpg", "large": "/images/products/peanuts-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
     SELECT 'POPCORN', '223456789016', 'Popcorn', 'Popcorn', 'Попкорн', 'Popkorn',
            'Microwave popcorn butter flavor', 'Microwave popcorn butter flavor', 'Попкорн для микроволновки вкус масла', 'Mikroto''lqinli popkorn sariyog'' ta''mi',
-           c.id, 'Pop Secret', 1.99, 0.90, 'https://example.com/popcorn.jpg'
+           c.id, 'Pop Secret', 1.99, 0.90, '{"thumbnail": "/images/products/popcorn-thumb.jpg", "medium": "/images/products/popcorn-med.jpg", "large": "/images/products/popcorn-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
     
     SELECT 'GUMMY-BEARS', '223456789017', 'Gummy Bears', 'Gummy Bears', 'Желейные мишки', 'Jelatin ayiqchalar',
            'Fruit gummy bears candy', 'Fruit gummy bears candy', 'Фруктовые желейные мишки', 'Mevali jelatin ayiqcha konfetlari',
-           c.id, 'Haribo', 3.25, 1.60, 'https://example.com/gummy-bears.jpg'
+           c.id, 'Haribo', 3.25, 1.60, '{"thumbnail": "/images/products/gummy-bears-thumb.jpg", "medium": "/images/products/gummy-bears-med.jpg", "large": "/images/products/gummy-bears-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'snacks'
     
     UNION ALL
@@ -191,28 +191,28 @@ SELECT * FROM (
     -- Dairy
     SELECT 'MILK-1L', '323456789012', 'Milk 1L', 'Milk 1L', 'Молоко 1л', 'Sut 1l',
            'Whole milk 1 liter', 'Whole milk 1 liter', 'Цельное молоко 1 литр', 'To''liq sut 1 litr',
-           c.id, 'Farm Fresh', 3.25, 2.00, 'https://example.com/milk.jpg'
+           c.id, 'Farm Fresh', 3.25, 2.00, '{"thumbnail": "/images/products/milk-thumb.jpg", "medium": "/images/products/milk-med.jpg", "large": "/images/products/milk-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'dairy'
     
     UNION ALL
     
     SELECT 'YOGURT-VAN', '323456789013', 'Yogurt Vanilla', 'Yogurt Vanilla', 'Йогурт ванильный', 'Yogurt vanil',
            'Vanilla flavored yogurt', 'Vanilla flavored yogurt', 'Йогурт с ванильным вкусом', 'Vanil ta''mli yogurt',
-           c.id, 'Danone', 1.99, 0.95, 'https://example.com/yogurt.jpg'
+           c.id, 'Danone', 1.99, 0.95, '{"thumbnail": "/images/products/yogurt-thumb.jpg", "medium": "/images/products/yogurt-med.jpg", "large": "/images/products/yogurt-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'dairy'
     
     UNION ALL
     
     SELECT 'CHEESE-SLICE', '323456789014', 'Cheese Slices', 'Cheese Slices', 'Сыр ломтиками', 'Pishloq bo''laklari',
            'American cheese slices', 'American cheese slices', 'Американский сыр ломтиками', 'Amerika pishlog''i bo''laklari',
-           c.id, 'Kraft', 4.99, 2.50, 'https://example.com/cheese.jpg'
+           c.id, 'Kraft', 4.99, 2.50, '{"thumbnail": "/images/products/cheese-thumb.jpg", "medium": "/images/products/cheese-med.jpg", "large": "/images/products/cheese-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'dairy'
     
     UNION ALL
     
     SELECT 'BUTTER-500G', '323456789015', 'Butter 500g', 'Butter 500g', 'Масло сливочное 500г', 'Sariyog'' 500g',
            'Salted butter 500 grams', 'Salted butter 500 grams', 'Соленое масло 500 грамм', 'Tuzlangan sariyog'' 500 gramm',
-           c.id, 'Land O Lakes', 5.50, 3.20, 'https://example.com/butter.jpg'
+           c.id, 'Land O Lakes', 5.50, 3.20, '{"thumbnail": "/images/products/butter-thumb.jpg", "medium": "/images/products/butter-med.jpg", "large": "/images/products/butter-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'dairy'
     
     UNION ALL
@@ -220,21 +220,21 @@ SELECT * FROM (
     -- Bakery
     SELECT 'BREAD-WHITE', '423456789012', 'White Bread', 'White Bread', 'Хлеб белый', 'Oq non',
            'Sliced white bread loaf', 'Sliced white bread loaf', 'Нарезанный белый хлеб', 'To''g''ralgan oq non',
-           c.id, 'Wonder', 2.75, 1.30, 'https://example.com/white-bread.jpg'
+           c.id, 'Wonder', 2.75, 1.30, '{"thumbnail": "/images/products/white-bread-thumb.jpg", "medium": "/images/products/white-bread-med.jpg", "large": "/images/products/white-bread-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'bakery'
     
     UNION ALL
     
     SELECT 'BREAD-WHEAT', '423456789013', 'Whole Wheat Bread', 'Whole Wheat Bread', 'Хлеб цельнозерновой', 'Bug''doy noni',
            'Whole wheat bread loaf', 'Whole wheat bread loaf', 'Цельнозерновой хлеб', 'To''liq bug''doy noni',
-           c.id, 'Pepperidge Farm', 3.25, 1.60, 'https://example.com/wheat-bread.jpg'
+           c.id, 'Pepperidge Farm', 3.25, 1.60, '{"thumbnail": "/images/products/wheat-bread-thumb.jpg", "medium": "/images/products/wheat-bread-med.jpg", "large": "/images/products/wheat-bread-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'bakery'
     
     UNION ALL
     
     SELECT 'CROISSANT', '423456789014', 'Croissant', 'Croissant', 'Круассан', 'Kruassan',
            'Buttery croissant pastry', 'Buttery croissant pastry', 'Масляный круассан', 'Sariyog''li kruassan',
-           c.id, 'Fresh Baked', 1.50, 0.75, 'https://example.com/croissant.jpg'
+           c.id, 'Fresh Baked', 1.50, 0.75, '{"thumbnail": "/images/products/croissant-thumb.jpg", "medium": "/images/products/croissant-med.jpg", "large": "/images/products/croissant-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'bakery'
     
     UNION ALL
@@ -242,14 +242,14 @@ SELECT * FROM (
     -- Personal Care
     SELECT 'TOOTHPASTE', '523456789012', 'Toothpaste', 'Toothpaste', 'Зубная паста', 'Tish pastasi',
            'Whitening toothpaste', 'Whitening toothpaste', 'Отбеливающая зубная паста', 'Oqartiruvchi tish pastasi',
-           c.id, 'Colgate', 3.99, 2.10, 'https://example.com/toothpaste.jpg'
+           c.id, 'Colgate', 3.99, 2.10, '{"thumbnail": "/images/products/toothpaste-thumb.jpg", "medium": "/images/products/toothpaste-med.jpg", "large": "/images/products/toothpaste-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'personal_care'
     
     UNION ALL
     
     SELECT 'SHAMPOO-400ML', '523456789013', 'Shampoo 400ml', 'Shampoo 400ml', 'Шампунь 400мл', 'Shampun 400ml',
            'Dandruff shampoo 400ml', 'Dandruff shampoo 400ml', 'Шампунь от перхоти 400мл', 'Kepakka qarshi shampun 400ml',
-           c.id, 'Head & Shoulders', 6.99, 3.50, 'https://example.com/shampoo.jpg'
+           c.id, 'Head & Shoulders', 6.99, 3.50, '{"thumbnail": "/images/products/shampoo-thumb.jpg", "medium": "/images/products/shampoo-med.jpg", "large": "/images/products/shampoo-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'personal_care'
     
     UNION ALL
@@ -257,14 +257,14 @@ SELECT * FROM (
     -- Electronics
     SELECT 'CHARGER-USB', '723456789012', 'Phone Charger Cable', 'Phone Charger Cable', 'Кабель зарядки телефона', 'Telefon zaryadlash kabeli',
            'USB charging cable', 'USB charging cable', 'USB кабель для зарядки', 'USB zaryadlash kabeli',
-           c.id, 'Generic', 9.99, 4.00, 'https://example.com/charger.jpg'
+           c.id, 'Generic', 9.99, 4.00, '{"thumbnail": "/images/products/charger-thumb.jpg", "medium": "/images/products/charger-med.jpg", "large": "/images/products/charger-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'electronics'
     
     UNION ALL
     
     SELECT 'BATTERIES-AA', '723456789013', 'Batteries AA 4-pack', 'Batteries AA 4-pack', 'Батарейки АА 4 шт', 'Batareyalar AA 4 dona',
            'Alkaline AA batteries', 'Alkaline AA batteries', 'Щелочные батарейки АА', 'Gidroksidli AA batareyalar',
-           c.id, 'Duracell', 4.99, 2.20, 'https://example.com/batteries.jpg'
+           c.id, 'Duracell', 4.99, 2.20, '{"thumbnail": "/images/products/batteries-thumb.jpg", "medium": "/images/products/batteries-med.jpg", "large": "/images/products/batteries-large.jpg"}'::jsonb, true
     FROM categories c WHERE c.key = 'electronics'
 ) sub;
 

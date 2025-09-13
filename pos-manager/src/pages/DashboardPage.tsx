@@ -79,7 +79,7 @@ const DashboardPage = () => {
     <>
       <NavigationBar />
 
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 3 }}>
         {/* Welcome Section */}
         <Paper sx={{ p: 3, mb: 4, background: 'linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)' }}>
           <Typography variant="h4" gutterBottom sx={{ color: 'white' }}>
@@ -88,33 +88,33 @@ const DashboardPage = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
             <Box>
               <Typography variant="h6" sx={{ color: 'white', opacity: 0.9 }}>
-                {currentTime.toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
+                {currentTime.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
                 })}
               </Typography>
               <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold' }}>
-                {currentTime.toLocaleTimeString('en-US', { 
-                  hour: '2-digit', 
+                {currentTime.toLocaleTimeString('en-US', {
+                  hour: '2-digit',
                   minute: '2-digit'
                 })}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Chip 
-                label={`${t('dashboard.role')}: ${user?.role}`} 
-                color="default" 
+              <Chip
+                label={`${t('dashboard.role')}: ${user?.role}`}
+                color="default"
                 sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
-              <Chip 
-                label={`${t('dashboard.employeeId')}: ${user?.employeeId}`} 
-                color="default" 
+              <Chip
+                label={`${t('dashboard.employeeId')}: ${user?.employeeId}`}
+                color="default"
                 sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
-              <Chip 
-                label={isConnected ? t('dashboard.terminalConnecting', { terminalId: terminalId || 'Connecting...' }) : t('dashboard.offlineMode')} 
+              <Chip
+                label={isConnected ? t('dashboard.terminalConnecting', { terminalId: terminalId || 'Connecting...' }) : t('dashboard.offlineMode')}
                 color={isConnected ? 'success' : 'error'}
                 sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
               />
@@ -126,22 +126,24 @@ const DashboardPage = () => {
         <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
           {t('dashboard.quickActions')}
         </Typography>
-        
+
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: {
               xs: 'repeat(1, 1fr)',
               sm: 'repeat(2, 1fr)',
-              md: 'repeat(4, 1fr)',
+              md: 'repeat(3, 1fr)',
+              lg: 'repeat(5, 1fr)',
+              xl: 'repeat(5, 1fr)',
             },
             gap: 3,
           }}
         >
           {menuItems.map((item, index) => (
-            <Card 
+            <Card
               key={index}
-              sx={{ 
+              sx={{
                 height: '100%',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease-in-out',
@@ -156,10 +158,10 @@ const DashboardPage = () => {
               onClick={item.action}
             >
               <CardContent sx={{ textAlign: 'center', p: 3, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Box 
+                <Box
                   className="icon"
-                  sx={{ 
-                    color: item.color, 
+                  sx={{
+                    color: item.color,
                     mb: 2,
                     transition: 'transform 0.2s ease-in-out'
                   }}
@@ -188,7 +190,7 @@ const DashboardPage = () => {
                 <Typography variant="body2" color="text.secondary">
                   {t('dashboard.connectionStatus')}
                 </Typography>
-                <Chip 
+                <Chip
                   label={isConnected ? t('common.online') : t('common.offline')}
                   color={isConnected ? 'success' : 'error'}
                   size="small"
@@ -212,7 +214,7 @@ const DashboardPage = () => {
               </Box>
             </Box>
           </Paper>
-          
+
           {/* Network Information */}
           <NetworkStatusComponent />
         </Box>

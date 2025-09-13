@@ -4,11 +4,15 @@ import type { ApiResponse, Product } from '../services/api';
 import { apiService } from '../services/api';
 
 // Helper function to convert string prices to numbers
-const normalizeProduct = (product: any): Product => ({
-  ...product,
-  price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
-  cost: typeof product.cost === 'string' ? parseFloat(product.cost) : product.cost,
-});
+const normalizeProduct = (product: any): Product => {
+  const normalized = {
+    ...product,
+    price: typeof product.price === 'string' ? parseFloat(product.price) : product.price,
+    cost: typeof product.cost === 'string' ? parseFloat(product.cost) : product.cost,
+  };
+  
+  return normalized;
+};
 
 const normalizeProducts = (products: any[]): Product[] => 
   products.map(normalizeProduct);
