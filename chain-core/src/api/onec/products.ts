@@ -1,5 +1,10 @@
 import axios from 'axios';
 import { Request, Response, Router } from 'express';
+import FormData from 'form-data';
+import fs from 'fs/promises';
+import multer from 'multer';
+import path from 'path';
+import sharp from 'sharp';
 import { z } from 'zod';
 import { DatabaseManager } from '../../database/manager';
 import { authenticateApiKey, requirePermission } from '../../middleware/auth';
@@ -45,9 +50,213 @@ const priceUpdateSchema = z.object({
   })).min(1)
 });
 
+// Configure multer for image uploads
+const storage = multer.memoryStorage(); // Store in memory first for processing
+const upload = multer({ 
+  storage,
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 1 // Single file upload
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
 // ============================================================================
 // PRODUCT MANAGEMENT ENDPOINTS
 // ============================================================================
+
+// POST /api/1c/products/:id/image - Upload product image (from 1C system)
+router.post('/:id/image', 
+  requirePermission('products:write'), 
+  upload.single('image'), 
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No image file provided' 
+      });
+    }
+
+    try {
+      console.log(`📤 Uploading image for product ${id}`);
+      
+      // Create directory structure on chain-core server
+      const baseDir = path.join(process.cwd(), 'uploads', 'products', id);
+      await fs.mkdir(baseDir, { recursive: true });
+
+      // Define image paths
+      const imagePaths = {
+        thumbnail: path.join(baseDir, 'thumbnail.jpg'),
+        medium: path.join(baseDir, 'medium.jpg'),
+        original: path.join(baseDir, 'original.jpg')
+      };
+
+      // Process and save multiple image sizes
+      console.log('🖼️  Processing image sizes...');
+      
+      // Create thumbnail (100x100)
+      await sharp(req.file.buffer)
+        .resize(100, 100, { fit: 'cover' })
+        .jpeg({ quality: 85 })
+        .toFile(imagePaths.thumbnail);
+
+      // Create medium size (300x300) 
+      await sharp(req.file.buffer)
+        .resize(300, 300, { fit: 'cover' })
+        .jpeg({ quality: 90 })
+        .toFile(imagePaths.medium);
+
+      // Save original (resized to max 600x600)
+      await sharp(req.file.buffer)
+        .resize(600, 600, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 95 })
+        .toFile(imagePaths.original);
+
+      // Update database with relative paths
+      const relativePaths = {
+        thumbnail: `uploads/products/${id}/thumbnail.jpg`,
+        medium: `uploads/products/${id}/medium.jpg`,
+        original: `uploads/products/${id}/original.jpg`
+      };
+
+      console.log('💾 Updating database...');
+      await DatabaseManager.query(
+        'UPDATE products SET image_paths = $1, has_image = true WHERE oneC_id = $2 OR id::text = $2 OR sku = $2 OR barcode = $2',
+        [JSON.stringify(relativePaths), id]
+      );
+
+      // 🚀 Automatically sync to all branches
+      console.log('🔄 Syncing to branches...');
+      await syncImageToAllBranches(id, relativePaths);
+
+      console.log(`✅ Image uploaded and synced for product ${id}`);
+      
+      res.json({
+        success: true,
+        data: {
+          message: 'Image uploaded successfully',
+          product_id: id,
+          image_paths: relativePaths
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error uploading image:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to upload image',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+));
+
+// POST /api/1c/products/chain-manager/:id/image - Upload product image (from chain-manager)
+router.post('/chain-manager/:id/image', 
+  requirePermission('products:write'), 
+  upload.single('image'), 
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No image file provided' 
+      });
+    }
+
+    try {
+      console.log(`📤 Chain-manager uploading image for product ${id}`);
+      
+      // Create directory structure on chain-core server
+      const baseDir = path.join(process.cwd(), 'uploads', 'products', id);
+      await fs.mkdir(baseDir, { recursive: true });
+
+      // Define image paths
+      const imagePaths = {
+        thumbnail: path.join(baseDir, 'thumbnail.jpg'),
+        medium: path.join(baseDir, 'medium.jpg'),
+        original: path.join(baseDir, 'original.jpg')
+      };
+
+      // Process and save multiple image sizes
+      console.log('🖼️  Processing image sizes...');
+      
+      // Create thumbnail (100x100)
+      await sharp(req.file.buffer)
+        .resize(100, 100, { fit: 'cover' })
+        .jpeg({ quality: 85 })
+        .toFile(imagePaths.thumbnail);
+
+      // Create medium size (300x300) 
+      await sharp(req.file.buffer)
+        .resize(300, 300, { fit: 'cover' })
+        .jpeg({ quality: 90 })
+        .toFile(imagePaths.medium);
+
+      // Save original (resized to max 600x600)
+      await sharp(req.file.buffer)
+        .resize(600, 600, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 95 })
+        .toFile(imagePaths.original);
+
+      // Update database with relative paths
+      const relativePaths = {
+        thumbnail: `uploads/products/${id}/thumbnail.jpg`,
+        medium: `uploads/products/${id}/medium.jpg`,
+        original: `uploads/products/${id}/original.jpg`
+      };
+
+      console.log('💾 Updating database...');
+      // Chain-manager uses product UUID, so check by id first
+      const updateResult = await DatabaseManager.query(
+        'UPDATE products SET image_paths = $1, has_image = true WHERE id::text = $2',
+        [JSON.stringify(relativePaths), id]
+      );
+
+      if (updateResult.rowCount === 0) {
+        // Try by oneC_id, sku, or barcode as fallback
+        await DatabaseManager.query(
+          'UPDATE products SET image_paths = $1, has_image = true WHERE oneC_id = $2 OR sku = $2 OR barcode = $2',
+          [JSON.stringify(relativePaths), id]
+        );
+      }
+
+      // 🚀 Automatically sync to all branches
+      console.log('🔄 Syncing to branches...');
+      await syncImageToAllBranches(id, relativePaths);
+
+      console.log(`✅ Image uploaded and synced for product ${id} via chain-manager`);
+      
+      res.json({
+        success: true,
+        data: {
+          message: 'Image uploaded successfully',
+          product_id: id,
+          image_paths: relativePaths,
+          uploaded_via: 'chain-manager'
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error uploading image from chain-manager:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to upload image',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+));
 
 // GET /api/1c/products - Get all products
 router.get('/', requirePermission('products:read'), asyncHandler(async (req: Request, res: Response) => {
@@ -703,6 +912,85 @@ async function sendPriceUpdateToBranch(branchCode: string, priceUpdate: any): Pr
     });
   } catch (error) {
     console.error(`Failed to send price update to branch ${branchCode}:`, error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// IMAGE SYNC FUNCTIONS
+// ============================================================================
+
+async function syncImageToAllBranches(productId: string, imagePaths: any): Promise<void> {
+  console.log(`🌐 Starting image sync for product ${productId} to all branches...`);
+  
+  // Get all active branches
+  const branchesResult = await DatabaseManager.query(
+    'SELECT code, api_endpoint, api_key FROM branches WHERE is_active = true'
+  );
+
+  if (branchesResult.rows.length === 0) {
+    console.log('ℹ️  No active branches found for image sync');
+    return;
+  }
+
+  console.log(`📡 Found ${branchesResult.rows.length} active branches`);
+
+  // Send image to each branch
+  const syncPromises = branchesResult.rows.map(async (branch: any) => {
+    try {
+      console.log(`📤 Syncing image to branch: ${branch.code}`);
+      await sendImageToBranch(branch, productId, imagePaths);
+      console.log(`✅ Image synced successfully to branch: ${branch.code}`);
+    } catch (error) {
+      console.error(`❌ Failed to sync image to branch ${branch.code}:`, error);
+      // Don't throw - continue with other branches
+    }
+  });
+
+  // Wait for all syncs to complete
+  await Promise.all(syncPromises);
+  console.log(`🏁 Image sync completed for product ${productId}`);
+}
+
+async function sendImageToBranch(branch: any, productId: string, imagePaths: any): Promise<void> {
+  const { code: branchCode, api_endpoint: endpoint, api_key: apiKey } = branch;
+  
+  if (!endpoint || !apiKey) {
+    throw new Error(`Branch ${branchCode} missing API endpoint or key`);
+  }
+
+  try {
+    // Read image files from chain-core server disk
+    const thumbnailBuffer = await fs.readFile(path.join(process.cwd(), imagePaths.thumbnail));
+    const mediumBuffer = await fs.readFile(path.join(process.cwd(), imagePaths.medium));
+    const originalBuffer = await fs.readFile(path.join(process.cwd(), imagePaths.original));
+
+    // Create form data with multiple files
+    const form = new FormData();
+    form.append('product_id', productId);
+    form.append('thumbnail', thumbnailBuffer, 'thumbnail.jpg');
+    form.append('medium', mediumBuffer, 'medium.jpg');
+    form.append('original', originalBuffer, 'original.jpg');
+
+    // Send to branch-core server
+    console.log(`🔄 Sending ${Math.round((thumbnailBuffer.length + mediumBuffer.length + originalBuffer.length) / 1024)}KB of images to ${branchCode}`);
+    
+    await axios.post(`${endpoint}/api/chain-core/products/images/sync`, form, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        ...form.getHeaders()
+      },
+      timeout: 60000, // 60 second timeout for image upload
+      maxContentLength: 50 * 1024 * 1024, // 50MB max
+      maxBodyLength: 50 * 1024 * 1024
+    });
+
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      const message = error.response?.data?.error || error.message;
+      throw new Error(`HTTP ${status}: ${message}`);
+    }
     throw error;
   }
 }

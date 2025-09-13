@@ -122,7 +122,7 @@ const EmployeesPage = () => {
   // Filter employees
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch = employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         employee.employee_id.toLowerCase().includes(searchQuery.toLowerCase());
+      employee.employee_id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = roleFilter === 'all' || employee.role === roleFilter;
     const matchesStatus = statusFilter === 'all' || employee.status === statusFilter;
     return matchesSearch && matchesRole && matchesStatus;
@@ -205,7 +205,7 @@ const EmployeesPage = () => {
   const handleViewDetails = async (employee: Employee) => {
     await getEmployee(employee.id);
     await getTodayHours(employee.employee_id);
-    await getEmployeeSchedule(employee.employee_id, 
+    await getEmployeeSchedule(employee.employee_id,
       new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Last 7 days
       new Date().toISOString().split('T')[0]
     );
@@ -306,8 +306,8 @@ const EmployeesPage = () => {
   return (
     <>
       <NavigationBar />
-      
-      <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
+
+      <Container maxWidth={false} sx={{ mt: 2, mb: 2, px: 3 }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
           <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -317,7 +317,7 @@ const EmployeesPage = () => {
                 {t('employees.employeeManagement')}
               </Typography>
             </Box>
-            
+
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -329,7 +329,7 @@ const EmployeesPage = () => {
           </Box>
 
           {/* Stats Cards */}
-          <Box 
+          <Box
             sx={{
               display: 'grid',
               gridTemplateColumns: {
@@ -350,7 +350,7 @@ const EmployeesPage = () => {
                 </Typography>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
@@ -361,7 +361,7 @@ const EmployeesPage = () => {
                 </Typography>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
@@ -372,7 +372,7 @@ const EmployeesPage = () => {
                 </Typography>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent>
                 <Typography color="textSecondary" gutterBottom>
@@ -406,7 +406,7 @@ const EmployeesPage = () => {
                 startAdornment: <Search sx={{ mr: 1, color: 'action.active' }} />,
               }}
             />
-            
+
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>{t('employees.role')}</InputLabel>
               <Select
@@ -469,24 +469,24 @@ const EmployeesPage = () => {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={employee.role.charAt(0).toUpperCase() + employee.role.slice(1)} 
-                      color={getRoleColor(employee.role)} 
-                      size="small" 
+                    <Chip
+                      label={employee.role.charAt(0).toUpperCase() + employee.role.slice(1)}
+                      color={getRoleColor(employee.role)}
+                      size="small"
                     />
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={employee.status.charAt(0).toUpperCase() + employee.status.slice(1)} 
-                      color={getStatusColor(employee.status)} 
-                      size="small" 
+                    <Chip
+                      label={employee.status.charAt(0).toUpperCase() + employee.status.slice(1)}
+                      color={getStatusColor(employee.status)}
+                      size="small"
                     />
                   </TableCell>
                   <TableCell>
                     {new Date(employee.hire_date).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    {employee.last_login 
+                    {employee.last_login
                       ? new Date(employee.last_login).toLocaleDateString()
                       : 'Never'
                     }
@@ -538,7 +538,7 @@ const EmployeesPage = () => {
               ))}
             </TableBody>
           </Table>
-          
+
           <TablePagination
             rowsPerPageOptions={[5, 10, 25, 50]}
             component="div"
@@ -557,7 +557,7 @@ const EmployeesPage = () => {
         <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle>{t('employees.addNewEmployee')}</DialogTitle>
           <DialogContent>
-            <Box 
+            <Box
               sx={{
                 display: 'grid',
                 gridTemplateColumns: {
@@ -575,7 +575,7 @@ const EmployeesPage = () => {
                 onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
                 required
               />
-              
+
               <TextField
                 fullWidth
                 label={t('employees.fullName')}
@@ -583,7 +583,7 @@ const EmployeesPage = () => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
-              
+
               <FormControl fullWidth>
                 <InputLabel>{t('employees.role')}</InputLabel>
                 <Select
@@ -597,7 +597,7 @@ const EmployeesPage = () => {
                   {user?.role === 'admin' && <MenuItem value="admin">{t('employees.admin')}</MenuItem>}
                 </Select>
               </FormControl>
-              
+
               <TextField
                 fullWidth
                 label={t('employees.pin')}
@@ -607,7 +607,7 @@ const EmployeesPage = () => {
                 helperText={t('employees.minimumCharacters')}
                 required
               />
-              
+
               <TextField
                 fullWidth
                 label={t('employees.hireDate')}
@@ -616,7 +616,7 @@ const EmployeesPage = () => {
                 onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
                 InputLabelProps={{ shrink: true }}
               />
-              
+
               <FormControl fullWidth>
                 <InputLabel>{t('employees.status')}</InputLabel>
                 <Select
@@ -633,8 +633,8 @@ const EmployeesPage = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setAddDialogOpen(false)}>{t('common.cancel')}</Button>
-            <Button 
-              onClick={handleAddEmployee} 
+            <Button
+              onClick={handleAddEmployee}
               variant="contained"
               disabled={!formData.employee_id || !formData.name || !formData.pin}
             >
@@ -647,7 +647,7 @@ const EmployeesPage = () => {
         <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle>{t('employees.editEmployee')}</DialogTitle>
           <DialogContent>
-            <Box 
+            <Box
               sx={{
                 display: 'grid',
                 gridTemplateColumns: {
@@ -665,7 +665,7 @@ const EmployeesPage = () => {
                 disabled
                 helperText={t('employees.employeeIdCannotChange')}
               />
-              
+
               <TextField
                 fullWidth
                 label={t('employees.fullName')}
@@ -673,7 +673,7 @@ const EmployeesPage = () => {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
-              
+
               <FormControl fullWidth>
                 <InputLabel>{t('employees.role')}</InputLabel>
                 <Select
@@ -687,7 +687,7 @@ const EmployeesPage = () => {
                   {user?.role === 'admin' && <MenuItem value="admin">{t('employees.admin')}</MenuItem>}
                 </Select>
               </FormControl>
-              
+
               <TextField
                 fullWidth
                 label={t('employees.hireDate')}
@@ -696,7 +696,7 @@ const EmployeesPage = () => {
                 onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
                 InputLabelProps={{ shrink: true }}
               />
-              
+
               <FormControl fullWidth>
                 <InputLabel>{t('employees.status')}</InputLabel>
                 <Select
@@ -713,8 +713,8 @@ const EmployeesPage = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setEditDialogOpen(false)}>{t('common.cancel')}</Button>
-            <Button 
-              onClick={handleUpdateEmployee} 
+            <Button
+              onClick={handleUpdateEmployee}
               variant="contained"
               disabled={!formData.name}
             >
@@ -724,10 +724,10 @@ const EmployeesPage = () => {
         </Dialog>
 
         {/* Employee Details Dialog */}
-        <Dialog 
-          open={detailsDialogOpen} 
-          onClose={() => setDetailsDialogOpen(false)} 
-          maxWidth="md" 
+        <Dialog
+          open={detailsDialogOpen}
+          onClose={() => setDetailsDialogOpen(false)}
+          maxWidth="md"
           fullWidth
         >
           <DialogTitle>{t('employees.employeeDetails')}</DialogTitle>
@@ -737,16 +737,16 @@ const EmployeesPage = () => {
                 <Typography variant="h6" gutterBottom>
                   {selectedEmployee.name}
                 </Typography>
-                
+
                 <Box display="flex" gap={2} mb={3}>
                   <Chip label={`ID: ${selectedEmployee.employee_id}`} />
-                  <Chip 
-                    label={selectedEmployee.role.charAt(0).toUpperCase() + selectedEmployee.role.slice(1)} 
-                    color={getRoleColor(selectedEmployee.role)} 
+                  <Chip
+                    label={selectedEmployee.role.charAt(0).toUpperCase() + selectedEmployee.role.slice(1)}
+                    color={getRoleColor(selectedEmployee.role)}
                   />
-                  <Chip 
-                    label={selectedEmployee.status.charAt(0).toUpperCase() + selectedEmployee.status.slice(1)} 
-                    color={getStatusColor(selectedEmployee.status)} 
+                  <Chip
+                    label={selectedEmployee.status.charAt(0).toUpperCase() + selectedEmployee.status.slice(1)}
+                    color={getStatusColor(selectedEmployee.status)}
                   />
                 </Box>
 
@@ -764,7 +764,7 @@ const EmployeesPage = () => {
                       {t('employees.lastLogin')}
                     </Typography>
                     <Typography variant="body1">
-                      {selectedEmployee.last_login 
+                      {selectedEmployee.last_login
                         ? new Date(selectedEmployee.last_login).toLocaleString()
                         : t('employees.never')
                       }
@@ -837,7 +837,7 @@ const EmployeesPage = () => {
                               {new Date(log.clock_in).toLocaleTimeString()}
                             </TableCell>
                             <TableCell>
-                              {log.clock_out 
+                              {log.clock_out
                                 ? new Date(log.clock_out).toLocaleTimeString()
                                 : t('employees.stillWorking')
                               }
@@ -893,8 +893,8 @@ const EmployeesPage = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setPasswordDialogOpen(false)}>{t('employees.cancel')}</Button>
-            <Button 
-              onClick={handleChangePassword} 
+            <Button
+              onClick={handleChangePassword}
               variant="contained"
               disabled={!newPassword || !confirmPassword || newPassword !== confirmPassword}
             >

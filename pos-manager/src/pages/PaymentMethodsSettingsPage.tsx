@@ -1,21 +1,21 @@
 import {
-    AccountBalance,
-    ArrowBack,
-    CheckCircle,
-    Error,
-    Warning,
+  AccountBalance,
+  ArrowBack,
+  CheckCircle,
+  Error,
+  Warning,
 } from '@mui/icons-material';
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    CircularProgress,
-    Container,
-    Tab,
-    Tabs,
-    Typography,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Container,
+  Tab,
+  Tabs,
+  Typography,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -96,14 +96,14 @@ const PaymentMethodsSettingsPage = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await api.getPaymentMethodsStatus();
       const methods = response.data?.payment_methods || [];
-      
+
       // Filter only enabled methods for tabs
       const enabledMethods = methods.filter((method: PaymentMethod) => method.is_enabled);
       setPaymentMethods(enabledMethods);
-      
+
       // Set active tab to first enabled method
       if (enabledMethods.length > 0) {
         setActiveTab(0);
@@ -161,7 +161,7 @@ const PaymentMethodsSettingsPage = () => {
     return (
       <>
         <NavigationBar />
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
             <CircularProgress />
           </Box>
@@ -174,7 +174,7 @@ const PaymentMethodsSettingsPage = () => {
     return (
       <>
         <NavigationBar />
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 3 }}>
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
@@ -190,7 +190,7 @@ const PaymentMethodsSettingsPage = () => {
     return (
       <>
         <NavigationBar />
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 3 }}>
           <Box sx={{ mb: 4 }}>
             <Button
               startIcon={<ArrowBack />}
@@ -199,7 +199,7 @@ const PaymentMethodsSettingsPage = () => {
             >
               {t('settings.backToSettings')}
             </Button>
-            
+
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <AccountBalance sx={{ fontSize: 32, mr: 2, color: 'primary.main' }} />
               <Typography variant="h4" fontWeight="bold">
@@ -207,7 +207,7 @@ const PaymentMethodsSettingsPage = () => {
               </Typography>
             </Box>
           </Box>
-          
+
           <Alert severity="info">
             {t('paymentMethods.noMethodsEnabled')}
           </Alert>
@@ -219,8 +219,8 @@ const PaymentMethodsSettingsPage = () => {
   return (
     <>
       <NavigationBar />
-      
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+
+      <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 3 }}>
         {/* Header */}
         <Box sx={{ mb: 4 }}>
           <Button
@@ -230,7 +230,7 @@ const PaymentMethodsSettingsPage = () => {
           >
             {t('settings.backToSettings')}
           </Button>
-          
+
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <AccountBalance sx={{ fontSize: 32, mr: 2, color: 'primary.main' }} />
             <Typography variant="h4" fontWeight="bold">
@@ -248,10 +248,10 @@ const PaymentMethodsSettingsPage = () => {
             <Typography variant="h6" gutterBottom>
               {t('paymentMethods.statusOverview')}
             </Typography>
-            
-            <Box sx={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+
+            <Box sx={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
               gap: 2,
               mt: 2
             }}>

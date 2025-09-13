@@ -4,10 +4,10 @@ import * as path from 'path';
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 1000,
-    minHeight: 600,
+    width: 1400,
+    height: 900,
+    minWidth: 1200,
+    minHeight: 800,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -19,7 +19,6 @@ function createWindow() {
     icon: path.join(__dirname, 'assets', 'icon.png'), // Add icon if available
     titleBarStyle: 'default',
     show: false, // Don't show until ready
-    fullscreenable: true, // Allow fullscreen for POS usage
   });
 
   // Set CSP headers
@@ -57,9 +56,10 @@ function createWindow() {
     });
   });
 
+  // Load from built files in production, dev server in development
   if (process.env.NODE_ENV === 'development') {
     // Load Vite dev server in development
-    win.loadURL('http://localhost:5173');
+    win.loadURL('http://localhost:5174');
   } else {
     // Load bundled app in production
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
@@ -149,4 +149,3 @@ app.on('web-contents-created', (event, contents) => {
     return { action: 'deny' };
   });
 });
-

@@ -15,6 +15,7 @@ import {
   Button,
   Card,
   CardContent,
+  CardMedia,
   CircularProgress,
   Container,
   Dialog,
@@ -50,32 +51,32 @@ interface CartItem extends TransactionItem {
 const CheckoutPage = () => {
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
-  const { 
-    getProductByBarcode, 
+  const {
+    getProductByBarcode,
     searchProducts,
     searchProductsForAutoComplete,
     getCategories,
     getProductsByCategory,
     getProductsByIds,
-    products, 
+    products,
     categories,
     searchSuggestions,
-    loading: productsLoading, 
+    loading: productsLoading,
     error: productsError,
     clearError: clearProductsError,
     clearSearchSuggestions,
     updateLocalProductStock
   } = useProducts();
-  const { 
-    createTransaction, 
-    loading: transactionLoading, 
+  const {
+    createTransaction,
+    loading: transactionLoading,
     error: transactionError,
     clearError: clearTransactionError
   } = useTransactions();
-  const { 
-    terminalId, 
-    isConnected, 
-    requestPrice, 
+  const {
+    terminalId,
+    isConnected,
+    requestPrice,
     onPriceResponse,
     syncTransaction,
     onInventoryChanged
@@ -117,7 +118,7 @@ const CheckoutPage = () => {
     const handleKeyPress = (event: KeyboardEvent) => {
       if (event.key === 'F' || event.key === 'f') {
         event.preventDefault();
-        
+
         if (!scannerMode) {
           // First F pressed - enter scanner mode and focus barcode field
           setScannerMode(true);
@@ -184,11 +185,11 @@ const CheckoutPage = () => {
 
   const handleScanProduct = async () => {
     if (!barcode.trim()) return;
-    
 
-      // Clean the barcode - remove all '@' characters
+
+    // Clean the barcode - remove all '@' characters
     const cleanBarcode = barcode.trim().replace(/@/g, '');
-    
+
     if (!cleanBarcode) {
       console.log('No valid barcode after cleaning');
       setBarcode('');
@@ -225,7 +226,7 @@ const CheckoutPage = () => {
       if (isConnected) {
         requestPrice(product.id, cleanBarcode);
       }
-      
+
     } catch (error: any) {
       console.log('Error scanning product:', error);
       // Check if it's a 404 error (product not found)
@@ -246,7 +247,7 @@ const CheckoutPage = () => {
       handleBackToCategories();
       return;
     }
-    
+
     try {
       await searchProducts(searchQuery.trim());
       setViewMode('search');
@@ -283,7 +284,7 @@ const CheckoutPage = () => {
       setSearchQuery('');
       setSelectedProduct(null);
       clearSearchSuggestions();
-      
+
       // Request real-time price if connected
       if (isConnected && product.barcode) {
         requestPrice(product.id, product.barcode);
@@ -308,7 +309,7 @@ const CheckoutPage = () => {
 
     setCart(prev => {
       const existingItem = prev.find(item => item.product_id === product.id);
-      
+
       if (existingItem) {
         // Check if we can add more quantity
         const newQuantity = existingItem.quantity + quantity;
@@ -316,14 +317,14 @@ const CheckoutPage = () => {
           // Can't add more than available stock
           return prev;
         }
-        
+
         return prev.map(item =>
           item.product_id === product.id
             ? {
-                ...item,
-                quantity: newQuantity,
-                total_price: newQuantity * product.price
-              }
+              ...item,
+              quantity: newQuantity,
+              total_price: newQuantity * product.price
+            }
             : item
         );
       } else {
@@ -331,7 +332,7 @@ const CheckoutPage = () => {
         if (quantity > product.quantity_in_stock) {
           return prev;
         }
-        
+
         const newItem: CartItem = {
           product_id: product.id,
           quantity,
@@ -348,12 +349,12 @@ const CheckoutPage = () => {
     setCart(prev => prev.map(item => {
       if (item.product_id === productId) {
         const newQuantity = Math.max(0, item.quantity + change);
-        
+
         // Check stock limits when increasing quantity
         if (change > 0 && newQuantity > item.product.quantity_in_stock) {
           return item; // Don't allow quantity greater than stock
         }
-        
+
         return {
           ...item,
           quantity: newQuantity,
@@ -404,10 +405,10 @@ const CheckoutPage = () => {
     try {
       // Step 1: Create the transaction
       const transactionResponse = await createTransaction(transactionData as any);
-      
+
       if (transactionResponse) {
         const transactionId = (transactionResponse as any).transactionId || transactionResponse.id;
-        
+
         if (!transactionId) {
           console.error('Transaction created but no ID returned:', transactionResponse);
           throw new Error('Transaction created but no ID returned');
@@ -431,7 +432,7 @@ const CheckoutPage = () => {
 
         // Use split payment endpoint
         const paymentResult = await apiService.processSplitPayment(transactionId, paymentData);
-        
+
         if (!paymentResult.success) {
           throw new Error(paymentResult.error || 'Payment processing failed');
         }
@@ -444,7 +445,7 @@ const CheckoutPage = () => {
             status: 'completed'
           });
         }
-        
+
         // Fetch updated stock quantities from backend for all items in the cart
         const productIds = cart.map(item => item.product_id);
         try {
@@ -460,7 +461,49 @@ const CheckoutPage = () => {
             updateLocalProductStock(item.product_id, newStock);
           });
         }
-        
+
+        // Fetch products with Uzbek names for the receipt
+        let cartItemsWithUzbekNames;
+        try {
+          // Fetch all cart products with Uzbek language
+          const productIds = cart.map(item => item.product_id);
+          const uzbekProductsResponse = await apiService.getProductsByIds(productIds, 'uz');
+
+          if (uzbekProductsResponse.success && uzbekProductsResponse.data?.products) {
+            const uzbekProductsMap = new Map(
+              uzbekProductsResponse.data.products.map(p => [p.id, p.name])
+            );
+
+            cartItemsWithUzbekNames = cart.map(item => ({
+              product_id: item.product_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              total_price: item.quantity * item.unit_price,
+              product: {
+                name: item.product?.name || '',
+                name_uz: uzbekProductsMap.get(item.product_id) || item.product?.name || '',
+                barcode: item.product?.barcode
+              }
+            }));
+          } else {
+            throw new Error('Failed to fetch Uzbek product names');
+          }
+        } catch (error) {
+          console.error('Failed to fetch Uzbek product names:', error);
+          // Fallback to original names
+          cartItemsWithUzbekNames = cart.map(item => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.quantity * item.unit_price,
+            product: {
+              name: item.product?.name || '',
+              name_uz: item.product?.name || '', // Fallback to current name
+              barcode: item.product?.barcode
+            }
+          }));
+        }
+
         setCompletedTransactionData({
           transactionId,
           changeAmount: receiptData.changeAmount,
@@ -468,13 +511,18 @@ const CheckoutPage = () => {
           amountReceived: receiptData.paidAmount,
           paymentMethod: payments.length > 1 ? 'mixed' : payments[0]?.method,
           payments,
-          receiptData
+          receiptData: {
+            ...receiptData,
+            subtotal: subtotal,
+            taxAmount: taxAmount,
+            cartItems: cartItemsWithUzbekNames
+          }
         });
-        
+
         // Clear cart and close dialogs
         setCart([]);
         setCheckoutDialogOpen(false);
-        
+
         // Open receipt dialog instead of simple completion dialog
         setReceiptDialogOpen(true);
       }
@@ -489,21 +537,21 @@ const CheckoutPage = () => {
     <>
       <NavigationBar />
 
-      <Container maxWidth="xl" sx={{ mt: 2, mb: 2 }}>
+      <Container maxWidth={false} sx={{ mt: 2, mb: 2, px: 3 }}>
         {/* Error Messages */}
         {(productsError || transactionError) && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             onClose={() => { clearProductsError(); clearTransactionError(); }}
             sx={{ mb: 2 }}
           >
-            {typeof (productsError || transactionError) === 'string' 
-              ? (productsError || transactionError) 
+            {typeof (productsError || transactionError) === 'string'
+              ? (productsError || transactionError)
               : 'An error occurred while loading data'}
           </Alert>
         )}
 
-        <Box 
+        <Box
           sx={{
             display: 'flex',
             gap: 2,
@@ -517,18 +565,18 @@ const CheckoutPage = () => {
               <Typography variant="h6" gutterBottom>
                 {t('checkout.productScanner')}
               </Typography>
-              
+
               {/* Scanner Status Indicator */}
               {scannerMode && (
-                <Alert 
-                  severity="info" 
+                <Alert
+                  severity="info"
                   sx={{ mb: 2 }}
                   icon={<QrCodeScanner />}
                 >
                   {t('checkout.scannerModeActive')}
                 </Alert>
               )}
-              
+
               {/* Barcode Scanner */}
               <Box sx={{ mb: 3 }}>
                 <TextField
@@ -587,7 +635,7 @@ const CheckoutPage = () => {
                           <Box display="flex" alignItems="center">
                             {params.InputProps.endAdornment}
                             {searchQuery && (
-                              <IconButton 
+                              <IconButton
                                 onClick={() => {
                                   setSearchQuery('');
                                   setSelectedProduct(null);
@@ -600,8 +648,8 @@ const CheckoutPage = () => {
                                 ×
                               </IconButton>
                             )}
-                            <IconButton 
-                              onClick={() => searchQuery && handleSearchProducts()} 
+                            <IconButton
+                              onClick={() => searchQuery && handleSearchProducts()}
                               disabled={productsLoading || !searchQuery}
                               title={t('checkout.searchAllProducts')}
                             >
@@ -616,9 +664,9 @@ const CheckoutPage = () => {
                     const { key, ...otherProps } = props;
                     const isOutOfStock = option.quantity_in_stock === 0;
                     return (
-                      <Box 
-                        component="li" 
-                        key={key} 
+                      <Box
+                        component="li"
+                        key={key}
                         {...otherProps}
                         sx={{
                           opacity: isOutOfStock ? 0.6 : 1,
@@ -656,9 +704,9 @@ const CheckoutPage = () => {
                     );
                   }}
                   noOptionsText={
-                    searchQuery.length < 2 
+                    searchQuery.length < 2
                       ? t('checkout.typeToSearchProducts')
-                      : productsLoading 
+                      : productsLoading
                         ? t('checkout.searching')
                         : searchQuery.length > 0
                           ? t('checkout.noProductsFound')
@@ -684,6 +732,8 @@ const CheckoutPage = () => {
                         xs: 'repeat(2, 1fr)',
                         sm: 'repeat(3, 1fr)',
                         md: 'repeat(4, 1fr)',
+                        lg: 'repeat(5, 1fr)',
+                        xl: 'repeat(5, 1fr)',
                       },
                       gap: 2,
                       maxHeight: {
@@ -711,12 +761,13 @@ const CheckoutPage = () => {
                     }}
                   >
                     {categories.map((category) => (
-                      <Card 
-                        key={category.key} 
-                        sx={{ 
-                          cursor: 'pointer', 
+                      <Card
+                        key={category.key}
+                        sx={{
+                          cursor: 'pointer',
                           transition: 'all 0.2s ease-in-out',
-                          '&:hover': { 
+                          minWidth: '200px',
+                          '&:hover': {
                             backgroundColor: 'action.hover',
                             transform: 'translateY(-2px)',
                             boxShadow: (theme) => theme.shadows[4]
@@ -724,7 +775,7 @@ const CheckoutPage = () => {
                         }}
                         onClick={() => handleCategorySelect(category.key, category.name)}
                       >
-                        <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                        <CardContent sx={{ textAlign: 'center', py: 4, minHeight: 120, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                           <Typography variant="h6" fontWeight="bold">
                             {category.name}
                           </Typography>
@@ -744,9 +795,9 @@ const CheckoutPage = () => {
                     <Typography variant="subtitle1">
                       {viewMode === 'search' ? t('checkout.searchResults') : `${selectedCategoryName} ${t('checkout.products')}`}
                     </Typography>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
+                    <Button
+                      variant="outlined"
+                      size="small"
                       onClick={handleBackToCategories}
                       sx={{ minWidth: 'auto' }}
                     >
@@ -760,6 +811,8 @@ const CheckoutPage = () => {
                         xs: 'repeat(2, 1fr)',
                         sm: 'repeat(3, 1fr)',
                         md: 'repeat(4, 1fr)',
+                        lg: 'repeat(5, 1fr)',
+                        xl: 'repeat(5, 1fr)',
                       },
                       gap: 2,
                       maxHeight: {
@@ -788,29 +841,61 @@ const CheckoutPage = () => {
                   >
                     {products.length > 0 ? (
                       products.map((product) => (
-                        <Card 
-                          key={product.id} 
-                          sx={{ 
+                        <Card
+                          key={product.id}
+                          sx={{
                             cursor: product.quantity_in_stock > 0 ? 'pointer' : 'not-allowed',
                             opacity: product.quantity_in_stock > 0 ? 1 : 0.6,
                             transition: 'all 0.2s ease-in-out',
-                            '&:hover': { 
+                            minWidth: '180px',
+                            '&:hover': {
                               backgroundColor: product.quantity_in_stock > 0 ? 'action.hover' : 'transparent',
                               transform: product.quantity_in_stock > 0 ? 'translateY(-2px)' : 'none',
                               boxShadow: product.quantity_in_stock > 0 ? (theme) => theme.shadows[4] : 'none'
-                            } 
+                            }
                           }}
                           onClick={() => product.quantity_in_stock > 0 && addToCart(product)}
                         >
-                          <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                            <Typography variant="body2" fontWeight="bold" noWrap>
+                          {/* Product Image */}
+                          {product.has_image && product.image_paths?.thumbnail ? (
+                            <CardMedia
+                              component="img"
+                              height="120"
+                              image={`http://localhost:3000${product.image_paths.thumbnail}`}
+                              alt={product.name}
+                              sx={{
+                                objectFit: 'cover',
+                                backgroundColor: 'grey.100'
+                              }}
+                              onError={(e) => {
+                                // Fallback to placeholder if image fails to load
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              sx={{
+                                height: 120,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: 'grey.100',
+                                color: 'grey.500'
+                              }}
+                            >
+                              <Typography variant="body2">No Image</Typography>
+                            </Box>
+                          )}
+
+                          <CardContent sx={{ textAlign: 'center', py: 2, minHeight: 100, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <Typography variant="body2" fontWeight="bold" noWrap title={product.name}>
                               {product.name}
                             </Typography>
                             <Typography variant="h6" color="primary.main" sx={{ my: 1 }}>
                               ${product.price.toFixed(2)}
                             </Typography>
-                            <Typography 
-                              variant="caption" 
+                            <Typography
+                              variant="caption"
                               color={product.quantity_in_stock > 0 ? "text.secondary" : "error.main"}
                             >
                               {t('checkout.stockLabel')} {product.quantity_in_stock}
@@ -840,7 +925,7 @@ const CheckoutPage = () => {
               )}
             </Paper>
           </Box>
-          
+
           {/* Cart & Checkout */}
           <Box sx={{ flex: 1 }}>
             <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -853,7 +938,7 @@ const CheckoutPage = () => {
                   {t('checkout.terminal')}: {terminalId || t('checkout.notConnected')}
                 </Typography>
               </Box>
-              
+
               <List sx={{ flexGrow: 1, overflow: 'auto' }}>
                 {cart.map((item) => (
                   <ListItem key={item.product_id} sx={{ px: 0 }}>
@@ -876,8 +961,8 @@ const CheckoutPage = () => {
                           <Remove />
                         </IconButton>
                         <Typography>{item.quantity}</Typography>
-                        <IconButton 
-                          size="small" 
+                        <IconButton
+                          size="small"
                           onClick={() => updateQuantity(item.product_id, 1)}
                           disabled={item.quantity >= item.product.quantity_in_stock}
                         >
@@ -901,7 +986,7 @@ const CheckoutPage = () => {
               </List>
 
               <Divider sx={{ my: 2 }} />
-              
+
               <Box>
                 <Box display="flex" justifyContent="space-between" mb={1}>
                   <Typography>{t('checkout.subtotal')}:</Typography>
@@ -915,7 +1000,7 @@ const CheckoutPage = () => {
                   <Typography variant="h6">{t('checkout.total')}:</Typography>
                   <Typography variant="h6">${total.toFixed(1)}</Typography>
                 </Box>
-                
+
                 <Button
                   fullWidth
                   variant="contained"
@@ -954,30 +1039,21 @@ const CheckoutPage = () => {
             setCompletedTransactionData(null);
           }}
           transactionId={completedTransactionData?.transactionId || ''}
-          cartItems={completedTransactionData?.receiptData?.cartItems || cart.map(item => ({
-            product_id: item.product_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.quantity * item.unit_price,
-            product: {
-              name: item.product?.name || '',
-              barcode: item.product?.barcode
-            }
-          }))}
+          cartItems={completedTransactionData?.receiptData?.cartItems || []}
           payments={completedTransactionData?.payments || []}
-          subtotal={subtotal}
-          taxAmount={taxAmount}
-          totalAmount={total}
+          subtotal={completedTransactionData?.receiptData?.subtotal || 0}
+          taxAmount={completedTransactionData?.receiptData?.taxAmount || 0}
+          totalAmount={completedTransactionData?.totalAmount || 0}
           changeAmount={completedTransactionData?.changeAmount || 0}
           employeeName={user?.name}
           terminalId={terminalId || undefined}
         />
 
         {/* Transaction Complete Dialog */}
-        <Dialog 
-          open={transactionCompleteDialogOpen} 
-          onClose={() => setTransactionCompleteDialogOpen(false)} 
-          maxWidth="sm" 
+        <Dialog
+          open={transactionCompleteDialogOpen}
+          onClose={() => setTransactionCompleteDialogOpen(false)}
+          maxWidth="sm"
           fullWidth
           PaperProps={{
             sx: {
@@ -989,50 +1065,50 @@ const CheckoutPage = () => {
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
               <CheckCircle sx={{ fontSize: 80, color: 'success.main' }} />
-              
+
               <Typography variant="h4" color="success.main" fontWeight="bold">
                 {t('checkout.transactionComplete')}
               </Typography>
-              
+
               <Box sx={{ textAlign: 'left', width: '100%', maxWidth: 400 }}>
                 <Typography variant="h6" gutterBottom>
                   {t('checkout.transactionDetails')}
                 </Typography>
-                
+
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body1">{t('checkout.transactionId')}</Typography>
                   <Typography variant="body1" fontFamily="monospace" fontWeight="bold">
                     {completedTransactionData?.transactionId}
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body1">{t('checkout.totalAmount')}:</Typography>
                   <Typography variant="body1" fontWeight="bold">
-                    ${completedTransactionData?.totalAmount.toFixed(2)}
+                    ${(completedTransactionData?.totalAmount || 0).toFixed(2)}
                   </Typography>
                 </Box>
-                
+
                 {completedTransactionData?.paymentMethod === 'cash' && (
                   <>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body1">{t('checkout.amountReceivedLabel')}</Typography>
                       <Typography variant="body1" fontWeight="bold">
-                        ${completedTransactionData?.amountReceived.toFixed(2)}
+                        ${(completedTransactionData?.amountReceived || 0).toFixed(2)}
                       </Typography>
                     </Box>
-                    
-                    {completedTransactionData && completedTransactionData.changeAmount > 0 && (
+
+                    {completedTransactionData && (completedTransactionData.changeAmount || 0) > 0 && (
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="body1" color="primary.main">{t('checkout.changeDue')}</Typography>
                         <Typography variant="h6" color="primary.main" fontWeight="bold">
-                          ${completedTransactionData.changeAmount.toFixed(2)}
+                          ${(completedTransactionData.changeAmount || 0).toFixed(2)}
                         </Typography>
                       </Box>
                     )}
                   </>
                 )}
-                
+
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body1">{t('checkout.paymentMethod')}:</Typography>
                   <Typography variant="body1" fontWeight="bold" sx={{ textTransform: 'capitalize' }}>
@@ -1040,14 +1116,14 @@ const CheckoutPage = () => {
                   </Typography>
                 </Box>
               </Box>
-              
+
               <Typography variant="body2" color="text.secondary">
                 {t('checkout.thankYou')}
               </Typography>
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button 
+            <Button
               onClick={() => setTransactionCompleteDialogOpen(false)}
               variant="contained"
               size="large"
@@ -1066,9 +1142,9 @@ const CheckoutPage = () => {
           onClose={() => setProductNotFoundSnackbar(false)}
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
-          <Alert 
-            onClose={() => setProductNotFoundSnackbar(false)} 
-            severity="warning" 
+          <Alert
+            onClose={() => setProductNotFoundSnackbar(false)}
+            severity="warning"
             sx={{ width: '100%' }}
           >
             {t(snackbarMessage)}

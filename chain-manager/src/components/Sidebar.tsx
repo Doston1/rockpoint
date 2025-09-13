@@ -1,21 +1,21 @@
 import {
-    Assessment,
-    Business,
-    Dashboard,
-    Group,
-    Inventory,
-    People,
-    Settings,
+  Assessment,
+  Business,
+  Dashboard,
+  Group,
+  Inventory,
+  People,
+  Settings,
 } from '@mui/icons-material';
 import {
-    Box,
-    Drawer,
-    List,
-    ListItem,
-    ListItemButton,
-    ListItemIcon,
-    ListItemText,
-    Typography,
+  Box,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Typography,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -83,7 +83,7 @@ export function Sidebar({ open }: SidebarProps) {
           {t('dashboard.mainOffice')}
         </Typography>
       </Box>
-      
+
       <List>
         {menuItems.map((item) => (
           <ListItem key={item.path} disablePadding>

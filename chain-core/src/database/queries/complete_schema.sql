@@ -164,8 +164,8 @@ CREATE TABLE products (
     base_price DECIMAL(10,2) NOT NULL, -- Default price, can be overridden per branch
     cost DECIMAL(10,2),
     tax_rate DECIMAL(5,4) DEFAULT 0.0000,
-    image_url VARCHAR(500),
-    images TEXT[], -- Array of image URLs
+    image_paths JSONB, -- Local image file paths for different sizes
+    has_image BOOLEAN DEFAULT false, -- Quick flag to check if product has images
     attributes JSONB, -- Flexible attributes storage
     is_active BOOLEAN DEFAULT true,
     onec_id VARCHAR(100), -- Reference to 1C product ID
@@ -590,6 +590,7 @@ CREATE INDEX idx_products_barcode ON products(barcode);
 CREATE INDEX idx_products_category_id ON products(category_id);
 CREATE INDEX idx_products_is_active ON products(is_active);
 CREATE INDEX idx_products_onec_id ON products(onec_id);
+CREATE INDEX idx_products_has_image ON products(has_image) WHERE has_image = true;
 CREATE INDEX idx_products_name ON products USING gin(to_tsvector('english', name));
 
 -- Branch product pricing indexes

@@ -96,7 +96,8 @@ CREATE TABLE IF NOT EXISTS products (
     description_uz TEXT,
     unit_of_measure VARCHAR(50) DEFAULT 'pcs',
     tax_rate DECIMAL(5,4) DEFAULT 0.0000,
-    image_url TEXT,
+    image_paths JSONB, -- Local image file paths for different sizes
+    has_image BOOLEAN DEFAULT false, -- Quick flag to check if product has images
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -832,8 +833,9 @@ CREATE INDEX IF NOT EXISTS idx_categories_key ON categories(key);
 -- Products indexes
 CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
 CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
-CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active);
+CREATE INDEX IF NOT EXISTS idx_products_has_image ON products(has_image) WHERE has_image = true;
 CREATE INDEX IF NOT EXISTS idx_products_name ON products USING gin(to_tsvector('english', name));
 
 -- Customers indexes
@@ -1033,21 +1035,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to automatically create category entries when new ones are used
-CREATE OR REPLACE FUNCTION ensure_category_exists()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- If category is provided and doesn't exist in categories table, create it
-    IF NEW.category IS NOT NULL AND NEW.category != '' THEN
-        INSERT INTO categories (key, name_en)
-        VALUES (NEW.category, NEW.category)
-        ON CONFLICT (key) DO NOTHING;
-    END IF;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
 -- Function to update API keys updated_at timestamp
 CREATE OR REPLACE FUNCTION update_api_keys_updated_at()
 RETURNS TRIGGER AS $$
@@ -1081,13 +1068,6 @@ CREATE TRIGGER update_pos_terminals_updated_at BEFORE UPDATE ON pos_terminals
 
 CREATE TRIGGER update_branch_network_config_updated_at BEFORE UPDATE ON branch_network_config
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Trigger to automatically create categories
-DROP TRIGGER IF EXISTS ensure_category_trigger ON products;
-CREATE TRIGGER ensure_category_trigger
-    BEFORE INSERT OR UPDATE ON products
-    FOR EACH ROW
-    EXECUTE FUNCTION ensure_category_exists();
 
 -- API keys updated_at trigger
 CREATE TRIGGER trigger_update_api_keys_updated_at

@@ -134,3 +134,6 @@ pos-manager/dist-ssr/
 # Electron build output
 pos-manager/out/
 pos-manager/app/
+pos-manager/dist-electron/
+chain-manager/dist-electron/
+*/dist-electron/

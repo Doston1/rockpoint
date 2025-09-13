@@ -180,6 +180,8 @@ export interface Product {
   taxRate: number;
   imageUrl?: string;
   images?: string[];
+  image_paths?: Record<string, string>; // New field for processed images
+  has_image?: boolean; // New field to track if product has images
   attributes?: Record<string, any>;
   isActive: boolean;
   oneCId?: string;

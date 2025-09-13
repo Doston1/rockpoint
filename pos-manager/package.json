@@ -5,10 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && tsc -p tsconfig.electron.json",
+    "build:electron": "tsc -p tsconfig.electron.json && move dist-electron\\electron.js dist-electron\\electron.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "electron": "NODE_ENV=development electron ."
+    "electron": "npm run build:electron && electron dist-electron/electron.cjs",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && node scripts/electron-dev.cjs\"",
+    "electron:dev:watch": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development tsc -p tsconfig.electron.json --watch\" \"wait-on dist-electron/electron.js && cross-env NODE_ENV=development npx electron dist-electron/electron.js\"",
+    "electron:build": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --publish=never"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -33,7 +38,10 @@
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.0.0",
     "electron": "^37.2.3",
+    "electron-builder": "^26.0.12",
     "eslint": "^9.30.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -42,6 +50,54 @@
     "tailwindcss": "^4.1.11",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.35.1",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "wait-on": "^8.0.4"
+  },
+  "main": "dist-electron/electron.cjs",
+  "homepage": "./",
+  "build": {
+    "appId": "com.rockpoint.posmanager",
+    "productName": "RockPoint POS Manager",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

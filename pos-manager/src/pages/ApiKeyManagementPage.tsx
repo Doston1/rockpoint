@@ -72,7 +72,7 @@ const ApiKeyManagementPage: React.FC = () => {
   const [branches, setBranches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Dialog states
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
   const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null);
@@ -103,12 +103,12 @@ const ApiKeyManagementPage: React.FC = () => {
         const apiKeysData = await apiKeysResponse.json();
         setApiKeys(apiKeysData.data?.api_keys || []);
       }
-      
+
       if (permissionsResponse.ok) {
         const permissionsData = await permissionsResponse.json();
         setAvailablePermissions(permissionsData.data?.permissions || []);
       }
-      
+
       if (branchesResponse.ok) {
         const branchesData = await branchesResponse.json();
         setBranches(branchesData.data?.branches || []);
@@ -182,7 +182,7 @@ const ApiKeyManagementPage: React.FC = () => {
     if (!confirm('Are you sure you want to delete this API key? This action cannot be undone.')) {
       return;
     }
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/admin/api-keys/${id}`, {
         method: 'DELETE',
@@ -203,7 +203,7 @@ const ApiKeyManagementPage: React.FC = () => {
     if (!confirm('Are you sure you want to regenerate this API key? The old key will stop working immediately.')) {
       return;
     }
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/admin/api-keys/${id}/regenerate`, {
         method: 'POST',
@@ -244,305 +244,305 @@ const ApiKeyManagementPage: React.FC = () => {
   return (
     <>
       <NavigationBar />
-      <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => navigate('/settings')}
-            sx={{ mr: 2 }}
-          >
-            Back to Settings
-          </Button>
-          <Key sx={{ mr: 1, fontSize: 32 }} />
-          <Typography variant="h4" fontWeight="bold">
-            {t('apiKeys.title')}
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <IconButton onClick={loadData} disabled={isLoading}>
-            <Refresh />
-          </IconButton>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => {
-              resetApiKeyForm();
-              setEditingApiKey(null);
-              setApiKeyDialogOpen(true);
-            }}
-          >
-            {t('apiKeys.createApiKey')}
-          </Button>
-        </Box>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-
-      {/* New API Key Display */}
-      {newApiKeyData && (
-        <Alert
-          severity="warning"
-          sx={{ mb: 3 }}
-          action={
-            <IconButton
-              onClick={() => setNewApiKeyData(null)}
-              size="small"
+      <Container maxWidth={false} sx={{ mt: 2, mb: 4, px: 3 }}>
+        {/* Header */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Button
+              startIcon={<ArrowBack />}
+              onClick={() => navigate('/settings')}
+              sx={{ mr: 2 }}
             >
-              ×
-            </IconButton>
-          }
-        >
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            {newApiKeyData.warning}
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-            <TextField
-              value={newApiKeyData.key}
-              size="small"
-              fullWidth
-              InputProps={{
-                readOnly: true,
-                endAdornment: (
-                  <IconButton
-                    onClick={() => copyToClipboard(newApiKeyData.key)}
-                    size="small"
-                  >
-                    <ContentCopy />
-                  </IconButton>
-                ),
-              }}
-            />
+              Back to Settings
+            </Button>
+            <Key sx={{ mr: 1, fontSize: 32 }} />
+            <Typography variant="h4" fontWeight="bold">
+              {t('apiKeys.title')}
+            </Typography>
           </Box>
-        </Alert>
-      )}
-
-      {/* API Keys List */}
-      {apiKeys.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Key sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            {t('apiKeys.noApiKeysFound')}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {t('apiKeys.createFirstApiKey')}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => {
-              resetApiKeyForm();
-              setEditingApiKey(null);
-              setApiKeyDialogOpen(true);
-            }}
-            sx={{ mt: 2 }}
-          >
-            {t('apiKeys.createFirstKey')}
-          </Button>
-        </Paper>
-      ) : (
-        <Box sx={{ display: 'grid', gap: 2 }}>
-          {apiKeys.map((apiKey) => (
-            <Card key={apiKey.id}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Typography variant="h6" fontWeight="bold">
-                        {apiKey.name}
-                      </Typography>
-                      <Chip
-                        label={apiKey.is_active ? t('apiKeys.active') : t('apiKeys.inactive')}
-                        color={apiKey.is_active ? 'success' : 'error'}
-                        size="small"
-                      />
-                    </Box>
-                    {apiKey.description && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {apiKey.description}
-                      </Typography>
-                    )}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Typography variant="body2">
-                        <strong>{t('apiKeys.key')}:</strong>
-                      </Typography>
-                      <TextField
-                        size="small"
-                        value={showApiKey[apiKey.id] ? apiKey.key_preview : '••••••••••••••••'}
-                        InputProps={{
-                          readOnly: true,
-                          endAdornment: (
-                            <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              <IconButton
-                                size="small"
-                                onClick={() => setShowApiKey(prev => ({ ...prev, [apiKey.id]: !prev[apiKey.id] }))}
-                              >
-                                {showApiKey[apiKey.id] ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                              <IconButton
-                                size="small"
-                                onClick={() => copyToClipboard(apiKey.key_preview || 'Key not available')}
-                                title="Copy key preview"
-                              >
-                                <ContentCopy />
-                              </IconButton>
-                            </Box>
-                          ),
-                        }}
-                        sx={{ width: 300 }}
-                      />
-                    </Box>
-                    <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>{t('apiKeys.permissions')}:</strong> {apiKey.permissions.join(', ') || 'None'}
-                    </Typography>
-                    {apiKey.branch_name && (
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        <strong>{t('apiKeys.branch')}:</strong> {apiKey.branch_name}
-                      </Typography>
-                    )}
-                    <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>{t('apiKeys.usageCount')}:</strong> {apiKey.usage_count}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {t('apiKeys.created')}: {new Date(apiKey.created_at).toLocaleString()}
-                      {apiKey.last_used_at && ` • ${t('apiKeys.lastUsed')}: ${new Date(apiKey.last_used_at).toLocaleString()}`}
-                      {apiKey.expires_at && ` • ${t('apiKeys.expires')}: ${new Date(apiKey.expires_at).toLocaleString()}`}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<Edit />}
-                      onClick={() => handleEditApiKey(apiKey)}
-                    >
-                      {t('apiKeys.edit')}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<Refresh />}
-                      onClick={() => handleRegenerateApiKey(apiKey.id)}
-                    >
-                      {t('apiKeys.regenerate')}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="error"
-                      startIcon={<Delete />}
-                      onClick={() => handleDeleteApiKey(apiKey.id)}
-                    >
-                      {t('apiKeys.delete')}
-                    </Button>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          ))}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <IconButton onClick={loadData} disabled={isLoading}>
+              <Refresh />
+            </IconButton>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => {
+                resetApiKeyForm();
+                setEditingApiKey(null);
+                setApiKeyDialogOpen(true);
+              }}
+            >
+              {t('apiKeys.createApiKey')}
+            </Button>
+          </Box>
         </Box>
-      )}
 
-      {/* API Key Dialog */}
-      <Dialog open={apiKeyDialogOpen} onClose={() => setApiKeyDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          {editingApiKey ? 'Edit API Key' : 'Create New API Key'}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-            <TextField
-              label="Name"
-              value={apiKeyFormData.name}
-              onChange={(e) => setApiKeyFormData(prev => ({ ...prev, name: e.target.value }))}
-              fullWidth
-              required
-              helperText="A descriptive name for this API key (e.g., 'Chain-Core Integration', 'Backup System')"
-            />
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-            <TextField
-              label="Description"
-              value={apiKeyFormData.description}
-              onChange={(e) => setApiKeyFormData(prev => ({ ...prev, description: e.target.value }))}
-              fullWidth
-              multiline
-              rows={2}
-              helperText="Optional description of what this API key is used for"
-            />
-
-            <FormControl fullWidth>
-              <InputLabel>Branch (Optional)</InputLabel>
-              <Select
-                value={apiKeyFormData.branch_id || ''}
-                label="Branch (Optional)"
-                onChange={(e) => setApiKeyFormData(prev => ({ ...prev, branch_id: e.target.value || undefined }))}
+        {/* New API Key Display */}
+        {newApiKeyData && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 3 }}
+            action={
+              <IconButton
+                onClick={() => setNewApiKeyData(null)}
+                size="small"
               >
-                <MenuItem value="">All Branches</MenuItem>
-                {branches.map((branch) => (
-                  <MenuItem key={branch.id} value={branch.id}>
-                    {branch.name} ({branch.code})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                ×
+              </IconButton>
+            }
+          >
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              {newApiKeyData.warning}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <TextField
+                value={newApiKeyData.key}
+                size="small"
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: (
+                    <IconButton
+                      onClick={() => copyToClipboard(newApiKeyData.key)}
+                      size="small"
+                    >
+                      <ContentCopy />
+                    </IconButton>
+                  ),
+                }}
+              />
+            </Box>
+          </Alert>
+        )}
 
-            <FormControl fullWidth>
-              <InputLabel>Permissions</InputLabel>
-              <Select
-                multiple
-                value={apiKeyFormData.permissions}
-                label="Permissions"
-                onChange={(e) => setApiKeyFormData(prev => ({ 
-                  ...prev, 
-                  permissions: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value 
-                }))}
-                renderValue={(selected) => selected.join(', ')}
-              >
-                {availablePermissions.map((permission) => (
-                  <MenuItem key={permission.name} value={permission.name}>
-                    <Box>
-                      <Typography variant="body2" fontWeight="medium">
-                        {permission.name}
+        {/* API Keys List */}
+        {apiKeys.length === 0 ? (
+          <Paper sx={{ p: 4, textAlign: 'center' }}>
+            <Key sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              {t('apiKeys.noApiKeysFound')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              {t('apiKeys.createFirstApiKey')}
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => {
+                resetApiKeyForm();
+                setEditingApiKey(null);
+                setApiKeyDialogOpen(true);
+              }}
+              sx={{ mt: 2 }}
+            >
+              {t('apiKeys.createFirstKey')}
+            </Button>
+          </Paper>
+        ) : (
+          <Box sx={{ display: 'grid', gap: 2 }}>
+            {apiKeys.map((apiKey) => (
+              <Card key={apiKey.id}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Typography variant="h6" fontWeight="bold">
+                          {apiKey.name}
+                        </Typography>
+                        <Chip
+                          label={apiKey.is_active ? t('apiKeys.active') : t('apiKeys.inactive')}
+                          color={apiKey.is_active ? 'success' : 'error'}
+                          size="small"
+                        />
+                      </Box>
+                      {apiKey.description && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          {apiKey.description}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Typography variant="body2">
+                          <strong>{t('apiKeys.key')}:</strong>
+                        </Typography>
+                        <TextField
+                          size="small"
+                          value={showApiKey[apiKey.id] ? apiKey.key_preview : '••••••••••••••••'}
+                          InputProps={{
+                            readOnly: true,
+                            endAdornment: (
+                              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setShowApiKey(prev => ({ ...prev, [apiKey.id]: !prev[apiKey.id] }))}
+                                >
+                                  {showApiKey[apiKey.id] ? <VisibilityOff /> : <Visibility />}
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => copyToClipboard(apiKey.key_preview || 'Key not available')}
+                                  title="Copy key preview"
+                                >
+                                  <ContentCopy />
+                                </IconButton>
+                              </Box>
+                            ),
+                          }}
+                          sx={{ width: 300 }}
+                        />
+                      </Box>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        <strong>{t('apiKeys.permissions')}:</strong> {apiKey.permissions.join(', ') || 'None'}
+                      </Typography>
+                      {apiKey.branch_name && (
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>{t('apiKeys.branch')}:</strong> {apiKey.branch_name}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        <strong>{t('apiKeys.usageCount')}:</strong> {apiKey.usage_count}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {permission.description}
+                        {t('apiKeys.created')}: {new Date(apiKey.created_at).toLocaleString()}
+                        {apiKey.last_used_at && ` • ${t('apiKeys.lastUsed')}: ${new Date(apiKey.last_used_at).toLocaleString()}`}
+                        {apiKey.expires_at && ` • ${t('apiKeys.expires')}: ${new Date(apiKey.expires_at).toLocaleString()}`}
                       </Typography>
                     </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Expires At (Optional)"
-              type="datetime-local"
-              value={apiKeyFormData.expires_at || ''}
-              onChange={(e) => setApiKeyFormData(prev => ({ ...prev, expires_at: e.target.value }))}
-              fullWidth
-              helperText="Leave empty for no expiration"
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<Edit />}
+                        onClick={() => handleEditApiKey(apiKey)}
+                      >
+                        {t('apiKeys.edit')}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<Refresh />}
+                        onClick={() => handleRegenerateApiKey(apiKey.id)}
+                      >
+                        {t('apiKeys.regenerate')}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        startIcon={<Delete />}
+                        onClick={() => handleDeleteApiKey(apiKey.id)}
+                      >
+                        {t('apiKeys.delete')}
+                      </Button>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
           </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setApiKeyDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={editingApiKey ? 
-              () => handleUpdateApiKey(editingApiKey.id, apiKeyFormData) : 
-              handleCreateApiKey
-            } 
-            variant="contained"
-          >
-            {editingApiKey ? 'Update' : 'Create'} API Key
-          </Button>
-        </DialogActions>
-      </Dialog>
+        )}
+
+        {/* API Key Dialog */}
+        <Dialog open={apiKeyDialogOpen} onClose={() => setApiKeyDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            {editingApiKey ? 'Edit API Key' : 'Create New API Key'}
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+              <TextField
+                label="Name"
+                value={apiKeyFormData.name}
+                onChange={(e) => setApiKeyFormData(prev => ({ ...prev, name: e.target.value }))}
+                fullWidth
+                required
+                helperText="A descriptive name for this API key (e.g., 'Chain-Core Integration', 'Backup System')"
+              />
+
+              <TextField
+                label="Description"
+                value={apiKeyFormData.description}
+                onChange={(e) => setApiKeyFormData(prev => ({ ...prev, description: e.target.value }))}
+                fullWidth
+                multiline
+                rows={2}
+                helperText="Optional description of what this API key is used for"
+              />
+
+              <FormControl fullWidth>
+                <InputLabel>Branch (Optional)</InputLabel>
+                <Select
+                  value={apiKeyFormData.branch_id || ''}
+                  label="Branch (Optional)"
+                  onChange={(e) => setApiKeyFormData(prev => ({ ...prev, branch_id: e.target.value || undefined }))}
+                >
+                  <MenuItem value="">All Branches</MenuItem>
+                  {branches.map((branch) => (
+                    <MenuItem key={branch.id} value={branch.id}>
+                      {branch.name} ({branch.code})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth>
+                <InputLabel>Permissions</InputLabel>
+                <Select
+                  multiple
+                  value={apiKeyFormData.permissions}
+                  label="Permissions"
+                  onChange={(e) => setApiKeyFormData(prev => ({
+                    ...prev,
+                    permissions: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
+                  }))}
+                  renderValue={(selected) => selected.join(', ')}
+                >
+                  {availablePermissions.map((permission) => (
+                    <MenuItem key={permission.name} value={permission.name}>
+                      <Box>
+                        <Typography variant="body2" fontWeight="medium">
+                          {permission.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {permission.description}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="Expires At (Optional)"
+                type="datetime-local"
+                value={apiKeyFormData.expires_at || ''}
+                onChange={(e) => setApiKeyFormData(prev => ({ ...prev, expires_at: e.target.value }))}
+                fullWidth
+                helperText="Leave empty for no expiration"
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setApiKeyDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={editingApiKey ?
+                () => handleUpdateApiKey(editingApiKey.id, apiKeyFormData) :
+                handleCreateApiKey
+              }
+              variant="contained"
+            >
+              {editingApiKey ? 'Update' : 'Create'} API Key
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </>
   );

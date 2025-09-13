@@ -1,13 +1,19 @@
+import { CloudUpload, Delete } from '@mui/icons-material';
 import {
+  Alert,
   Autocomplete,
   Box,
   Button,
+  Card,
+  CardContent,
+  CardMedia,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  IconButton,
   Stack,
   Switch,
   TextField,
@@ -39,13 +45,13 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
   selectedBranchId,
 }) => {
   const { t } = useTranslation();
-  
+
   // Branch selection state (only for new products in general inventory)
   const [selectedBranches, setSelectedBranches] = React.useState<string[]>([]);
-  
+
   // Only show branch selection for new products when not viewing a specific branch
   const showBranchSelection = !product && !selectedBranchId;
-  
+
   const [formData, setFormData] = React.useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>({
     sku: '',
     barcode: '',
@@ -71,14 +77,20 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
     oneCId: '',
   });
 
+  // Image upload state
+  const [selectedImage, setSelectedImage] = React.useState<File | null>(null);
+  const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+  const [imageUploading, setImageUploading] = React.useState(false);
+  const [imageError, setImageError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     if (product) {
       // Use branch-specific pricing if available and branch is selected, otherwise use global pricing
-      const effectivePrice = selectedBranchId && product.branch_price !== undefined 
-        ? product.branch_price 
+      const effectivePrice = selectedBranchId && product.branch_price !== undefined
+        ? product.branch_price
         : product.basePrice;
-      const effectiveCost = selectedBranchId && product.branch_cost !== undefined 
-        ? product.branch_cost 
+      const effectiveCost = selectedBranchId && product.branch_cost !== undefined
+        ? product.branch_cost
         : (product.cost || 0);
 
       // Find category name from categoryId
@@ -136,6 +148,78 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
     }
   }, [product, open, selectedBranchId, categories]);
 
+  // Image handling functions
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setImageError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setImageError('Image size must be less than 10MB');
+      return;
+    }
+
+    setSelectedImage(file);
+    setImageError(null);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageUpload = async () => {
+    if (!selectedImage || !product?.id) return;
+
+    setImageUploading(true);
+    setImageError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+
+      const response = await fetch(`/api/1c/products/chain-manager/${product.id}/image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload image');
+      }
+
+      const result = await response.json();
+      console.log('✅ Image uploaded successfully:', result);
+
+      // Clear the image selection
+      setSelectedImage(null);
+      setImagePreview(null);
+
+      // Show success message
+      alert('Image uploaded successfully!');
+
+    } catch (error) {
+      console.error('❌ Image upload failed:', error);
+      setImageError(error instanceof Error ? error.message : 'Failed to upload image');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handleImageRemove = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    setImageError(null);
+  };
+
   const handleSave = async () => {
     // Validate required fields
     if (!formData.name?.trim()) {
@@ -157,12 +241,12 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
 
   const handleChange = (field: keyof typeof formData) => (event: any) => {
     let value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
-    
+
     // Convert numeric fields to numbers
     if (field === 'basePrice' || field === 'cost' || field === 'taxRate') {
       value = parseFloat(value) || 0;
     }
-    
+
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -173,22 +257,22 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
       </DialogTitle>
       <DialogContent>
         {selectedBranchId && (
-          <Box sx={{ 
-            mb: 2, 
-            p: 2, 
-            bgcolor: 'primary.50', 
-            border: 1, 
-            borderColor: 'primary.200', 
+          <Box sx={{
+            mb: 2,
+            p: 2,
+            bgcolor: 'primary.50',
+            border: 1,
+            borderColor: 'primary.200',
             borderRadius: 1,
             display: 'flex',
             alignItems: 'center',
             gap: 1
           }}>
-            <Box sx={{ 
-              width: 8, 
-              height: 8, 
-              bgcolor: 'primary.main', 
-              borderRadius: '50%' 
+            <Box sx={{
+              width: 8,
+              height: 8,
+              bgcolor: 'primary.main',
+              borderRadius: '50%'
             }} />
             <Box>
               <strong>{t('inventory.branchSpecificEditingMode')}</strong>
@@ -213,12 +297,12 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               onChange={handleChange('barcode')}
             />
           </Box>
-          
+
           {/* Product Names Section */}
           <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
             {t('inventory.productNames')}
           </Typography>
-          
+
           <TextField
             fullWidth
             label={t('inventory.productName') + ' (' + t('inventory.primary') + ')'}
@@ -227,7 +311,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
             required
             helperText={t('inventory.primaryNameHelper')}
           />
-          
+
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
@@ -244,7 +328,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               helperText={t('inventory.nameRussianHelper')}
             />
           </Box>
-          
+
           <TextField
             fullWidth
             label={t('inventory.nameUzbek')}
@@ -252,12 +336,12 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
             onChange={handleChange('nameUz')}
             helperText={t('inventory.nameUzbekHelper')}
           />
-          
+
           {/* Product Descriptions Section */}
           <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
             {t('inventory.productDescriptions')}
           </Typography>
-          
+
           <TextField
             fullWidth
             label={t('inventory.description') + ' (' + t('inventory.primary') + ')'}
@@ -267,7 +351,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
             rows={2}
             helperText={t('inventory.primaryDescriptionHelper')}
           />
-          
+
           <TextField
             fullWidth
             label={t('inventory.descriptionEnglish')}
@@ -277,7 +361,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
             rows={2}
             helperText={t('inventory.descriptionEnglishHelper')}
           />
-          
+
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
@@ -298,12 +382,12 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               helperText={t('inventory.descriptionUzbekHelper')}
             />
           </Box>
-          
+
           {/* Category and Brand Section */}
           <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
             {t('inventory.categoryAndBrand')}
           </Typography>
-          
+
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
@@ -319,12 +403,12 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               onChange={handleChange('brand')}
             />
           </Box>
-          
+
           {/* Pricing Section */}
           <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
             {t('inventory.pricingInformation')}
           </Typography>
-          
+
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
@@ -341,13 +425,13 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               onChange={handleChange('basePrice')}
               required
               helperText={
-                selectedBranchId 
-                  ? t('inventory.branchPriceHelper') 
+                selectedBranchId
+                  ? t('inventory.branchPriceHelper')
                   : t('inventory.basePriceHelper')
               }
             />
           </Box>
-          
+
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth
@@ -356,8 +440,8 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               value={formData.cost}
               onChange={handleChange('cost')}
               helperText={
-                selectedBranchId 
-                  ? t('inventory.branchCostHelper') 
+                selectedBranchId
+                  ? t('inventory.branchCostHelper')
                   : t('inventory.baseCostHelper')
               }
             />
@@ -373,13 +457,13 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
 
           {/* Global Pricing Reference - Only show when in branch mode */}
           {selectedBranchId && product && (
-            <Box sx={{ 
-              mt: 2, 
-              p: 2, 
-              bgcolor: 'grey.50', 
-              border: 1, 
-              borderColor: 'grey.300', 
-              borderRadius: 1 
+            <Box sx={{
+              mt: 2,
+              p: 2,
+              bgcolor: 'grey.50',
+              border: 1,
+              borderColor: 'grey.300',
+              borderRadius: 1
             }}>
               <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
                 {t('inventory.globalReference')}
@@ -412,14 +496,14 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               </Box>
             </Box>
           )}
-          
+
           {/* Branch Selection Section (only for new products in general inventory) */}
           {showBranchSelection && (
             <>
               <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                 {t('inventory.branchDistribution')}
               </Typography>
-              
+
               <Autocomplete
                 multiple
                 options={branches}
@@ -448,20 +532,99 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
               />
             </>
           )}
-          
+
           {/* Additional Information Section */}
           <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
             {t('inventory.additionalInformation')}
           </Typography>
-          
-          <TextField
-            fullWidth
-            label={t('inventory.imageUrl')}
-            value={formData.imageUrl}
-            onChange={handleChange('imageUrl')}
-            helperText={t('inventory.imageUrlHelper')}
-          />
-          
+
+          {/* Image Upload Section */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Product Images
+            </Typography>
+
+            {/* Current Images Display */}
+            {product?.image_paths && Object.keys(product.image_paths).length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Current Images:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {Object.entries(product.image_paths).map(([size, path]) => (
+                    <Card key={size} sx={{ width: 100 }}>
+                      <CardMedia
+                        component="img"
+                        image={`http://localhost:3001${path}`}
+                        alt={`${product.name} - ${size}`}
+                        sx={{ height: 80, objectFit: 'cover' }}
+                      />
+                      <CardContent sx={{ p: 0.5, textAlign: 'center' }}>
+                        <Typography variant="caption">{size}</Typography>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {/* Image Upload Input */}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              style={{ display: 'none' }}
+              id="image-upload-input"
+            />
+            <label htmlFor="image-upload-input">
+              <Button
+                variant="outlined"
+                component="span"
+                startIcon={<CloudUpload />}
+                sx={{ mr: 1 }}
+              >
+                Select Image
+              </Button>
+            </label>
+
+            {/* Image Preview */}
+            {imagePreview && (
+              <Card sx={{ mt: 2, maxWidth: 300 }}>
+                <CardMedia
+                  component="img"
+                  image={imagePreview}
+                  alt="Preview"
+                  sx={{ height: 200, objectFit: 'cover' }}
+                />
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Ready to upload
+                    </Typography>
+                    <Box>
+                      <Button
+                        size="small"
+                        onClick={handleImageUpload}
+                        disabled={imageUploading}
+                        startIcon={<CloudUpload />}
+                      >
+                        {imageUploading ? 'Uploading...' : 'Upload'}
+                      </Button>
+                      <IconButton size="small" onClick={handleImageRemove}>
+                        <Delete />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                  {imageError && (
+                    <Alert severity="error" sx={{ mt: 1 }}>
+                      {imageError}
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </Box>
+
           <TextField
             fullWidth
             label={t('inventory.oneCId')}
@@ -469,7 +632,7 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
             onChange={handleChange('oneCId')}
             helperText={t('inventory.oneCIdHelper')}
           />
-          
+
           <FormControlLabel
             control={
               <Switch
@@ -483,9 +646,9 @@ export const ProductDialog: React.FC<ProductDialogProps> = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t('common.cancel')}</Button>
-        <Button 
-          onClick={handleSave} 
-          variant="contained" 
+        <Button
+          onClick={handleSave}
+          variant="contained"
           disabled={isLoading || !formData.sku || !formData.name}
         >
           {isLoading ? t('common.saving') : t('common.save')}

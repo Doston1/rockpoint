@@ -1,5 +1,4 @@
 import {
-  CheckCircle,
   Print,
   Receipt as ReceiptIcon,
 } from '@mui/icons-material';
@@ -9,9 +8,9 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  Divider,
   Typography,
 } from '@mui/material';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface Payment {
@@ -28,6 +27,7 @@ interface CartItem {
   total_price: number;
   product: {
     name: string;
+    name_uz?: string; // Uzbek product name
     barcode?: string;
   };
 }
@@ -62,12 +62,32 @@ export const ReceiptDialog: React.FC<ReceiptDialogProps> = ({
   const { t } = useTranslation();
   const currentTime = new Date();
 
+  // Fixed Uzbek labels for receipt - always in Uzbek regardless of current language
+  const uzbekLabels = {
+    receipt: "KVITANSIYA",
+    companyName: "ROCKPOINT POS",
+    transactionId: "TXN",
+    terminal: "TERMINAL",
+    cashier: "KASSIR",
+    subtotal: "ORALIQ JAMI:",
+    tax: "SOLIQ:",
+    total: "JAMI:",
+    payment: "TO'LOV:",
+    changeDue: "QAYTIM:",
+    thankYou: "XARIDINGIZ UCHUN RAHMAT",
+    keepReceipt: "Ushbu kvitansiyani saqlang",
+    forYourRecords: "hisob qaydlaringiz uchun",
+    cash: "NAQD",
+    card: "KARTA",
+    digital: "RAQAMLI"
+  };
+
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
-      case 'cash': return t('checkout.cash');
-      case 'card': return t('checkout.card');
-      case 'digital_wallet': return t('checkout.digitalWallet');
-      default: return method;
+      case 'cash': return uzbekLabels.cash;
+      case 'card': return uzbekLabels.card;
+      case 'digital_wallet': return uzbekLabels.digital;
+      default: return method.toUpperCase();
     }
   };
 
@@ -75,11 +95,23 @@ export const ReceiptDialog: React.FC<ReceiptDialogProps> = ({
     window.print();
   };
 
+  // Auto-print receipt when dialog opens
+  useEffect(() => {
+    if (open) {
+      // Small delay to ensure the dialog is fully rendered before printing
+      const timer = setTimeout(() => {
+        handlePrint();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="sm" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
       fullWidth
       PaperProps={{
         sx: {
@@ -87,64 +119,157 @@ export const ReceiptDialog: React.FC<ReceiptDialogProps> = ({
             boxShadow: 'none',
             margin: 0,
             padding: 0,
+            maxWidth: '80mm',
+            width: '80mm',
+            backgroundColor: 'white',
           }
         }
       }}
     >
-      <DialogContent sx={{ p: 4, '@media print': { p: 2 } }}>
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <CheckCircle sx={{ fontSize: 60, color: 'success.main', mb: 2 }} />
-          <Typography variant="h4" color="success.main" fontWeight="bold" gutterBottom>
-            {t('checkout.transactionComplete')}
-          </Typography>
-        </Box>
-
+      <DialogContent sx={{
+        p: 4,
+        backgroundColor: 'white',
+        color: 'black',
+        '@media print': {
+          p: 1,
+          fontSize: '12px',
+          lineHeight: 1.2,
+          fontFamily: 'monospace',
+        }
+      }}>
         {/* Receipt Header */}
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Typography variant="h4" fontWeight="bold" color="primary" gutterBottom>
-            🏪 RockPoint POS
+        <Box sx={{
+          textAlign: 'center',
+          mb: 3,
+          '@media print': { mb: 1 }
+        }}>
+          <Typography variant="h5" sx={{
+            fontFamily: 'monospace',
+            fontWeight: 'bold',
+            color: 'black',
+            '@media print': {
+              fontSize: '14px',
+              fontWeight: 'bold',
+              marginBottom: '4px'
+            }
+          }}>
+            {uzbekLabels.companyName}
           </Typography>
-          <Typography variant="h6" color="success.main" fontWeight="bold" gutterBottom>
-            ✅ TRANSACTION COMPLETE
+          <Typography variant="body2" sx={{
+            fontFamily: 'monospace',
+            color: 'black',
+            '@media print': {
+              fontSize: '10px',
+              marginBottom: '2px'
+            }
+          }}>
+            {uzbekLabels.receipt}
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            📅 {currentTime.toLocaleDateString()} • 🕐 {currentTime.toLocaleTimeString()}
+          <Typography variant="body2" sx={{
+            fontFamily: 'monospace',
+            color: 'black',
+            '@media print': {
+              fontSize: '10px',
+              marginBottom: '2px'
+            }
+          }}>
+            {currentTime.toLocaleDateString()} {currentTime.toLocaleTimeString()}
           </Typography>
-          <Typography variant="body1" color="text.secondary" fontWeight="medium">
-            Transaction ID: #{transactionId}
+          <Typography variant="body2" sx={{
+            fontFamily: 'monospace',
+            fontWeight: 'bold',
+            color: 'black',
+            '@media print': {
+              fontSize: '10px',
+              marginBottom: '2px'
+            }
+          }}>
+            {uzbekLabels.transactionId}: {transactionId}
           </Typography>
           {terminalId && (
-            <Typography variant="body2" color="text.secondary">
-              🖥️ Terminal: {terminalId}
+            <Typography variant="body2" sx={{
+              fontFamily: 'monospace',
+              color: 'black',
+              '@media print': {
+                fontSize: '10px',
+                marginBottom: '1px'
+              }
+            }}>
+              {uzbekLabels.terminal}: {terminalId}
             </Typography>
           )}
           {employeeName && (
-            <Typography variant="body2" color="text.secondary">
-              👤 Cashier: {employeeName}
+            <Typography variant="body2" sx={{
+              fontFamily: 'monospace',
+              color: 'black',
+              '@media print': {
+                fontSize: '10px',
+                marginBottom: '2px'
+              }
+            }}>
+              {uzbekLabels.cashier}: {employeeName}
             </Typography>
           )}
         </Box>
 
-        <Divider sx={{ mb: 3 }} />
+        <Box sx={{
+          borderTop: '1px solid black',
+          borderBottom: '1px solid black',
+          my: 2,
+          '@media print': {
+            borderTop: '1px solid black',
+            borderBottom: '1px solid black',
+            my: '4px'
+          }
+        }} />
 
         {/* Items */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" fontWeight="bold" gutterBottom color="primary">
-            🛒 Items Purchased
-          </Typography>
+        <Box sx={{
+          mb: 3,
+          '@media print': { mb: 1 }
+        }}>
           {cartItems.map((item, index) => (
-            <Box key={index} sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="start">
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body1" fontWeight="bold">
-                    {item.product.name}
+            <Box key={index} sx={{
+              mb: 1,
+              '@media print': { mb: '2px' }
+            }}>
+              <Box sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start'
+              }}>
+                <Box sx={{ flex: 1, pr: 1 }}>
+                  <Typography variant="body2" sx={{
+                    fontFamily: 'monospace',
+                    fontWeight: 'bold',
+                    color: 'black',
+                    '@media print': {
+                      fontSize: '10px',
+                      lineHeight: 1.1
+                    }
+                  }}>
+                    {(item.product.name_uz || item.product.name).toUpperCase()}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Quantity: {item.quantity} × ${item.unit_price.toFixed(2)} each
-                    {item.product.barcode && ` • Barcode: ${item.product.barcode}`}
+                  <Typography variant="caption" sx={{
+                    fontFamily: 'monospace',
+                    color: 'black',
+                    '@media print': {
+                      fontSize: '9px'
+                    }
+                  }}>
+                    {item.quantity} x ${item.unit_price.toFixed(2)}
+                    {item.product.barcode && ` [${item.product.barcode}]`}
                   </Typography>
                 </Box>
-                <Typography variant="h6" fontWeight="bold" color="primary">
+                <Typography variant="body2" sx={{
+                  fontFamily: 'monospace',
+                  fontWeight: 'bold',
+                  color: 'black',
+                  textAlign: 'right',
+                  '@media print': {
+                    fontSize: '10px'
+                  }
+                }}>
                   ${item.total_price.toFixed(2)}
                 </Typography>
               </Box>
@@ -152,57 +277,187 @@ export const ReceiptDialog: React.FC<ReceiptDialogProps> = ({
           ))}
         </Box>
 
-        <Divider sx={{ mb: 2 }} />
+        <Box sx={{
+          borderTop: '1px solid black',
+          borderBottom: '1px solid black',
+          my: 2,
+          '@media print': {
+            borderTop: '1px solid black',
+            borderBottom: '1px solid black',
+            my: '4px'
+          }
+        }} />
 
         {/* Totals */}
-        <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.100', borderRadius: 2 }}>
-          <Box display="flex" justifyContent="space-between" mb={1}>
-            <Typography variant="body1" fontWeight="medium">💰 {t('checkout.subtotal')}:</Typography>
-            <Typography variant="body1" fontWeight="medium">${subtotal.toFixed(2)}</Typography>
+        <Box sx={{
+          mb: 3,
+          '@media print': { mb: 1 }
+        }}>
+          <Box display="flex" justifyContent="space-between" sx={{ mb: 0.5 }}>
+            <Typography variant="body2" sx={{
+              fontFamily: 'monospace',
+              color: 'black',
+              '@media print': {
+                fontSize: '10px'
+              }
+            }}>
+              {uzbekLabels.subtotal}
+            </Typography>
+            <Typography variant="body2" sx={{
+              fontFamily: 'monospace',
+              color: 'black',
+              '@media print': {
+                fontSize: '10px'
+              }
+            }}>
+              ${subtotal.toFixed(2)}
+            </Typography>
           </Box>
-          <Box display="flex" justifyContent="space-between" mb={1}>
-            <Typography variant="body1" fontWeight="medium">🧾 {t('checkout.tax')}:</Typography>
-            <Typography variant="body1" fontWeight="medium">${taxAmount.toFixed(2)}</Typography>
+          <Box display="flex" justifyContent="space-between" sx={{ mb: 0.5 }}>
+            <Typography variant="body2" sx={{
+              fontFamily: 'monospace',
+              color: 'black',
+              '@media print': {
+                fontSize: '10px'
+              }
+            }}>
+              {uzbekLabels.tax}
+            </Typography>
+            <Typography variant="body2" sx={{
+              fontFamily: 'monospace',
+              color: 'black',
+              '@media print': {
+                fontSize: '10px'
+              }
+            }}>
+              ${taxAmount.toFixed(2)}
+            </Typography>
           </Box>
-          <Divider sx={{ my: 1 }} />
-          <Box display="flex" justifyContent="space-between" mb={2}>
-            <Typography variant="h6" fontWeight="bold" color="primary">💳 {t('checkout.total')}:</Typography>
-            <Typography variant="h6" fontWeight="bold" color="primary">${totalAmount.toFixed(2)}</Typography>
+          <Box sx={{
+            borderTop: '1px dashed black',
+            pt: 0.5,
+            mt: 0.5,
+            '@media print': {
+              borderTop: '1px dashed black',
+              pt: '2px',
+              mt: '2px'
+            }
+          }}>
+            <Box display="flex" justifyContent="space-between">
+              <Typography variant="body1" sx={{
+                fontFamily: 'monospace',
+                fontWeight: 'bold',
+                color: 'black',
+                '@media print': {
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }
+              }}>
+                {uzbekLabels.total}
+              </Typography>
+              <Typography variant="body1" sx={{
+                fontFamily: 'monospace',
+                fontWeight: 'bold',
+                color: 'black',
+                '@media print': {
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }
+              }}>
+                ${totalAmount.toFixed(2)}
+              </Typography>
+            </Box>
           </Box>
         </Box>
 
-        <Divider sx={{ mb: 3 }} />
+        <Box sx={{
+          borderTop: '1px solid black',
+          borderBottom: '1px solid black',
+          my: 2,
+          '@media print': {
+            borderTop: '1px solid black',
+            borderBottom: '1px solid black',
+            my: '4px'
+          }
+        }} />
 
         {/* Payments */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" fontWeight="bold" gutterBottom color="primary">
-            💵 Payment Methods Used
+        <Box sx={{
+          mb: 3,
+          '@media print': { mb: 1 }
+        }}>
+          <Typography variant="body2" sx={{
+            fontFamily: 'monospace',
+            fontWeight: 'bold',
+            color: 'black',
+            mb: 1,
+            '@media print': {
+              fontSize: '10px',
+              marginBottom: '2px'
+            }
+          }}>
+            {uzbekLabels.payment}
           </Typography>
-          {payments.map((payment, index) => (
-            <Box key={payment.id} sx={{ mb: 2, p: 2, bgcolor: 'success.light', borderRadius: 2, border: 1, borderColor: 'success.main' }}>
+          {payments.map((payment) => (
+            <Box key={payment.id} sx={{
+              mb: 1,
+              '@media print': { mb: '1px' }
+            }}>
               <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="body1" fontWeight="bold">
-                    Payment #{index + 1} - {getPaymentMethodLabel(payment.method)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    🕐 {payment.timestamp.toLocaleTimeString()}
-                  </Typography>
-                </Box>
-                <Typography variant="h6" fontWeight="bold" color="success.dark">
+                <Typography variant="body2" sx={{
+                  fontFamily: 'monospace',
+                  color: 'black',
+                  '@media print': {
+                    fontSize: '10px'
+                  }
+                }}>
+                  {getPaymentMethodLabel(payment.method)}
+                </Typography>
+                <Typography variant="body2" sx={{
+                  fontFamily: 'monospace',
+                  color: 'black',
+                  '@media print': {
+                    fontSize: '10px'
+                  }
+                }}>
                   ${payment.amount.toFixed(2)}
                 </Typography>
               </Box>
             </Box>
           ))}
-          
+
           {changeAmount > 0 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'warning.light', borderRadius: 2, border: 2, borderColor: 'warning.main' }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" fontWeight="bold" color="warning.dark">
-                  💰 {t('checkout.changeDue')}:
+            <Box sx={{
+              mt: 1,
+              pt: 0.5,
+              borderTop: '1px dashed black',
+              '@media print': {
+                mt: '2px',
+                pt: '2px',
+                borderTop: '1px dashed black'
+              }
+            }}>
+              <Box display="flex" justifyContent="space-between">
+                <Typography variant="body2" sx={{
+                  fontFamily: 'monospace',
+                  fontWeight: 'bold',
+                  color: 'black',
+                  '@media print': {
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }
+                }}>
+                  {uzbekLabels.changeDue}
                 </Typography>
-                <Typography variant="h5" fontWeight="bold" color="warning.dark">
+                <Typography variant="body2" sx={{
+                  fontFamily: 'monospace',
+                  fontWeight: 'bold',
+                  color: 'black',
+                  '@media print': {
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }
+                }}>
                   ${changeAmount.toFixed(2)}
                 </Typography>
               </Box>
@@ -210,17 +465,51 @@ export const ReceiptDialog: React.FC<ReceiptDialogProps> = ({
           )}
         </Box>
 
-        <Divider sx={{ mb: 3 }} />
+        <Box sx={{
+          borderTop: '1px solid black',
+          borderBottom: '1px solid black',
+          my: 2,
+          '@media print': {
+            borderTop: '1px solid black',
+            borderBottom: '1px solid black',
+            my: '4px'
+          }
+        }} />
 
-        <Box sx={{ textAlign: 'center', mt: 2 }}>
-          <Typography variant="h6" color="success.main" fontWeight="bold" gutterBottom>
-            🙏 {t('checkout.thankYou')}
+        <Box sx={{
+          textAlign: 'center',
+          '@media print': { mt: '6px' }
+        }}>
+          <Typography variant="body2" sx={{
+            fontFamily: 'monospace',
+            fontWeight: 'bold',
+            color: 'black',
+            '@media print': {
+              fontSize: '10px',
+              marginBottom: '2px'
+            }
+          }}>
+            {uzbekLabels.thankYou}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            📄 Please keep this receipt for your records
+          <Typography variant="caption" sx={{
+            fontFamily: 'monospace',
+            color: 'black',
+            '@media print': {
+              fontSize: '9px',
+              marginBottom: '1px'
+            }
+          }}>
+            {uzbekLabels.keepReceipt}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            🏪 Thank you for shopping with RockPoint POS!
+          <Typography variant="caption" sx={{
+            fontFamily: 'monospace',
+            color: 'black',
+            display: 'block',
+            '@media print': {
+              fontSize: '9px'
+            }
+          }}>
+            {uzbekLabels.forYourRecords}
           </Typography>
         </Box>
       </DialogContent>
@@ -233,16 +522,16 @@ export const ReceiptDialog: React.FC<ReceiptDialogProps> = ({
           size="large"
           sx={{ mr: 'auto', py: 1.5, px: 3 }}
         >
-          🖨️ Print Receipt
+          Print Receipt
         </Button>
-        <Button 
+        <Button
           onClick={onClose}
           variant="contained"
           startIcon={<ReceiptIcon />}
           size="large"
           sx={{ py: 1.5, px: 3, fontSize: '1.1rem' }}
         >
-          ✅ {t('checkout.newTransaction')}
+          {t('checkout.newTransaction')}
         </Button>
       </DialogActions>
     </Dialog>

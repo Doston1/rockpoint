@@ -14,4 +14,17 @@ export default defineConfig({
     port: 5173,
     host: true, // Allow access from other devices on LAN
   },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          mui: ['@mui/material', '@mui/icons-material'],
+        },
+      },
+    },
+  },
+  base: './', // Important for Electron
 })

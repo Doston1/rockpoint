@@ -196,14 +196,6 @@ router.post('/:id/split-payment', asyncHandler(async (req: Request, res: Respons
     const totalPaymentAmount = Math.round(payments.reduce((sum, payment) => sum + payment.amount, 0) * 100) / 100;
     const transactionTotal = Math.round(transaction.total_amount * 100) / 100;
 
-    console.log('💰 Backend Split Payment Debug:', {
-      transactionId,
-      transactionTotalAmount: transactionTotal,
-      payments: payments,
-      totalPaymentAmount: totalPaymentAmount,
-      difference: Math.round((totalPaymentAmount - transactionTotal) * 100) / 100
-    });
-
     // Validate total payment amount (allow overpayment for cash) with precision handling
     // Use 0.1 tolerance to account for frontend rounding to 1 decimal place
     if (totalPaymentAmount < transactionTotal - 0.1) { // Allow 10 cent tolerance
